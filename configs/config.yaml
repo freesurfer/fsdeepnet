@@ -1,16 +1,20 @@
 dataset:
-  dataset_list_file: configs/pitgland_300_multiclass_dataset_list.yaml
-  expected_classes: [0, 883, 903, 904] #[0, 883, 900, 903, 904]
+  dataset_list_file: configs/pitgland_300_binarized_dataset_list.yaml
+  expected_classes: [0, 1] #[0, 883, 903, 904] #[0, 883, 900, 903, 904]
   expected_num_channels: 1
 
 model:
   name: UNet3D
-  num_classes: 4
+  num_classes: 2
   nb_levels: 5
-  nb_features: 24 #feature multiplier?
+  nb_features: 24 
+  feat_mult: 1 #2?
+  nb_conv_per_level: 2
+  use_batchnorm: True
+  activation: "elu"
 
 preprocessing:
-  crop_size: [64, 64, 64] #[160, 160, 160]
+  crop_size: [64, 64, 64]
   flip_axes: [1]  # Axes to flip for data augmentation
   max_translation: 0.5
   max_rotation: 5.0
@@ -30,7 +34,7 @@ preprocessing:
   bias_field_smoothing_range: [1, 2]
   
 training:
-  num_epochs: 1000
+  num_epochs: 30
   pre_train_epochs: 5
   output_folder: output 
   batch_size: 1

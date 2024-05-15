@@ -3,6 +3,7 @@ import torch
 import torch.optim as optim
 import logging
 import argparse
+import datetime
 
 import matplotlib
 
@@ -12,8 +13,8 @@ import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from torchinfo import summary
 from models.model import UNet3D
-from utils.losses import DiceLoss, WeightedL2Loss
-from utils.metrics import dice_coefficient, iou_score
+
+from utils.metrics import Dice, WeightedL2Loss
 from utils.data_utils import onehot
 from utils.data_utils import load_config, save_label_mapping, remap_labels
 from utils.dataset import load_datasets
@@ -87,9 +88,14 @@ output_folder = (
     else config.get("training", {}).get("output_folder", "output/training_outputs")
 )
 best_model_metric = config["training"]["best_model_metric"]
-logging.info(f"best_model_metric: {best_model_metric}")
 
-os.makedirs(output_folder, exist_ok=True)
+
+timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+output_folder = os.path.join(output_folder, f"training_{timestamp}")  # Base output folder
+best_model_dir = os.path.join(output_folder, "best_models")  # Folder for best models
+checkpoint_dir = os.path.join(output_folder, "checkpoints")  # Folder for checkpoints
+os.makedirs(best_model_dir, exist_ok=True)
+os.makedirs(checkpoint_dir, exist_ok=True)
 
 # Specify the desired augmentations for training data
 train_augmentations = [
@@ -154,16 +160,25 @@ assert (
 # Create model
 model = UNet3D(
     input_shape=(1, *input_shape),
-    nb_features=nb_features,
-    nb_levels=nb_levels,
+    nb_features=config["model"]["nb_features"],
+    nb_levels=config["model"]["nb_levels"],
     nb_labels=num_classes,
+    feat_mult=config["model"]["feat_mult"],
+    nb_conv_per_level=config["model"]["nb_conv_per_level"],
     use_skip=True,
-    use_batchnorm=True,
+    use_batchnorm=config["model"]["use_batchnorm"],
+    activation=config["model"]["activation"],
 ).to(device)
 
 # Define loss functions
 pre_train_loss_fn = WeightedL2Loss(ignore_indexes=ignore_indexes)
-main_loss_fn = DiceLoss(ignore_indexes=ignore_indexes)
+# main_loss_fn = DiceLoss(ignore_indexes=ignore_indexes)
+main_loss_fn = Dice(
+    num_classes=len(label_mapping),
+    input_type="prob",
+    dice_type="soft",
+    ignore_indexes=ignore_indexes,
+)
 
 # Define optimizers
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -185,6 +200,7 @@ for epoch in range(num_epochs):
     model.train()
     train_loss = 0.0
     train_dice = 0.0
+    num_train_batches = 0
 
     for batch_idx, (images, labels) in enumerate(train_loader):
         images, labels = images.to(device), labels.to(device)
@@ -209,26 +225,20 @@ for epoch in range(num_epochs):
             optimizer.step()
 
         train_loss += loss.item()
-        # print(f"[DEBUG0]outputs shape: {outputs.shape}, labels shape: {labels.shape}")
-        train_dice += dice_coefficient(
-            outputs,
-            labels,
-            epoch=epoch,
-            num_classes=len(label_mapping),
-            batch_idx=batch_idx,
-            output_folder=output_folder,
-            phase="train",
-            exclude_background=True,
-            save_dice_plots=False,
-        )
+
+        batch_dice = main_loss_fn(outputs, labels).detach()
+        train_dice += batch_dice
+        num_train_batches += 1
 
     train_loss /= len(train_loader)
-    train_dice /= len(train_loader)
+    train_dice /= num_train_batches
+    train_dices.append(train_dice)
 
     # Validation loop
     model.eval()
     validation_loss = 0.0
     validation_dice = 0.0
+    num_val_batches = 0
 
     with torch.no_grad():
         for batch_idx, (images, labels) in enumerate(validation_loader):
@@ -238,9 +248,6 @@ for epoch in range(num_epochs):
             labels = onehot(labels, num_classes=len(label_mapping), device=device)
 
             outputs = model(images)
-            # logging.debug(
-            #     f"[DEBUG-val] model outputs shape: {outputs.shape}, labels shape: {labels.shape}"
-            # )
 
             if epoch < pre_train_epochs:
                 loss = pre_train_loss_fn(outputs, labels)
@@ -248,20 +255,14 @@ for epoch in range(num_epochs):
                 loss = main_loss_fn(outputs, labels)
 
             validation_loss += loss.item()
-            validation_dice += dice_coefficient(
-                outputs,
-                labels,
-                epoch=epoch,
-                num_classes=len(label_mapping),
-                batch_idx=batch_idx,
-                output_folder=output_folder,
-                phase="val",
-                exclude_background=True,
-                save_dice_plots=False,
-            )
+
+            batch_dice = main_loss_fn(outputs, labels).detach()
+            validation_dice += batch_dice # Accumulate batch Dice
+            num_val_batches += 1
 
     validation_loss /= len(validation_loader)
-    validation_dice /= len(validation_loader)
+    validation_dice /= num_val_batches
+    validation_dices.append(validation_dice)
 
     logging.info(
         f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_loss:.4f}, Train Dice: {train_dice:.4f}, Val Loss: {validation_loss:.4f}, Val Dice: {validation_dice:.4f}"
@@ -269,13 +270,10 @@ for epoch in range(num_epochs):
 
     # Visualize learning curves
     train_losses.append(train_loss)
-    train_dices.append(train_dice)
     validation_losses.append(validation_loss)
-    validation_dices.append(validation_dice)
 
     if (epoch + 1) % 5 == 0 or (epoch + 1) == num_epochs:
         # Create output directory for plots if it doesn't exist
-        # plot_dir = 'output/training_plots'
         plot_dir = os.path.join(output_folder, "training_plots")
         os.makedirs(plot_dir, exist_ok=True)
 
@@ -291,12 +289,9 @@ for epoch in range(num_epochs):
         plt.close()
 
         # 2. Dice Coefficient Plot
-        plt.figure()  # Create a new figure for the Dice plot
-        # plt.plot([x.cpu().numpy() for x in train_dices], label="Training Dice")
-        # plt.plot([x.cpu().numpy() for x in validation_dices], label="Validation Dice")
-        # Corrected lines around line 259
-        plt.plot(train_dices, label="Training Dice")
-        plt.plot(validation_dices, label="Validation Dice")
+        plt.figure()
+        plt.plot([x.cpu().numpy() for x in train_dices], label="Training Dice")
+        plt.plot([x.cpu().numpy() for x in validation_dices], label="Validation Dice")
         plt.xlabel("Epoch")
         plt.ylabel("Dice Coefficient")
         plt.legend()
@@ -304,6 +299,7 @@ for epoch in range(num_epochs):
         plt.savefig(dice_plot_path)
         plt.close()
 
+    # Save the best model
     if best_model_metric == "loss":
         if validation_loss < best_validation_loss:
             best_validation_loss = validation_loss
@@ -314,8 +310,10 @@ for epoch in range(num_epochs):
                 "loss": validation_loss,
                 "dice": validation_dice,
             }
-            checkpoint_path = os.path.join(output_folder, f"best_model_epoch{epoch+1}.pth")
-            os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
+            checkpoint_path = os.path.join(
+                best_model_dir,
+                f"best_model_epoch{epoch+1}_val_loss{validation_loss:.4f}_val_dice{validation_dice:.4f}.pth",
+            )
             torch.save(checkpoint_dict, checkpoint_path)
     elif best_model_metric == "dice":
         if validation_dice > best_validation_dice:
@@ -327,6 +325,16 @@ for epoch in range(num_epochs):
                 "loss": validation_loss,
                 "dice": validation_dice,
             }
-            checkpoint_path = os.path.join(output_folder, f"best_model_epoch{epoch+1}.pth")
-            os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
+            checkpoint_path = os.path.join(
+                best_model_dir,
+                f"best_model_epoch{epoch+1}_val_loss{validation_loss:.4f}_val_dice{validation_dice:.4f}.pth",
+            )
             torch.save(checkpoint_dict, checkpoint_path)
+
+    # Save periodic checkpoints
+    if (epoch + 1) % 10 == 0:  # Save every 10 epochs
+        checkpoint_path = os.path.join(
+            checkpoint_dir,
+            f"checkpoint_epoch{epoch+1}_val_loss{validation_loss:.4f}_val_dice{validation_dice:.4f}.pth",
+        )
+        torch.save(checkpoint_dict, checkpoint_path)

@@ -10,8 +10,9 @@ from utils.dataset import load_datasets
 from models.model import UNet3D
 from utils.data_utils import load_config, load_volume, save_volume, remap_labels
 from utils.data_utils import onehot
-from utils.metrics import dice_coefficient, iou_score
-from voxynth.voxynth.augment import apply_center_crop
+from utils.metrics import Dice, iou_score
+# from utils.metrics import dice_coefficient, iou_score
+# from voxynth.voxynth.augment import apply_center_crop
 
 # Configure logging settings
 logging.basicConfig(
@@ -61,6 +62,7 @@ batch_size = config["evaluation"]["batch_size"]
 num_classes = config["model"]["num_classes"]
 nb_features = config["model"]["nb_features"]
 nb_levels = config["model"]["nb_levels"]
+ignore_indexes = config["training"].get("ignore_indexes", [])
 
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
@@ -68,9 +70,9 @@ test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 if args.label_mapping:
     label_mapping_path = args.label_mapping
 else:
-    # Search for label_mapping.json in the model checkpoint directory
+    # Search for label_mapping.json in the root dir of training oputput
     model_checkpoint_dir = os.path.dirname(args.model_checkpoint)
-    label_mapping_path = os.path.join(model_checkpoint_dir, "label_mapping.json")
+    label_mapping_path = os.path.join(model_checkpoint_dir, "..", "label_mapping.json")
 
 # Load the label mapping
 with open(label_mapping_path, "r") as f:
@@ -79,18 +81,25 @@ with open(label_mapping_path, "r") as f:
 # Load the Trained Model
 model = UNet3D(
     input_shape=(1, *test_dataset[0][0].shape[1:]),
-    nb_features=nb_features,
-    nb_levels=nb_levels,
-    nb_labels=num_classes,
+    nb_features=config["model"]["nb_features"],
+    nb_levels=config["model"]["nb_levels"],
+    nb_labels=config["model"]["num_classes"],
+    feat_mult=config["model"]["feat_mult"],
+    nb_conv_per_level=config["model"]["nb_conv_per_level"],
     use_skip=True,
-    use_batchnorm=True,
+    use_batchnorm=config["model"]["use_batchnorm"],
+    activation=config["model"]["activation"]
 ).to(device)
+
 model.load_state_dict(torch.load(args.model_checkpoint)["model_state_dict"])
 model.eval()
 
 # Evaluation Loop
 total_dice, total_iou, num_samples = 0, 0, 0
 start_time = time()
+
+dice_fn = Dice(num_classes=len(label_mapping), input_type='prob', dice_type='soft',
+              ignore_indexes=ignore_indexes)
 
 with torch.no_grad():
     for idx, (images, labels) in enumerate(test_loader):
@@ -102,22 +111,16 @@ with torch.no_grad():
         labels = onehot(labels, num_classes=len(label_mapping), device=device)
 
         # Calculate metrics
-        dice = dice_coefficient(
-            outputs,
-            labels,
-            num_classes=len(label_mapping),
-            phase="test",
-            output_folder=unique_output_folder,
-            exclude_background=True,
-            # compute_dice_plots=False,
-            save_dice_plots=False,
-        )
-        iou = iou_score(outputs, labels)
-        total_dice += dice
-        total_iou += iou.item()
+        dice = dice_fn(outputs, labels)
+        total_dice += dice.item()
+
+        # iou = iou_score(outputs, labels)  
+        # total_iou += iou.item()
+
         num_samples += 1
 
         predicted_segmentation = torch.argmax(outputs, dim=1).cpu()
+
         original_image_path = test_dataset.image_files[idx]
         original_image, _ = load_volume(original_image_path)
         base_filename = os.path.splitext(os.path.basename(original_image_path))[0]
@@ -129,7 +132,7 @@ with torch.no_grad():
             os.path.join(unique_output_folder, f"{base_filename}_prediction.mgz"),
         )
 
-        # logging.info(f"For {base_filename}, Dice score: {dice:.4f}")
+        logging.info(f"For {base_filename}, Dice score: {dice:.4f}")
 
 
 # Output summary
