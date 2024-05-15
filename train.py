@@ -92,17 +92,17 @@ logging.info(f"best_model_metric: {best_model_metric}")
 os.makedirs(output_folder, exist_ok=True)
 
 # Specify the desired augmentations for training data
-# train_augmentations = [
-#     "flipping",
-#     "spatial_transform",
-#     "cropping",
-#     "blur_resample",
-#     "bias_field",
-# ]
 train_augmentations = [
     "flipping",
-    "cropping"
+    "spatial_transform",
+    "cropping",
+    "blur_resample",
+    "bias_field",
 ]
+# train_augmentations = [
+#     "flipping",
+#     "cropping"
+# ]
 
 # Specify the desired augmentations for validation data (typically less aggressive)
 validation_augmentations = [
