@@ -1,0 +1,46 @@
+dataset:
+  dataset_list_file: configs/dummy_dataset_list.yaml
+  # expected_classes: [0, 883, 903, 904] #[0, 883, 900, 903, 904]
+  expected_num_channels: 1
+  expected_classes: [0, 1]
+
+model:
+  name: UNet3D
+  # num_classes: 4
+  num_classes: 2
+  nb_levels: 5
+  nb_features: 24 #feature multiplier?
+
+preprocessing:
+  crop_size: [64, 64, 64] #[160, 160, 160]
+  flip_axes: [1]  # Axes to flip for data augmentation
+  max_translation: 0.5
+  max_rotation: 5.0
+  max_scaling: 1.1
+  warp_probability: 0.25
+  warp_integrations: 0.5
+  warp_smoothing_range: [10, 20]
+  warp_magnitude_range: [1, 2]
+  smoothing_probability: 0.25
+  smoothing_max_sigma: 2.0
+  added_noise_probability: 0.5
+  added_noise_max_sigma: 0.05
+  gamma_scaling_probability: 0.5
+  gamma_scaling_max: 0.8
+  bias_field_probability: 0.25
+  bias_field_max_magnitude: 0.1
+  bias_field_smoothing_range: [1, 2]
+  
+training:
+  num_epochs: 50
+  pre_train_epochs: 5
+  output_folder: output 
+  batch_size: 1
+  learning_rate: 0.0001
+  pre_train_learning_rate: 0.001
+  ignore_indexes: [0] # 0==background
+  best_model_metric: dice
+
+evaluation:
+  output_folder: output/evaluation
+  batch_size: 1
