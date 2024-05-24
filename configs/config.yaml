@@ -1,5 +1,5 @@
 dataset:
-  dataset_list_file: configs/pitgland_300_binarized_dataset_list.yaml
+  dataset_list_file: configs/dummy_dataset_list.yaml
   expected_classes: [0, 1] #[0, 883, 903, 904] #[0, 883, 900, 903, 904]
   expected_num_channels: 1
 
@@ -8,7 +8,7 @@ model:
   num_classes: 2
   nb_levels: 5
   nb_features: 24 
-  feat_mult: 1 #2?
+  feat_mult: 2
   nb_conv_per_level: 2
   use_batchnorm: True
   activation: "elu"
@@ -35,7 +35,7 @@ preprocessing:
   
 training:
   num_epochs: 30
-  pre_train_epochs: 5
+  pre_train_epochs: 0
   output_folder: output 
   batch_size: 1
   learning_rate: 0.0001

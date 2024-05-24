@@ -1,29 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import os
-import matplotlib.pyplot as plt
-
 
 class Dice(nn.Module):
-    """
-    Dice coefficient for comparing predicted segmentation masks to ground truth.
-    Supports different input types (probabilities or labels) and dice types (soft or hard).
-
-    Args:
-        num_classes (int): Number of classes in the segmentation task.
-        weights (list, optional): List of weights for each class to calculate weighted Dice.
-                                   Defaults to None (no weighting).
-        input_type (str, optional): Type of input. Choose from 'prob' (probabilities)
-                                    or 'max_label' (integer labels). Defaults to 'prob'.
-        dice_type (str, optional):  Type of Dice calculation. Choose from 'soft' (for probabilities)
-                                    or 'hard' (for labels). Defaults to 'soft'.
-        smooth (float, optional): A small constant added to the numerator and denominator to
-                                 avoid division by zero. Defaults to 1e-6.
-        ignore_indexes (list, optional): List of class indices to ignore during calculation.
-                                        Defaults to None (no classes ignored).
-    """
-
     def __init__(
         self,
         num_classes,
@@ -32,6 +11,7 @@ class Dice(nn.Module):
         dice_type="soft",
         smooth=1e-6,
         ignore_indexes=None,
+        return_loss=True,
     ):
         super(Dice, self).__init__()
         self.num_classes = num_classes
@@ -40,11 +20,26 @@ class Dice(nn.Module):
         self.dice_type = dice_type.lower()
         self.smooth = smooth
         self.ignore_indexes = ignore_indexes if ignore_indexes is not None else []
+        self.return_loss = return_loss
+
+        # Input Validation
+        valid_input_types = ['prob', 'max_label']
+        valid_dice_types = ['soft', 'hard']
+        
+        if input_type.lower() not in valid_input_types:
+            raise ValueError(f"Invalid `input_type`: {input_type}. "
+                            f"Choose from: {valid_input_types}")
+        if dice_type.lower() not in valid_dice_types:
+            raise ValueError(f"Invalid `dice_type`: {dice_type}. "
+                            f"Choose from: {valid_dice_types}")
+        if self.input_type == 'max_label' and self.dice_type != 'hard': 
+            raise ValueError("Invalid combination: `input_type` 'max_label' "
+                            "must be used with `dice_type` 'hard'.") 
 
     def _one_hot_encode(self, labels):
         """Convert integer labels to one-hot encoding."""
-        one_hot = F.one_hot(labels.squeeze(1).long(), num_classes=self.num_classes)
-        return one_hot.permute(0, 4, 1, 2, 3)  # Match the shape of outputs
+        one_hot = F.one_hot(labels.long(), num_classes=self.num_classes)  # Assuming labels have shape (N, D, H, W)
+        return one_hot.permute(0, 4, 1, 2, 3)  # Match the 5D shape: (N, C, D, H, W)
 
     def _hard_max(self, tensor, dim):
         """Approximate hard max for differentiability."""
@@ -58,16 +53,68 @@ class Dice(nn.Module):
         union = torch.sum(outputs) + torch.sum(targets)
         dice = (2.0 * intersection + self.smooth) / (union + self.smooth)
         return dice
+    
+    def _dice_loss(self, outputs, targets):
+        intersection = torch.sum(outputs * targets)
+        return 1 - ((2. * intersection + self.smooth) / (torch.sum(outputs) + torch.sum(targets) + self.smooth))
 
+    # def forward(self, outputs, targets):
+    #     """Calculate Dice score or loss."""
+    #     if self.input_type == "prob":
+    #         if self.dice_type == "hard":
+    #             outputs = self._hard_max(outputs, dim=1)
+    #             targets = self._hard_max(targets, dim=1)
+    #         elif self.dice_type == "soft":
+    #             outputs = F.softmax(outputs, dim=1)
+    #         else:
+    #             raise ValueError("Invalid `dice_type`. Choose from 'soft' or 'hard'.")
+
+    #     elif self.input_type == "max_label":
+    #         if self.dice_type == "hard":
+    #             outputs = self._one_hot_encode(torch.argmax(outputs, dim=1))
+    #             targets = self._one_hot_encode(targets)
+    #         else:
+    #             raise ValueError("Invalid `dice_type` for 'max_label' input. Choose 'hard'.")
+    #     else:
+    #         raise ValueError("Invalid `input_type`. Choose from 'prob' or 'max_label'.")
+
+    #     # Debug: Print shapes
+    #     # print(f"Outputs shape: {outputs.shape}")
+    #     # print(f"Targets shape: {targets.shape}")
+
+    #     # Handle ignore_indexes
+    #     mask = torch.ones_like(targets, dtype=torch.bool)
+    #     for index in self.ignore_indexes:
+    #         mask[:, index, ...] = targets[:, index, ...] != 1  # Corrected mask application
+
+    #     outputs = outputs * mask.float()
+    #     targets = targets * mask.float()
+
+    #     # Calculate Dice scores for each class
+    #     dice_scores = []
+    #     for i in range(self.num_classes):
+    #         if i not in self.ignore_indexes:
+    #             dice_scores.append(self._dice_score(outputs[:, i], targets[:, i]))
+
+    #     # Apply weights (if provided)
+    #     if self.weights is not None:
+    #         dice_scores = [w * d for w, d in zip(self.weights, dice_scores)]
+        
+    #     dice_loss = self._dice_loss(outputs, targets)
+
+    #     # Calculate mean Dice score (if in training mode)
+    #     if self.training:
+    #         return dice_loss
+        
+    #     # Return a list of Dice scores during evaluation
+    #     return dice_scores
     def forward(self, outputs, targets):
         """Calculate Dice score or loss."""
         if self.input_type == "prob":
             if self.dice_type == "hard":
-                # Use approximate hard max for differentiability
                 outputs = self._hard_max(outputs, dim=1)
                 targets = self._hard_max(targets, dim=1)
             elif self.dice_type == "soft":
-                # Ensure predictions are probabilistic
                 outputs = F.softmax(outputs, dim=1)
             else:
                 raise ValueError("Invalid `dice_type`. Choose from 'soft' or 'hard'.")
@@ -84,27 +131,27 @@ class Dice(nn.Module):
         # Handle ignore_indexes
         mask = torch.ones_like(targets, dtype=torch.bool)
         for index in self.ignore_indexes:
-            mask &= targets[:, index] != 1  # Assuming one-hot encoded targets
+            mask[:, index, ...] = targets[:, index, ...] != 1
 
         outputs = outputs * mask.float()
         targets = targets * mask.float()
 
-        # Calculate Dice scores for each class
-        dice_scores = []
-        for i in range(self.num_classes):
-            dice_scores.append(self._dice_score(outputs[:, i], targets[:, i]))
-
-        # Apply weights (if provided)
-        if self.weights is not None:
-            dice_scores = [w * d for w, d in zip(self.weights, dice_scores)]
-
-        # Calculate mean Dice score
-        mean_dice = torch.mean(torch.stack(dice_scores))
-
-        if self.training:  # If in training mode
-            return 1.0 - mean_dice  # Return Dice loss
+        if self.return_loss:
+            return self._dice_loss(outputs, targets)
         else:
-            return mean_dice  # Return Dice score during evaluation
+            # Calculate Dice scores for each class
+            dice_scores = []
+            for i in range(self.num_classes):
+                if i not in self.ignore_indexes:
+                    dice_scores.append(self._dice_score(outputs[:, i], targets[:, i]))
+
+            # Apply weights (if provided)
+            if self.weights is not None:
+                dice_scores = [w * d for w, d in zip(self.weights, dice_scores)]
+            
+            return dice_scores
+
+
 
 
 class WeightedL2Loss(nn.Module):

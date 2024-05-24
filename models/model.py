@@ -37,6 +37,7 @@ class ConvBlock(nn.Module):
 
         for conv in self.convs:
             x = conv(x)
+            # does this need self.asctivation??
 
         x = self.bn(x)
 
