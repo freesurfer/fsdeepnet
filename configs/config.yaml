@@ -1,6 +1,6 @@
 dataset:
-  dataset_list_file: configs/pitgland_300_binarized_dataset_list.yaml
-  expected_classes: [0, 1] # [0, 883, 903, 904] #[0, 1] #[0, 883, 900, 903, 904]
+  dataset_list_file: configs/dummy_dataset_list.yaml
+  expected_classes: [0, 1]
   expected_num_channels: 1
 
 model:
@@ -39,7 +39,7 @@ preprocessing:
   bias_field_smoothing_range: [1, 2]
   
 training:
-  num_epochs: 50
+  num_epochs: 300
   pre_train_epochs: 5
   output_folder: output 
   batch_size: 1

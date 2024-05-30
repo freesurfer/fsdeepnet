@@ -32,6 +32,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser()
+parser.add_argument("--config", type=str, default="configs/config.yaml", help="Path to the configuration file")
 parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
 parser.add_argument(
     "--crop_size", nargs="+", type=int, help="Crop size for training and validation"
@@ -63,7 +64,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 # Load config file
-config = load_config("configs/config.yaml")
+config = load_config(args.config)
 
 # Update configuration with command-line arguments
 config_updates = {k: v for k, v in vars(args).items() if v is not None}
