@@ -49,6 +49,12 @@ parser.add_argument(
     help="Learning rate for the pre-training phase",
 )
 parser.add_argument(
+    "--run_name",
+    type=str,
+    default=None,
+    help="Descriptive name for the run (used for naming TensorBoard log directories)",
+)
+parser.add_argument(
     "--output_folder",
     type=str,
     default=None,
@@ -100,23 +106,34 @@ output_folder = (
 best_model_metric = config["training"]["best_model_metric"]
 
 
+# timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+# output_folder = os.path.join(output_folder, f"training_{timestamp}")  # Base output folder
+# best_model_dir = os.path.join(output_folder, "best_models")  # Folder for best models
+# checkpoint_dir = os.path.join(output_folder, "checkpoints")  # Folder for checkpoints
+# os.makedirs(best_model_dir, exist_ok=True)
+# os.makedirs(checkpoint_dir, exist_ok=True)
+
+# # Create TensorBoard writer
+# writer = SummaryWriter(f"{output_folder}/tensorboard_logs")
+
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-output_folder = os.path.join(output_folder, f"training_{timestamp}")  # Base output folder
+parent_output_folder = "tensorboard_logs"  # Common parent directory for all TensorBoard logs
+run_name = args.run_name if args.run_name is not None else f"run_{timestamp}"
+output_folder = os.path.join(parent_output_folder, run_name)  # Output folder for current run
 best_model_dir = os.path.join(output_folder, "best_models")  # Folder for best models
 checkpoint_dir = os.path.join(output_folder, "checkpoints")  # Folder for checkpoints
 os.makedirs(best_model_dir, exist_ok=True)
 os.makedirs(checkpoint_dir, exist_ok=True)
 
-# Create TensorBoard writer
-writer = SummaryWriter(f"{output_folder}/tensorboard_logs")
+writer = SummaryWriter(output_folder)
 
 # Specify the desired augmentations for training data
 train_augmentations = [
-    "flipping",
-    "spatial_transform",
+    # "flipping",
+    # "spatial_transform",
     "cropping",
     "blur_resample",
-    "bias_field",
+    # "bias_field",
 ]
 
 validation_augmentations = [
