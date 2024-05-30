@@ -49,8 +49,6 @@ class SegmentationDataset(Dataset):
                 augmentations_to_apply=self.transform,
             )
         
-        # print(f"Label unique values: {torch.unique(label_tensor)}")
-
         return image_tensor, label_tensor
 
     def get_all_labels(self):
@@ -69,8 +67,6 @@ def load_datasets(
 ):
     with open(config["dataset"]["dataset_list_file"], "r") as file:
         dataset_dict = yaml.safe_load(file)
-
-    # logging.info(f"crop_size_type: {type(config['preprocessing'].get('crop_size'))}, crop_size: {config['preprocessing'].get('crop_size')}")
 
     train_dataset = SegmentationDataset(
         dataset_dict["train"],

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import List, Union
+from utils.data_utils import onehot
 
 
 class Dice(nn.Module):
@@ -60,17 +61,28 @@ class Dice(nn.Module):
                 "Invalid combination: `input_type` 'max_label' "
                 "must be used with `dice_type` 'hard'."
             )
-
-    def _one_hot_encode(self, labels: torch.Tensor) -> torch.Tensor:
-        """Converts integer labels to one-hot encoding."""
-        one_hot = F.one_hot(labels.long(), num_classes=self.num_classes)
-        return one_hot.permute(0, 4, 1, 2, 3)
-
+    
     def _dice_score(self, outputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        """Calculates the Dice score between outputs and targets."""
-        intersection = torch.sum(outputs * targets)
-        union = torch.sum(outputs) + torch.sum(targets)
-        return (2.0 * intersection + self.smooth) / (union + self.smooth)
+        """Calculates the Dice score between outputs and targets for each class."""
+        
+        # print(f"[debug-metrics] outputs shape before maksing: {outputs.shape}")
+        # print(f"[debug-metrics] targets shape before masking: {targets.shape}")
+        
+        # Apply mask to both outputs and targets
+        outputs = outputs[:, [i for i in range(self.num_classes) if i not in self.ignore_indexes]]
+        targets = targets[:, [i for i in range(self.num_classes) if i not in self.ignore_indexes]]
+        
+        # print(f"[debug-metrics] outputs shape after maksing: {outputs.shape}")
+        # print(f"[debug-metrics] targets shape after masking: {targets.shape}")
+
+        intersection = torch.sum(outputs * targets, dim=(2, 3, 4))  # Sum across spatial dimensions
+        # print(f"[debug-metrics] intersection shape: {intersection.shape}")
+        union = torch.sum(outputs, dim=(2, 3, 4)) + torch.sum(targets, dim=(2, 3, 4))
+        # print(f"[debug-metrics] union shape: {union.shape}")
+        dice_scores = (2.0 * intersection + self.smooth) / (union + self.smooth)  # Calculate Dice for each class
+        # print(f"[debug-metrics] dice_scores shape: {dice_scores.shape}")
+        # print(f"[debug-metrics] dice_scores: {dice_scores}")
+        return dice_scores
 
     def _dice_loss(self, outputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         """Calculates the Dice loss (1 - Dice Score)."""
@@ -92,22 +104,15 @@ class Dice(nn.Module):
         """
         if self.input_type == "prob":
             if self.dice_type == "hard":
-                # print(f"[debug] outputs.shape: {outputs.shape}")
-                # print(f"[debug] targets.shape: {targets.shape}")
-                # outputs = F.one_hot(torch.argmax(outputs, dim=1), num_classes=self.num_classes).permute(0, 4, 1, 2, 3)
-                # targets = F.one_hot(targets.long(), num_classes=self.num_classes).permute(0, 4, 1, 2, 3)
                 outputs = torch.argmax(outputs, dim=1)
-                outputs = F.one_hot(outputs, num_classes=self.num_classes).permute(0, 4, 1, 2, 3)
-                # print(f"[debug] outputs.shape: {outputs.shape}")
-                # print(f"[debug] targets.shape: {targets.shape}")
-                # print(f"[debug] targets: {targets}")
-                if targets.dim() == 4:  # Targets are not one-hot encoded
-                    targets = F.one_hot(targets.long(), num_classes=self.num_classes).permute(0, 4, 1, 2, 3)
-                elif targets.dim() >= 5:  # Targets are already one-hot encoded
-                    pass  # Skip one-hot encoding
+                outputs = onehot(outputs, num_classes=self.num_classes, device=outputs.device)  
+
+                # One-hot encoding check for targets
+                if (targets.min() == 0) and (targets.max() == 1) and (torch.allclose(targets.sum(dim=1), torch.ones_like(targets.sum(dim=1)))):
+                    pass  # Targets are already one-hot encoded
                 else:
-                    raise ValueError(f"Unexpected number of dimensions for targets: {targets.dim()}")
-            
+                    targets = onehot(targets, num_classes=self.num_classes, device=targets.device) 
+
             elif self.dice_type == "soft":
                 outputs = outputs
             else:
@@ -115,39 +120,28 @@ class Dice(nn.Module):
 
         elif self.input_type == "max_label":
             if self.dice_type == "hard":
-                outputs = self._one_hot_encode(torch.argmax(outputs, dim=1))
-                targets = self._one_hot_encode(targets)
+                outputs = onehot(torch.argmax(outputs, dim=1), num_classes=self.num_classes, device=outputs.device)
+                targets = onehot(targets, num_classes=self.num_classes, device=targets.device)
             else:
                 raise ValueError("Invalid `dice_type` for 'max_label' input. Choose 'hard'.")
         else:
             raise ValueError("Invalid `input_type`. Choose from 'prob' or 'max_label'.")
 
-        # Handle ignore_indexes
-        mask = torch.ones_like(targets, dtype=torch.bool)
-        for index in self.ignore_indexes:
-            mask[:, index, ...] = targets[:, index, ...] != 1
-
-        outputs = outputs * mask.float()
-        targets = targets * mask.float()
+        # Calculate Dice scores for each class
+        dice_scores = self._dice_score(outputs, targets)
 
         if self.return_loss:
-            return self._dice_loss(outputs, targets)
+            return 1 - torch.mean(dice_scores)  # Return average loss
         else:
-            # Calculate Dice scores for each class (using broadcasting)
-            class_indices = torch.tensor(
-                [i for i in range(self.num_classes) if i not in self.ignore_indexes]
-            )
-            outputs = outputs[:, class_indices]
-            targets = targets[:, class_indices]
-            intersection = torch.sum(outputs * targets, dim=(2, 3, 4))
-            union = torch.sum(outputs, dim=(2, 3, 4)) + torch.sum(targets, dim=(2, 3, 4))
-            dice_scores = (2.0 * intersection + self.smooth) / (union + self.smooth)
+            return dice_scores  # Return individual Dice scores
 
-            # Apply weights if provided
-            if self.weights is not None:
-                dice_scores = dice_scores * torch.tensor(self.weights).to(dice_scores.device)
+class DiceLoss(Dice):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, return_loss=True, **kwargs)  # Pass return_loss=True
 
-            return dice_scores
+class DiceScore(Dice):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, return_loss=False, **kwargs)  # Pass return_loss=False
 
 
 class WeightedL2Loss(nn.Module):

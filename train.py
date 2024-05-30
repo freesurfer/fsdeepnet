@@ -5,11 +5,6 @@ import logging
 import argparse
 import datetime
 import random
-
-import matplotlib
-
-matplotlib.use("agg")  # Use non-interactive backend
-import matplotlib.pyplot as plt
 import numpy as np
 
 from torch.utils.data import DataLoader
@@ -20,7 +15,7 @@ from models.model import UNet3D
 from utils.data_utils import onehot
 from utils.data_utils import load_config, save_label_mapping, remap_labels
 from utils.dataset import load_datasets
-from utils.metrics import Dice, WeightedL2Loss
+from utils.metrics import WeightedL2Loss, DiceLoss, DiceScore
 
 # Configure logging settings
 logging.basicConfig(
@@ -192,28 +187,28 @@ model = UNet3D(
 # Define loss functions
 pre_train_loss_fn = WeightedL2Loss(ignore_indexes=ignore_indexes)
 
-main_loss_fn = Dice(
+main_loss_fn = DiceLoss(
     num_classes=len(label_mapping),
     input_type="prob",
     dice_type="soft",
     ignore_indexes=ignore_indexes,
-    return_loss=True,  # Return Dice loss
+    # return_loss=True,  # Return Dice loss
 )
 
-dice_metric_fn = Dice(
-    num_classes=len(label_mapping),
-    input_type="prob",
-    dice_type="soft",
-    ignore_indexes=ignore_indexes,
-    return_loss=False,
-)
+# dice_metric_fn = DiceScore(
+#     num_classes=len(label_mapping),
+#     input_type="prob",
+#     dice_type="soft",
+#     ignore_indexes=ignore_indexes,
+#     # return_loss=False,
+# )
 
-dice_metric_hard = Dice(
+dice_metric_hard = DiceScore(
     num_classes=len(label_mapping),
     input_type="prob",
     dice_type="hard",
     ignore_indexes=ignore_indexes,
-    return_loss=False,
+    # return_loss=False,
 )
 
 # Define optimizers
@@ -227,21 +222,20 @@ validation_dices = []
 best_validation_loss = float("inf")
 best_validation_dice = 0.0
 
+
+
 # Training loop
 for epoch in range(num_epochs):
     model.train()
     train_loss = 0.0
-    train_soft_dices = []
+    # train_soft_dices = []
     train_hard_dices = []
     num_train_batches = 0
 
     for batch_idx, (images, labels) in enumerate(train_loader):
         images, labels = images.to(device), labels.to(device)
         labels = remap_labels(labels, label_mapping)  # Remap labels
-        # logging.info(f"Labels shape before one hot: {labels.shape}")
         labels = onehot(labels, num_classes=len(label_mapping), device=device)
-        # logging.info(f"Labels shape after one hot: {labels.shape}")
-        # logging.info(f"Labels: {labels}")
         if epoch < pre_train_epochs:
             pre_train_optimizer.zero_grad()
             outputs = model(images)
@@ -262,41 +256,28 @@ for epoch in range(num_epochs):
 
         # --- Metrics Calculation ---
         # Calculate soft Dice
-        batch_soft_dice = dice_metric_fn(outputs, labels)
-        # train_soft_dices.extend(batch_soft_dice)
-        train_soft_dices.append(batch_soft_dice.detach().cpu().numpy())
+        # batch_soft_dice = dice_metric_fn(outputs, labels)
+        # train_soft_dices.append(batch_soft_dice.detach().cpu().numpy())
 
 
         # Calculate hard Dice
         batch_hard_dice = dice_metric_hard(outputs, labels)
-        # train_hard_dices.extend(batch_hard_dice)
         train_hard_dices.append(batch_hard_dice.detach().cpu().numpy())
 
 
-        # batch_dice = dice_metric_fn(outputs, labels)
-        # train_dices.extend(batch_dice)
+
         num_train_batches += 1
 
         # Write to TensorBoard every batch
         writer.add_scalar("Train/Loss", loss.item(), epoch * len(train_loader) + batch_idx)
-        writer.add_scalar(
-            "Train/Dice",
-            torch.mean(torch.tensor(batch_hard_dice)),
-            epoch * len(train_loader) + batch_idx,
-        )
+        writer.add_scalar("Train/Dice", torch.mean(torch.tensor(batch_hard_dice)), epoch * len(train_loader) + batch_idx)
 
         # logging.info(
         #     f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx+1}/{len(train_loader)}], "
         #     f"Train Loss: {loss.item():.4f}, "
-        #     f"Train Soft Dice: {[f'{d.item():.4f}' for d in batch_soft_dice]}, "
-        #     f"Train Hard Dice: {[f'{d.item():.4f}' for d in batch_hard_dice]}"
+        ##    f"Train Soft Dice: {np.mean(train_soft_dices, axis=0)}, "
+        #     f"Train Hard Dice: {np.mean(train_hard_dices, axis=0)}"
         # )
-        logging.info(
-            f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx+1}/{len(train_loader)}], "
-            f"Train Loss: {loss.item():.4f}, "
-            f"Train Soft Dice: {np.mean(train_soft_dices, axis=0)}, "
-            f"Train Hard Dice: {np.mean(train_hard_dices, axis=0)}"
-        )
 
         # --- TensorBoard Visualization (Inside Training Loop) ---
         if batch_idx % 10 == 0:  # Visualize every 10 batches (adjust as needed)
@@ -324,7 +305,7 @@ for epoch in range(num_epochs):
     # Validation loop
     model.eval()
     validation_loss = 0.0
-    validation_soft_dices = []
+    # validation_soft_dices = []
     validation_hard_dices = []
     num_val_batches = 0
 
@@ -345,33 +326,23 @@ for epoch in range(num_epochs):
 
             # --- Metrics Calculation ---
             # Calculate soft Dice
-            batch_soft_dice = dice_metric_fn(outputs, labels)
-            # validation_soft_dices.extend(batch_soft_dice)
-            validation_soft_dices.append(batch_soft_dice.detach().cpu().numpy())
+            # batch_soft_dice = dice_metric_fn(outputs, labels)
+            # validation_soft_dices.append(batch_soft_dice.detach().cpu().numpy())
 
 
             # Calculate hard Dice
             batch_hard_dice = dice_metric_hard(outputs, labels)
-            # validation_hard_dices.extend(batch_hard_dice)
             validation_hard_dices.append(batch_hard_dice.detach().cpu().numpy())
 
-
-            # batch_dice = dice_metric_fn(outputs, labels)
-            # validation_dices.extend(batch_dice)
             num_val_batches += 1
+
 
             # logging.info(
             #     f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx+1}/{len(validation_loader)}], "
             #     f"Val Loss: {loss.item():.4f}, "
-            #     f"Val Soft Dice: {[f'{d.item():.4f}' for d in batch_soft_dice]}, "
-            #     f"Val Hard Dice: {[f'{d.item():.4f}' for d in batch_hard_dice]}"
+            ##    f"Val Soft Dice: {np.mean(validation_soft_dices, axis=0)}, "
+            #     f"Val Hard Dice: {np.mean(validation_hard_dices, axis=0)}"
             # )
-            logging.info(
-                f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx+1}/{len(validation_loader)}], "
-                f"Val Loss: {loss.item():.4f}, "
-                f"Val Soft Dice: {np.mean(validation_soft_dices, axis=0)}, "
-                f"Val Hard Dice: {np.mean(validation_hard_dices, axis=0)}"
-            )
 
             # Write validation loss and Dice to TensorBoard (once per epoch)
             writer.add_scalar("Validation/Loss", validation_loss, epoch * len(validation_loader) + batch_idx)
@@ -379,6 +350,7 @@ for epoch in range(num_epochs):
 
             # --- TensorBoard Visualization (Inside Validation Loop) ---
             if batch_idx % 3 == 0:  # Visualize every 3 batches (adjust as needed)
+
                 slice_index = random.randint(20, 50)
 
                 # Get slices from different examples in the batch
@@ -401,10 +373,9 @@ for epoch in range(num_epochs):
     validation_loss /= len(validation_loader)
     validation_losses.append(validation_loss)
 
-    # train_dice_avg = torch.mean(torch.tensor(train_hard_dices))
-    # validation_dice_avg = torch.mean(torch.tensor(validation_hard_dices))
-    train_dice_avg = torch.mean(torch.tensor(train_hard_dices).clone().detach())
-    validation_dice_avg = torch.mean(torch.tensor(validation_hard_dices).clone().detach())
+
+    train_dice_avg = torch.mean(torch.tensor(np.concatenate(train_hard_dices)))
+    validation_dice_avg = torch.mean(torch.tensor(np.concatenate(validation_hard_dices)))
 
     logging.info(
         f"Epoch [{epoch+1}/{num_epochs}], "
@@ -413,37 +384,6 @@ for epoch in range(num_epochs):
         f"Val Loss: {validation_loss:.4f}, "
         f"Val Dice Avg: {validation_dice_avg:.4f}"
     )
-
-    # Visualize learning curves
-    # train_losses.append(train_loss)
-    # validation_losses.append(validation_loss)
-
-    if (epoch + 1) % 5 == 0 or (epoch + 1) == num_epochs:
-        # Create output directory for plots if it doesn't exist
-        plot_dir = os.path.join(output_folder, "training_plots")
-        os.makedirs(plot_dir, exist_ok=True)
-
-        # 1. Loss Plot
-        plt.figure()  # Create a new figure for the loss plot
-        plt.plot(train_losses, label="Training Loss")
-        plt.plot(validation_losses, label="Validation Loss")
-        plt.xlabel("Epoch")
-        plt.ylabel("Loss")
-        plt.legend()
-        loss_plot_path = os.path.join(plot_dir, "loss_plot.png")
-        plt.savefig(loss_plot_path)
-        plt.close()
-
-        # 2. Dice Coefficient Plot
-        plt.figure()
-        plt.plot([x.detach().cpu().numpy() for x in train_dices], label="Training Dice")
-        plt.plot([x.detach().cpu().numpy() for x in validation_dices], label="Validation Dice")
-        plt.xlabel("Epoch")
-        plt.ylabel("Dice Coefficient")
-        plt.legend()
-        dice_plot_path = os.path.join(plot_dir, "dice_plot.png")
-        plt.savefig(dice_plot_path)
-        plt.close()
 
     # Save the best model
     if best_model_metric == "loss":
