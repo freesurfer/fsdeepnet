@@ -1,15 +1,40 @@
 import os
+import numpy as np
 import torch
 from voxynth import voxynth
-from utils.data_utils import save_volume
+from utils.data_utils import save_volume, get_ras_axes
 
 
-def apply_flipping(image, label, axis=1):
+def apply_flipping(image, label, aff, left_right_corresponding, ndims=3, flip_prob=0.5):
     """Applies a random left-right flip to image and label volumes."""
-    flipped_image, flipped_label = voxynth.transform.random_flip(
-        axis, image, label, prob=1.0
-    )
-    return flipped_image, flipped_label
+    """Swaps left-right labels on label volume."""
+
+    assert aff is not None, 'aff should not be None when applying flipping'
+    assert left_right_corresponding is not None, 'left_right_corresponding should not be None when applying flipping'
+        
+    if (voxynth.utility.chance(flip_prob)):
+        # swap left-right labels
+        n_left_right_labels = len(left_right_corresponding)
+        left_right_corresponding = np.array(left_right_corresponding)
+        left_labels  = left_right_corresponding[np.arange(start=0, stop=n_left_right_labels, step=2)]
+        right_labels = left_right_corresponding[np.arange(start=1, stop=n_left_right_labels, step=2)]
+        for idx in range(int(n_left_right_labels/2)):
+            left_indices  = (label == left_labels[idx])
+            right_indices = (label == right_labels[idx])
+            label[left_indices]  = right_labels[idx]
+            label[right_indices] = left_labels[idx]
+
+        # find the left-right axis
+        axis = get_ras_axes(aff, ndims)[0]
+
+        # image, label have shape [B, R, A, S]
+        flipped_image = image.flip([axis+1])
+        flipped_label = label.flip([axis+1])
+    
+        return flipped_image, flipped_label
+    else:
+        # no flipping
+        return image, label
 
 
 def apply_spatial_transform(image, label, voxsize):
@@ -81,10 +106,11 @@ def apply_augmentations(
     label_tensor,
     original_image,
     original_label,
+    config,        
     voxsize,
     crop_size=None,
     output_dir=None,
-    save_volumes=False,
+    save_volumes=None,
     augmentations_to_apply=None,
 ):
     """
@@ -97,7 +123,7 @@ def apply_augmentations(
         original_label (surfa.Volume): Original loaded label volume.
         voxsize (tuple): Voxel size of the volumes.
         output_dir (str, optional): Directory to save the intermediate results. If None, volumes are not saved.
-        save_volumes (bool, optional): Whether to save augmented volumes. Defaults to False.
+        save_volumes (str, optional): prefix for augmented volumes. Defaults to None.
         augmentations_to_apply (list, optional): A list of augmentation names to apply.
                                                 If None, all available augmentations are applied.
 
@@ -115,68 +141,75 @@ def apply_augmentations(
         ]
 
     if "flipping" in augmentations_to_apply:
-        image_tensor, label_tensor = apply_flipping(image_tensor, label_tensor)
-        if save_volumes and output_dir is not None:
+        flip_prob = config["preprocessing"].get("flip_prob")
+        left_right_corresponding = None
+        if (config["dataset"].get("left_right_corresponding") != 'None'):
+            left_right_corresponding = config["dataset"].get("left_right_corresponding")
+        ndims = config["model"].get("ndims")
+        aff = original_image.geom.vox2world.matrix
+
+        image_tensor, label_tensor = apply_flipping(image_tensor, label_tensor, aff, left_right_corresponding, ndims, flip_prob)
+        if save_volumes is not None and output_dir is not None:
             save_volume(
                 image_tensor,
                 original_image,
-                os.path.join(output_dir, "flipped_image.mgz"),
+                os.path.join(output_dir, save_volumes + "_flipped_image.nii.gz"),
             )
             save_volume(
                 label_tensor,
                 original_label,
-                os.path.join(output_dir, "flipped_label.mgz"),
+                os.path.join(output_dir, save_volumes + "_flipped_label.nii.gz"),
             )
 
     if "spatial_transform" in augmentations_to_apply:
         image_tensor, label_tensor = apply_spatial_transform(
             image_tensor, label_tensor, voxsize
         )
-        if save_volumes and output_dir is not None:
+        if save_volumes is not None and output_dir is not None:
             save_volume(
                 image_tensor,
                 original_image,
-                os.path.join(output_dir, "transformed_image.mgz"),
+                os.path.join(output_dir, save_volumes + "_transformed_image.mgz"),
             )
             save_volume(
                 label_tensor,
                 original_label,
-                os.path.join(output_dir, "transformed_label.mgz"),
+                os.path.join(output_dir, save_volumes + "_transformed_label.mgz"),
             )
 
     if "cropping" in augmentations_to_apply:
         if crop_size is not None:
             image_tensor, label_tensor = apply_cropping(image_tensor, label_tensor, crop_size)
-            if save_volumes and output_dir is not None:
+            if save_volumes is not None and output_dir is not None:
                 save_volume(
                     image_tensor,
                     original_image,
-                    os.path.join(output_dir, "cropped_image.mgz"),
+                    os.path.join(output_dir, save_volumes + "_cropped_image.mgz"),
                 )
                 save_volume(
                     label_tensor,
                     original_label,
-                    os.path.join(output_dir, "cropped_label.mgz"),
+                    os.path.join(output_dir, save_volumes + "_cropped_label.mgz"),
                 )
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
 
     if "blur_resample" in augmentations_to_apply:
         image_tensor = apply_blur_resample(image_tensor, voxsize)
-        if save_volumes and output_dir is not None:
+        if save_volumes is not None and output_dir is not None:
             save_volume(
                 image_tensor,
                 original_image,
-                os.path.join(output_dir, "blur_resampled_image.mgz"),
+                os.path.join(output_dir, save_volumes + "_blur_resampled_image.mgz"),
             )
 
     if "bias_field" in augmentations_to_apply:
         image_tensor = apply_bias_field(image_tensor, voxsize)
-        if save_volumes and output_dir is not None:
+        if save_volumes is not None and output_dir is not None:
             save_volume(
                 image_tensor,
                 original_image,
-                os.path.join(output_dir, "bias_field_augmented_image.mgz"),
+                os.path.join(output_dir, save_volumes + "_bias_field_augmented_image.mgz"),
             )
 
     return image_tensor, label_tensor

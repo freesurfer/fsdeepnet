@@ -94,3 +94,21 @@ def onehot(labels, num_classes, device=None):
         device = labels.device 
     onehot_labels = torch.eye(num_classes, device=device)[labels.long().squeeze(1)]
     return onehot_labels.permute(0, 4, 1, 2, 3)
+
+
+def get_ras_axes(aff, n_dims=3):
+    """This function finds the RAS axes corresponding to each dimension of a volume, based on its affine matrix.
+    :param aff: affine matrix Can be a 2d numpy array of size n_dims*n_dims, n_dims+1*n_dims+1, or n_dims*n_dims+1.
+    :param n_dims: number of dimensions (excluding channels) of the volume corresponding to the provided affine matrix.
+    :return: two numpy 1d arrays of length n_dims, one with the axes corresponding to RAS orientations,
+    and one with their corresponding direction.
+    """
+    aff_inverted = np.linalg.inv(aff)
+    img_ras_axes = np.argmax(np.absolute(aff_inverted[0:n_dims, 0:n_dims]), axis=0)
+    for i in range(n_dims):
+        if i not in img_ras_axes:
+            unique, counts = np.unique(img_ras_axes, return_counts=True)
+            incorrect_value = unique[np.argmax(counts)]
+            img_ras_axes[np.where(img_ras_axes == incorrect_value)[0][-1]] = i
+
+    return img_ras_axes

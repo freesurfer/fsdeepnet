@@ -1,3 +1,4 @@
+import os
 import torch
 import yaml
 from torch.utils.data import Dataset
@@ -15,10 +16,11 @@ logging.basicConfig(
 
 
 class SegmentationDataset(Dataset):
-    def __init__(self, dataset_entries, transform=None, crop_size=None):
+    def __init__(self, dataset_entries, config, transform=None):
         self.dataset_list = dataset_entries
+        self.config = config
         self.transform = transform
-        self.crop_size = crop_size
+        self.crop_size = self.config["preprocessing"].get("crop_size")
 
         # Extract image and label file paths
         self.image_files = [item["image_filepath"] for item in self.dataset_list]
@@ -36,6 +38,12 @@ class SegmentationDataset(Dataset):
         image, image_tensor = load_volume(image_path)
         label, label_tensor = load_volume(label_path)
 
+        # where/whether to save preprocessed data
+        save_volumes = os.path.basename(image_path)
+        output_dir = None
+        if (self.config["preprocessing"].get("augmentation_dir") != 'None'):
+            output_dir = self.config["preprocessing"].get("augmentation_dir")
+
         # Apply data augmentation if transform is specified
         if self.transform:
             image_tensor, label_tensor = apply_augmentations(
@@ -43,9 +51,11 @@ class SegmentationDataset(Dataset):
                 label_tensor,
                 image,
                 label,
+                self.config,
                 voxsize=image.geom.voxsize,
                 crop_size=self.crop_size,
-                output_dir=None,
+                output_dir=output_dir,
+                save_volumes=save_volumes,
                 augmentations_to_apply=self.transform,
             )
         
@@ -70,18 +80,18 @@ def load_datasets(
 
     train_dataset = SegmentationDataset(
         dataset_dict["train"],
+        config,
         transform=train_augmentations,
-        crop_size=config["preprocessing"].get("crop_size"),
     )
     validation_dataset = SegmentationDataset(
         dataset_dict["validation"],
+        config,
         transform=validation_augmentations,
-        crop_size=config["preprocessing"].get("crop_size"),
     )
     test_dataset = SegmentationDataset(
         dataset_dict["test"],
+        config,
         transform=test_augmentations,
-        crop_size=config["preprocessing"].get("crop_size"),
     )
 
     return train_dataset, validation_dataset, test_dataset
