@@ -63,5 +63,5 @@ To evaluate the model on your dataset, follow these steps:
 
 7. Run the evaluation script:
 ```bash
-python evaluate.py --config configs/config.yaml
+python evaluate_model.py --config configs/config.yaml --model_checkpoint <path/to/saved/model.pth>
 ```
