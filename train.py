@@ -32,7 +32,9 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser()
-parser.add_argument("--config", type=str, default="configs/config.yaml", help="Path to the configuration file")
+parser.add_argument(
+    "--config", type=str, default="configs/config.yaml", help="Path to the configuration file"
+)
 parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
 parser.add_argument(
     "--crop_size", nargs="+", type=int, help="Crop size for training and validation"
@@ -105,14 +107,6 @@ output_folder = (
 )
 best_model_metric = config["training"]["best_model_metric"]
 
-
-# timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-# output_folder = os.path.join(output_folder, f"training_{timestamp}")  # Base output folder
-# best_model_dir = os.path.join(output_folder, "best_models")  # Folder for best models
-# checkpoint_dir = os.path.join(output_folder, "checkpoints")  # Folder for checkpoints
-# os.makedirs(best_model_dir, exist_ok=True)
-# os.makedirs(checkpoint_dir, exist_ok=True)
-
 # # Create TensorBoard writer
 # writer = SummaryWriter(f"{output_folder}/tensorboard_logs")
 
@@ -183,7 +177,7 @@ assert (
 
 # Create model
 model = UNet3D(
-    input_shape=(1, *input_shape),
+    input_shape=(expected_num_channels, *input_shape),
     ndims=ndims,
     conv_size=conv_size,
     pool_size=pool_size,
@@ -210,16 +204,7 @@ main_loss_fn = DiceLoss(
     input_type="prob",
     dice_type="soft",
     ignore_indexes=ignore_indexes,
-    # return_loss=True,  # Return Dice loss
 )
-
-# dice_metric_fn = DiceScore(
-#     num_classes=len(label_mapping),
-#     input_type="prob",
-#     dice_type="soft",
-#     ignore_indexes=ignore_indexes,
-#     # return_loss=False,
-# )
 
 dice_metric_hard = DiceScore(
     num_classes=len(label_mapping),
@@ -241,17 +226,15 @@ best_validation_loss = float("inf")
 best_validation_dice = 0.0
 
 
-
 # Training loop
 for epoch in range(num_epochs):
     model.train()
     train_loss = 0.0
-    # train_soft_dices = []
     train_hard_dices = []
     num_train_batches = 0
 
     for batch_idx, (images, labels) in enumerate(train_loader):
-        images, labels = images.to(device), labels.to(device)
+        images, labels = images.to(device).float(), labels.to(device)
         labels = remap_labels(labels, label_mapping)  # Remap labels
         labels = onehot(labels, num_classes=len(label_mapping), device=device)
         if epoch < pre_train_epochs:
@@ -273,22 +256,19 @@ for epoch in range(num_epochs):
         train_loss += loss.item()
 
         # --- Metrics Calculation ---
-        # Calculate soft Dice
-        # batch_soft_dice = dice_metric_fn(outputs, labels)
-        # train_soft_dices.append(batch_soft_dice.detach().cpu().numpy())
-
-
         # Calculate hard Dice
         batch_hard_dice = dice_metric_hard(outputs, labels)
         train_hard_dices.append(batch_hard_dice.detach().cpu().numpy())
-
-
 
         num_train_batches += 1
 
         # Write to TensorBoard every batch
         writer.add_scalar("Train/Loss", loss.item(), epoch * len(train_loader) + batch_idx)
-        writer.add_scalar("Train/Dice", torch.mean(torch.tensor(batch_hard_dice)), epoch * len(train_loader) + batch_idx)
+        writer.add_scalar(
+            "Train/Dice",
+            torch.mean(torch.tensor(batch_hard_dice)),
+            epoch * len(train_loader) + batch_idx,
+        )
 
         # logging.info(
         #     f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx+1}/{len(train_loader)}], "
@@ -315,7 +295,9 @@ for epoch in range(num_epochs):
             # Add images to TensorBoard
             writer.add_image("Train/Input Image", image_grid, epoch * len(train_loader) + batch_idx)
             writer.add_image("Train/Label", label_grid, epoch * len(train_loader) + batch_idx)
-            writer.add_image("Train/Predicted Output", output_grid, epoch * len(train_loader) + batch_idx)
+            writer.add_image(
+                "Train/Predicted Output", output_grid, epoch * len(train_loader) + batch_idx
+            )
 
     train_loss /= len(train_loader)
     train_losses.append(train_loss)
@@ -323,13 +305,12 @@ for epoch in range(num_epochs):
     # Validation loop
     model.eval()
     validation_loss = 0.0
-    # validation_soft_dices = []
     validation_hard_dices = []
     num_val_batches = 0
 
     with torch.no_grad():
         for batch_idx, (images, labels) in enumerate(validation_loader):
-            images, labels = images.to(device), labels.to(device)
+            images, labels = images.to(device).float(), labels.to(device)
             labels = remap_labels(labels, label_mapping)
             labels = onehot(labels, num_classes=len(label_mapping), device=device)
 
@@ -343,17 +324,11 @@ for epoch in range(num_epochs):
             validation_loss += loss.item()
 
             # --- Metrics Calculation ---
-            # Calculate soft Dice
-            # batch_soft_dice = dice_metric_fn(outputs, labels)
-            # validation_soft_dices.append(batch_soft_dice.detach().cpu().numpy())
-
-
             # Calculate hard Dice
             batch_hard_dice = dice_metric_hard(outputs, labels)
             validation_hard_dices.append(batch_hard_dice.detach().cpu().numpy())
 
             num_val_batches += 1
-
 
             # logging.info(
             #     f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx+1}/{len(validation_loader)}], "
@@ -363,12 +338,17 @@ for epoch in range(num_epochs):
             # )
 
             # Write validation loss and Dice to TensorBoard (once per epoch)
-            writer.add_scalar("Validation/Loss", validation_loss, epoch * len(validation_loader) + batch_idx)
-            writer.add_scalar("Validation/Dice", torch.mean(torch.tensor(batch_hard_dice)), epoch * len(validation_loader) + batch_idx)
+            writer.add_scalar(
+                "Validation/Loss", validation_loss, epoch * len(validation_loader) + batch_idx
+            )
+            writer.add_scalar(
+                "Validation/Dice",
+                torch.mean(torch.tensor(batch_hard_dice)),
+                epoch * len(validation_loader) + batch_idx,
+            )
 
             # --- TensorBoard Visualization (Inside Validation Loop) ---
             if batch_idx % 3 == 0:  # Visualize every 3 batches (adjust as needed)
-
                 slice_index = random.randint(20, 50)
 
                 # Get slices from different examples in the batch
@@ -384,13 +364,20 @@ for epoch in range(num_epochs):
                 )
 
                 # Add images to TensorBoard
-                writer.add_image("Validation/Input Image", image_grid, epoch * len(validation_loader) + batch_idx)
-                writer.add_image("Validation/Label", label_grid, epoch * len(validation_loader) + batch_idx)
-                writer.add_image("Validation/Predicted Output", output_grid, epoch * len(validation_loader) + batch_idx)
+                writer.add_image(
+                    "Validation/Input Image", image_grid, epoch * len(validation_loader) + batch_idx
+                )
+                writer.add_image(
+                    "Validation/Label", label_grid, epoch * len(validation_loader) + batch_idx
+                )
+                writer.add_image(
+                    "Validation/Predicted Output",
+                    output_grid,
+                    epoch * len(validation_loader) + batch_idx,
+                )
 
     validation_loss /= len(validation_loader)
     validation_losses.append(validation_loss)
-
 
     train_dice_avg = torch.mean(torch.tensor(np.concatenate(train_hard_dices)))
     validation_dice_avg = torch.mean(torch.tensor(np.concatenate(validation_hard_dices)))

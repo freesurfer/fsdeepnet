@@ -62,6 +62,8 @@ num_classes = config["model"]["num_classes"]
 nb_features = config["model"]["nb_features"]
 nb_levels = config["model"]["nb_levels"]
 ignore_indexes = config["training"].get("ignore_indexes", [])
+expected_num_channels = config["dataset"]["expected_num_channels"]
+
 
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
@@ -78,7 +80,7 @@ with open(label_mapping_path, "r") as f:
 
 # Load the Trained Model
 model = UNet3D(
-    input_shape=(1, *test_dataset[0][0].shape[1:]),
+    input_shape=(expected_num_channels, *test_dataset[0][0].shape[1:]),
     ndims=config["model"]["ndims"],
     conv_size=config["model"]["conv_size"],
     pool_size=config["model"]["pool_size"],
@@ -120,18 +122,20 @@ dice_metric_hard = DiceScore(
 
 with torch.no_grad():
     for idx, (images, labels) in enumerate(test_loader):
-        images, labels = images.to(device), labels.to(device)
+        images, labels = images.to(device).float(), labels.to(device)
 
         outputs = model(images)
         labels = remap_labels(labels, label_mapping)
         labels = onehot(labels, num_classes=len(label_mapping), device=device)
-        
+
         # Calculate metrics
         hard_dice_scores = dice_metric_hard(outputs, labels)
-        
+
         # Get non-ignored label names
         label_names = list(label_mapping.keys())
-        non_ignored_label_names = [label_names[i] for i in range(len(label_mapping)) if i not in ignore_indexes]
+        non_ignored_label_names = [
+            label_names[i] for i in range(len(label_mapping)) if i not in ignore_indexes
+        ]
 
         num_samples += 1
 
@@ -154,7 +158,7 @@ with torch.no_grad():
             logging.info(f" Class {label_name}: {dice_score}")
 
 # Calculate average Dice scores for non-ignored classes
-non_ignored_total_dice_scores = total_dice_scores[:len(non_ignored_label_names)]
+non_ignored_total_dice_scores = total_dice_scores[: len(non_ignored_label_names)]
 non_ignored_avg_dice_scores = non_ignored_total_dice_scores / num_samples
 
 logging.info("Average Dice Scores:")
