@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import torch
 import yaml
 from torch.utils.data import Dataset
@@ -21,6 +22,9 @@ class SegmentationDataset(Dataset):
         self.config = config
         self.transform = transform
         self.crop_size = self.config["preprocessing"].get("crop_size")
+
+        self.input_shape = None
+        self.unique_classes = None
 
         # Extract image and label file paths
         self.image_files = [item["image_filepath"] for item in self.dataset_list]
@@ -61,6 +65,20 @@ class SegmentationDataset(Dataset):
         
         return image_tensor, label_tensor
 
+    # this method preprocesses all label maps, retrieve input tensor shape and unique classes
+    def preload(self):
+        self.unique_classes = set()
+        # loop through self.label_files, get unique classes
+        for f_label in self.label_files:
+            label, label_tensor = load_volume(f_label)
+            if (self.input_shape is None):
+                self.input_shape = label_tensor.shape
+                
+            unique_values = np.unique(label.data).tolist()
+            self.unique_classes.update(unique_values)
+
+        return self.input_shape, self.unique_classes
+    
     def get_all_labels(self):
         all_labels = []
         for i in range(len(self)):

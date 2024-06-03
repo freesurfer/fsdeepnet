@@ -10,7 +10,7 @@ class ConvBlock(nn.Module):
         ndims=3,
         conv_size=3,
         nb_conv_per_level=1,
-        use_residuals=True,
+        use_residuals=False,
         use_batchnorm=True,
         activation="elu",
     ):
