@@ -63,6 +63,29 @@ def apply_spatial_transform(image, label, voxsize):
     return transformed_image, transformed_label
 
 
+def apply_randomcrop(image, label, crop_size=None):
+    """Randomly crop input tensors to a given shape. The input tensors are expected to have shape [batch H W D]."""
+
+    # assuming image and label have the same dimensions
+    input_shape = image.shape[1:]
+
+    crop_max_val = np.array(input_shape) - np.array(crop_size)
+    start_coords = np.random.uniform(low=0, high=crop_max_val).astype(int)
+    end_coords = start_coords + np.array(crop_size)
+    #print(f"input_shape: {input_shape}, crop_max_val: {crop_max_val}, crop_size: {crop_size}, start_coords: {start_coords}, end_coords: {end_coords}")
+
+    slicing = [slice(None)] + [slice(start, end) for start, end in zip(start_coords, end_coords)]
+    cropped_image = image[slicing]
+    cropped_label = label[slicing]
+
+    """
+    cropped_image = image[:, start_coords[0]:end_coords[0], start_coords[1]:end_coords[1], start_coords[2]:end_coords[2]]
+    cropped_label = label[:, start_coords[0]:end_coords[0], start_coords[1]:end_coords[1], start_coords[2]:end_coords[2]]
+    """
+    
+    return cropped_image, cropped_label
+
+
 def apply_cropping(image, label, crop_size=None):
     """Applies center cropping to image and label volumes."""
     cropped_image = voxynth.augment.apply_center_crop(image, crop_size)
@@ -194,6 +217,23 @@ def apply_augmentations(
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
 
+    if "randomcrop" in augmentations_to_apply:
+        if crop_size is not None:
+            image_tensor, label_tensor = apply_randomcrop(image_tensor, label_tensor, crop_size)
+            if save_volumes is not None and output_dir is not None:
+                save_volume(
+                    image_tensor,
+                    original_image,
+                    os.path.join(output_dir, save_volumes + "_randomcropped_image.mgz"),
+                )
+                save_volume(
+                    label_tensor,
+                    original_label,
+                    os.path.join(output_dir, save_volumes + "_randomcropped_label.mgz"),
+                )
+        else:
+            raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
+        
     if "blur_resample" in augmentations_to_apply:
         image_tensor = apply_blur_resample(image_tensor, voxsize)
         if save_volumes is not None and output_dir is not None:
