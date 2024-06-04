@@ -5,9 +5,10 @@ import torch
 import yaml
 import json
 
-def load_volume(file_path):
+def load_volume(file_path, orientation=None):
     """
     Load a volume from a file and convert it to a PyTorch tensor.
+    The loaded volume data is re-oriented to conform to a specific slice orientation.
     
     Args:
         file_path (str): Path to the volume file.
@@ -16,6 +17,9 @@ def load_volume(file_path):
         tuple: A tuple containing the loaded volume and its PyTorch tensor representation.
     """
     volume = sf.load_volume(file_path)
+    if (orientation is not None):
+        volume = volume.reorient(orientation, copy=True)
+    
     volume_data_native = volume.framed_data.astype(volume.dtype.newbyteorder('='))
     volume_data_writable = np.copy(volume_data_native)  # Create a writable copy of the array
     volume_tensor = torch.from_numpy(volume_data_writable).movedim(-1, 0)
@@ -96,6 +100,9 @@ def onehot(labels, num_classes, device=None):
     return onehot_labels.permute(0, 4, 1, 2, 3)
 
 
+# ================================================================================================
+#                                        Lab2Im Utilities
+# ================================================================================================
 def get_ras_axes(aff, n_dims=3):
     """This function finds the RAS axes corresponding to each dimension of a volume, based on its affine matrix.
     :param aff: affine matrix Can be a 2d numpy array of size n_dims*n_dims, n_dims+1*n_dims+1, or n_dims*n_dims+1.

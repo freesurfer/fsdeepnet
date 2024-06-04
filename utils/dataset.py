@@ -4,7 +4,7 @@ import torch
 import yaml
 from torch.utils.data import Dataset
 from utils.preprocessing import apply_augmentations
-from utils.data_utils import load_volume
+from utils.data_utils import load_volume, save_volume
 import logging
 
 logging.basicConfig(
@@ -39,8 +39,8 @@ class SegmentationDataset(Dataset):
         label_path = data_item["label_filepath"]
 
         # Load image and label using the load_volume function
-        image, image_tensor = load_volume(image_path)
-        label, label_tensor = load_volume(label_path)
+        image, image_tensor = load_volume(image_path, orientation='RAS')
+        label, label_tensor = load_volume(label_path, orientation='RAS')
 
         # where/whether to save preprocessed data
         save_volumes = os.path.basename(image_path)
@@ -62,7 +62,7 @@ class SegmentationDataset(Dataset):
                 save_volumes=save_volumes,
                 augmentations_to_apply=self.transform,
             )
-        
+
         return image_tensor, label_tensor
 
     # this method preprocesses all label maps, retrieve input tensor shape and unique classes
@@ -78,7 +78,7 @@ class SegmentationDataset(Dataset):
             self.unique_classes.update(unique_values)
 
         return self.input_shape, self.unique_classes
-    
+
     def get_all_labels(self):
         all_labels = []
         for i in range(len(self)):
@@ -86,7 +86,45 @@ class SegmentationDataset(Dataset):
             all_labels.append(labels)
         return torch.cat(all_labels, dim=0)
 
+    # test routines
+    def test_preprocessing(self, outdir, augmentations=None):
+        for idx in range(len(self.image_files)):
+            f_image = self.image_files[idx]
+            image, image_tensor = load_volume(f_image, orientation='RAS')
+            prefix = os.path.basename(f_image)
+            reoriented = os.path.join(outdir, prefix + "_reoriented_image.mgz")
+            save_volume(
+                image_tensor,
+                image,
+                reoriented
+            )
 
+            f_label = self.label_files[idx]
+            label, label_tensor = load_volume(f_label, orientation='RAS')
+            prefix = os.path.basename(f_label)
+            reoriented = os.path.join(outdir, prefix + "_reoriented_label.mgz")
+            save_volume(
+                label_tensor,
+                label,
+                reoriented
+            )            
+
+            if (augmentations is not None):
+                prefix = os.path.basename(f_image)
+                image_tensor, label_tensor = apply_augmentations(
+                    image_tensor,
+                    label_tensor,
+                    image,
+                    label,
+                    self.config,
+                    voxsize=image.geom.voxsize,
+                    crop_size=self.crop_size,
+                    output_dir=outdir,
+                    save_volumes=prefix,
+                    augmentations_to_apply=augmentations,
+                )
+
+            
 def load_datasets(
     config,
     train_augmentations=None,
