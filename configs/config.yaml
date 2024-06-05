@@ -1,12 +1,12 @@
 dataset:
-  dataset_list_file: configs/dummy_dataset_list.yaml
-  expected_classes: [0, 1]
+  dataset_list_file: configs/multiclass_multichannel_dummy_dataset_list.yaml
+  expected_classes: [0, 3, 5, 8]
   left_right_corresponding: None # ex. this is for SynthSeg training [2, 41, 3, 42, 4, 43, 5, 44, 7, 46, 8, 47, 10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54, 25, 57, 26, 58, 28, 60, 30, 62, 136, 163, 137, 164]
-  expected_num_channels: 1
+  expected_num_channels: 2
 
 model:
   name: UNet3D
-  num_classes: 2
+  num_classes: 4
   nb_levels: 5
   nb_features: 24 
   feat_mult: 2
@@ -28,7 +28,7 @@ preprocessing:
   max_rotation: 5.0
   max_scaling: 1.1
   warp_probability: 0.25
-  warp_integrations: 0.5
+  warp_integrations: 1
   warp_smoothing_range: [10, 20]
   warp_magnitude_range: [1, 2]
   smoothing_probability: 0.25

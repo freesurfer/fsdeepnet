@@ -37,7 +37,7 @@ def apply_flipping(image, label, aff, left_right_corresponding, ndims=3, flip_pr
         return image, label
 
 
-def apply_spatial_transform(image, label, voxsize):
+def apply_spatial_transform(image, label, voxsize, config):
     """Applies a random spatial transformation to image and label volumes."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     image = image.to(device)
@@ -47,13 +47,13 @@ def apply_spatial_transform(image, label, voxsize):
         shape=image.shape[1:],
         device=device,
         affine_probability=1.0,
-        max_translation=5.0,
-        max_rotation=5.0,
-        max_scaling=1.1,
-        warp_probability=1.0,
-        warp_integrations=5,
-        warp_smoothing_range=[10, 20],
-        warp_magnitude_range=[1, 2],
+        max_translation=config["preprocessing"].get("max_translation", 5.0), 
+        max_rotation=config["preprocessing"].get("max_rotation", 5.0), 
+        max_scaling=config["preprocessing"].get("max_scaling", 1.1), 
+        warp_probability=config["preprocessing"].get("warp_probability", 1.0), 
+        warp_integrations=config["preprocessing"].get("warp_integrations", 5), 
+        warp_smoothing_range=config["preprocessing"].get("warp_smoothing_range", [10, 20]), 
+        warp_magnitude_range=config["preprocessing"].get("warp_magnitude_range", [1, 2]), 
     )
 
     transformed_image = voxynth.transform.spatial_transform(image, trf)
@@ -96,18 +96,18 @@ def apply_cropping(image, label, crop_size=None):
     return cropped_image, cropped_label
 
 
-def apply_blur_resample(image, voxsize):
+def apply_blur_resample(image, voxsize, config):
     """Applies blurring and resampling to the image volume."""
     image_cpu = image.cpu()
     blur_resampled_image = voxynth.augment.image_augment(
         image_cpu,
         normalize=True,
-        smoothing_probability=0.5,
-        smoothing_max_sigma=2.0,
-        added_noise_probability=0.5,
-        added_noise_max_sigma=0.05,
-        gamma_scaling_probability=0.5,
-        gamma_scaling_max=0.8,
+        smoothing_probability=config["preprocessing"].get("smoothing_probability", 0.5),
+        smoothing_max_sigma=config["preprocessing"].get("smoothing_max_sigma", 2.0),
+        added_noise_probability=config["preprocessing"].get("added_noise_probability", 0.5),
+        added_noise_max_sigma=config["preprocessing"].get("added_noise_max_sigma", 0.05),
+        gamma_scaling_probability=config["preprocessing"].get("gamma_scaling_probability", 0.5),
+        gamma_scaling_max=config["preprocessing"].get("gamma_scaling_max", 0.8),
         resized_probability=0,
         resized_one_axis_probability=0,
         resized_max_voxsize=2,
@@ -115,14 +115,14 @@ def apply_blur_resample(image, voxsize):
     return blur_resampled_image
 
 
-def apply_bias_field(image, voxsize):
+def apply_bias_field(image, voxsize, config):
     """Applies bias field augmentation to the image volume."""
     bf_augmented_image = voxynth.augment.image_augment(
         image,
         voxsize=voxsize,
-        bias_field_probability=0.5,
-        bias_field_max_magnitude=0.1,
-        bias_field_smoothing_range=[1, 2],
+        bias_field_probability=config["preprocessing"].get("bias_field_probability", 0.5),
+        bias_field_max_magnitude=config["preprocessing"].get("bias_field_max_magnitude", 0.1),
+        bias_field_smoothing_range=config["preprocessing"].get("bias_field_smoothing_range", [1, 2]),
     )
     return bf_augmented_image
 
@@ -192,7 +192,7 @@ def apply_augmentations(
 
     if "spatial_transform" in augmentations_to_apply:
         image_tensor, label_tensor = apply_spatial_transform(
-            image_tensor, label_tensor, voxsize
+            image_tensor, label_tensor, voxsize, config
         )
         if save_volumes is not None and output_dir is not None:
             save_volume(
@@ -258,7 +258,7 @@ def apply_augmentations(
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
         
     if "blur_resample" in augmentations_to_apply:
-        image_tensor = apply_blur_resample(image_tensor, voxsize)
+        image_tensor = apply_blur_resample(image_tensor, voxsize, config)
         if save_volumes is not None and output_dir is not None:
             save_volume(
                 image_tensor,
@@ -267,7 +267,7 @@ def apply_augmentations(
             )
 
     if "bias_field" in augmentations_to_apply:
-        image_tensor = apply_bias_field(image_tensor, voxsize)
+        image_tensor = apply_bias_field(image_tensor, voxsize, config)
         if save_volumes is not None and output_dir is not None:
             save_volume(
                 image_tensor,

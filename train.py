@@ -124,10 +124,10 @@ writer = SummaryWriter(output_folder)
 # Specify the desired augmentations for training data
 train_augmentations = [
     # "flipping",
-    # "spatial_transform",
+    "spatial_transform",
     "cropping",
     "blur_resample",
-    # "bias_field",
+    "bias_field",
 ]
 
 validation_augmentations = [
@@ -159,6 +159,14 @@ for _, label in train_dataset:
     unique_classes.update(unique_values)
 
 num_classes = len(unique_classes)
+
+assert (
+    sorted(unique_classes) == expected_classes
+), f"Expected classes {expected_classes}, but got {sorted(unique_classes)}"
+assert (
+    sample_input.shape[0] == expected_num_channels
+), f"Expected {expected_num_channels} channels, but got {sample_input.shape[0]}"
+
 logging.info("Device: {}".format(device))
 logging.info("Dataset information:")
 logging.info(f"Dataset list: {config['dataset']['dataset_list_file']}")
@@ -167,13 +175,6 @@ logging.info(f"Number of unique classes: {num_classes}")
 logging.info(f"Unique class values: {sorted(unique_classes)}")
 logging.info(f"Input shape: {input_shape}")
 logging.info(f"Number of channels: {sample_input.shape[0]}")
-
-assert (
-    sorted(unique_classes) == expected_classes
-), f"Expected classes {expected_classes}, but got {sorted(unique_classes)}"
-assert (
-    sample_input.shape[0] == expected_num_channels
-), f"Expected {expected_num_channels} channels, but got {sample_input.shape[0]}"
 
 # Create model
 model = UNet3D(
