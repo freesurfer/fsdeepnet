@@ -4,7 +4,7 @@ A generic deep-learning pipeline to accompany freesurfer adjacent models.
 
 ## Get Started
 
-1. Clone teh repo
+1. Clone the repo
 ```bash
 git clone <freeseg-repo>
 ```
@@ -16,14 +16,14 @@ source /autofs/space/curv_001/users/avnish/miniconda3/bin/activate /autofs/space
 
 3. Copy voxynth library code into the freeseg directory
 ```bash
-cp /autofs/space/curv_001/users/avnish/for_Doug/Pituitary-segmentation/voxynth/ <freeseg-repo>
+cp -r /autofs/space/curv_001/users/avnish/for_Doug/Pituitary-segmentation/voxynth/ <freeseg-repo>
 ```
 
 4. Setup the train/validation/test dataset
 ```bash
 python create_data_list.py -d data/pgland_cropped/ -o "pgland_cropped_dataset_list.yaml"
 ```
-Note: this is a rudimentary scrip to help create your ```dataset_list.yaml``` file. It may not cover your specific dataset. But as long as your ```dataset_list.yaml``` file looks like the following, you should be good to go:
+Note: this is a simple script to help create your ```dataset_list.yaml``` file. It may not cover your specific use-case. But as long as your ```dataset_list.yaml``` file looks like the following, you should be good to go:
 ```yaml
 test:
 - image_filepath: path/to/test_image1
