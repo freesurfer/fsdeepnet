@@ -8,11 +8,11 @@ from utils.data_utils import save_volume, get_ras_axes
 def apply_flipping(image, label, aff, left_right_corresponding, ndims=3, flip_prob=0.5):
     """Applies a random left-right flip to image and label volumes."""
     """Swaps left-right labels on label volume."""
-
-    assert aff is not None, 'aff should not be None when applying flipping'
-    assert left_right_corresponding is not None, 'left_right_corresponding should not be None when applying flipping'
         
     if (voxynth.utility.chance(flip_prob)):
+        assert aff is not None, 'aff should not be None when applying flipping'
+        assert left_right_corresponding is not None, 'left_right_corresponding should not be None when applying flipping'
+
         # swap left-right labels
         n_left_right_labels = len(left_right_corresponding)
         left_right_corresponding = np.array(left_right_corresponding)
