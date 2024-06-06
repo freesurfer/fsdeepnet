@@ -122,13 +122,7 @@ os.makedirs(checkpoint_dir, exist_ok=True)
 writer = SummaryWriter(output_folder)
 
 # Specify the desired augmentations for training data
-train_augmentations = [
-    # "flipping",
-    "spatial_transform",
-    "cropping",
-    "blur_resample",
-    "bias_field",
-]
+train_augmentations = config["preprocessing"].get("train_augmentations")
 
 validation_augmentations = [
     "cropping",
@@ -149,14 +143,8 @@ train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 validation_loader = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False)
 # test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-sample_input, _ = train_dataset[0]
-input_shape = sample_input.shape[1:]
-
-# Verify dataset integrity
-unique_classes = set()
-for _, label in train_dataset:
-    unique_values = torch.unique(label).tolist()
-    unique_classes.update(unique_values)
+sample_input_shape, unique_classes = train_dataset.preload()
+input_shape = sample_input_shape[1:]
 
 num_classes = len(unique_classes)
 
@@ -164,8 +152,8 @@ assert (
     sorted(unique_classes) == expected_classes
 ), f"Expected classes {expected_classes}, but got {sorted(unique_classes)}"
 assert (
-    sample_input.shape[0] == expected_num_channels
-), f"Expected {expected_num_channels} channels, but got {sample_input.shape[0]}"
+    sample_input_shape[0] == expected_num_channels
+), f"Expected {expected_num_channels} channels, but got {sample_input_shape[0]}"
 
 logging.info("Device: {}".format(device))
 logging.info("Dataset information:")
@@ -174,7 +162,7 @@ logging.info(f"Number of samples in training dataset: {len(train_dataset)}")
 logging.info(f"Number of unique classes: {num_classes}")
 logging.info(f"Unique class values: {sorted(unique_classes)}")
 logging.info(f"Input shape: {input_shape}")
-logging.info(f"Number of channels: {sample_input.shape[0]}")
+logging.info(f"Number of channels: {sample_input_shape[0]}")
 
 # Create model
 model = UNet3D(

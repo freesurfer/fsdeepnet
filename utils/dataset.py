@@ -20,8 +20,8 @@ class SegmentationDataset(Dataset):
     def __init__(self, dataset_entries, config, transform=None):
         self.dataset_list = dataset_entries
         self.config = config
+        self.augment_para = config["preprocessing"]
         self.transform = transform
-        self.crop_size = self.config["preprocessing"].get("crop_size")
 
         self.input_shape = None
         self.unique_classes = None
@@ -44,9 +44,7 @@ class SegmentationDataset(Dataset):
 
         # where/whether to save preprocessed data
         save_volumes = os.path.basename(image_path)
-        output_dir = None
-        if (self.config["preprocessing"].get("augmentation_dir") != 'None'):
-            output_dir = self.config["preprocessing"].get("augmentation_dir")
+        output_dir = self.augment_para.get("augmentation_dir", None)
 
         # Apply data augmentation if transform is specified
         if self.transform:
@@ -55,11 +53,12 @@ class SegmentationDataset(Dataset):
                 label_tensor,
                 image,
                 label,
-                self.config,
+                self.augment_para,
                 voxsize=image.geom.voxsize,
                 output_dir=output_dir,
                 save_volumes=save_volumes,
                 augmentations_to_apply=self.transform,
+                left_right_corresponding=self.config["dataset"].get("left_right_corresponding", None)
             )
 
         return image_tensor, label_tensor
@@ -115,11 +114,12 @@ class SegmentationDataset(Dataset):
                     label_tensor,
                     image,
                     label,
-                    self.config,
+                    self.augment_para,
                     voxsize=image.geom.voxsize,
                     output_dir=outdir,
                     save_volumes=prefix,
                     augmentations_to_apply=augmentations,
+                    left_right_corresponding=self.config["dataset"].get("left_right_corresponding", None)
                 )
 
             
