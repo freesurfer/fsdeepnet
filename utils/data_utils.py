@@ -100,6 +100,45 @@ def onehot(labels, num_classes, device=None):
     return onehot_labels.permute(0, 4, 1, 2, 3)
 
 
+def bbox(image, labels):
+    """
+    return bounding box of labels in the image
+
+    Args:
+        image (torch.Tensor):
+        labels (list):
+
+    Returns:
+        lowerbound (1d numpy array), upperbound (1d numpy array)
+    """
+
+    image_cpu = image.cpu().squeeze(0)
+    np_vol = image_cpu.detach().numpy()
+    
+    # binarize the image with labels given
+    mask = np.zeros(np_vol.shape).astype(int)
+    for label in (labels):
+        label_indices = (np_vol == label)
+        mask[label_indices] = 1
+
+    # calculate bounding box coordinates
+    lowerbound = np.zeros(np_vol.ndim).astype(int)
+    upperbound = np.zeros(np_vol.ndim).astype(int)
+    coords = np.where(mask == 1)
+    for dim, coord in enumerate(coords):
+        lowerbound[dim] = np.min(coord)
+        upperbound[dim] = np.max(coord)
+
+    # leave some rooms
+    lowerbound -= 1
+    upperbound += 1
+    
+    return lowerbound, upperbound
+    
+
+
+
+    
 # ================================================================================================
 #                                        Lab2Im Utilities
 # ================================================================================================

@@ -2,7 +2,7 @@ import os
 import numpy as np
 import torch
 from voxynth import voxynth
-from utils.data_utils import save_volume, get_ras_axes
+from utils.data_utils import save_volume, get_ras_axes, bbox
 
 
 def apply_flipping(image, label, aff, left_right_corresponding, flip_prob=0.5):
@@ -73,30 +73,57 @@ def apply_spatial_transform(image, label, voxsize,
     return transformed_image, transformed_label
 
 
-def apply_randomcrop(image, label, crop_size=None, mode='random'):
+def apply_randomcrop(image, label, crop_size, mode='random', bbox_labels=None, retry=None, debug=False):
     """Randomly crop input tensors to a given shape. The input tensors are expected to have shape [batch H W D]."""
 
     # assuming image and label have the same dimensions
-    input_shape = image.shape[1:]
+    image_shape = image.shape[1:]
+    image_ndims = len(image_shape)
 
-    if (mode == 'random'):
-        crop_max_val = np.array(input_shape) - np.array(crop_size)            
-        start_coords = np.random.uniform(low=0, high=crop_max_val).astype(int)
-        end_coords = start_coords + np.array(crop_size)
-    elif (mode == 'center'):
-        start_center = np.array(crop_size)/2
-        end_center = np.array(input_shape) - np.array(crop_size)/2
-        center_point = np.random.uniform(low=start_center, high=end_center).astype(int)
+    bbox_upper = [0] * image_ndims
+    bbox_lower = [image_shape[0]] * image_ndims
+    if (bbox_labels is not None):
+        bbox_lower, bbox_upper = bbox(label, bbox_labels)
+        if (retry is None):
+            retry = 5
 
-        start_coords = np.maximum(np.array(center_point)-np.array(crop_size)/2, 0).astype(int)
-        end_coords = np.minimum(np.array(center_point)+np.array(crop_size)/2, np.array(input_shape)).astype(int)
+    # make sure crop_size > (bbox_upper - bbox_lower)
+    # ??? TODO ... ???
+    
+    niter = 0
+    while (True):
+        if (mode == 'random'):
+            crop_max_val = np.array(image_shape) - np.array(crop_size)
+        
+            start_coords = np.random.uniform(low=0, high=crop_max_val).astype(int)
+            end_coords = start_coords + np.array(crop_size)
+        elif (mode == 'center'):
+            start_center = np.array(crop_size)/2
+            end_center = np.array(image_shape) - np.array(crop_size)/2
+            center_point = np.random.uniform(low=start_center, high=end_center).astype(int)
 
-    #print(f"apply_randomcrop({mode}) - input_shape: {input_shape}, crop_size: {crop_size}, start_coords: {start_coords}, end_coords: {end_coords}")
+            start_coords = np.maximum(np.array(center_point)-np.array(crop_size)/2, 0).astype(int)
+            end_coords = np.minimum(np.array(center_point)+np.array(crop_size)/2, np.array(image_shape)).astype(int)
+                
+        # check if bbox_lower/bbox_upper are inside start_coords/end_coords
+        if (np.all(bbox_lower >= start_coords) and np.all(bbox_upper <= end_coords)):
+            if (debug):
+                print(f"apply_randomcrop({mode}) (final) - image_shape: {image_shape}, crop_size: {crop_size}, bbox: {bbox_lower} - {bbox_upper}, start_coords: {start_coords}, end_coords: {end_coords}")
+            break
 
+        niter += 1
+        if (debug):
+            print(f"apply_randomcrop({mode}) (#{niter}) - image_shape: {image_shape}, crop_size: {crop_size}, bbox: {bbox_lower} - {bbox_upper}, start_coords: {start_coords}, end_coords: {end_coords}")
+        if (niter == retry):
+            print(f"REACHED RETRY_LIMIT {retry}, exit ...")
+            print(f"apply_randomcrop({mode}) - image_shape: {image_shape}, crop_size: {crop_size}, bbox: {bbox_lower} - {bbox_upper}, start_coords: {start_coords}, end_coords: {end_coords}")
+            break
+
+        
     slicing = [slice(None)] + [slice(start, end) for start, end in zip(start_coords, end_coords)]
     cropped_image = image[slicing]
     cropped_label = label[slicing]
-
+        
     return cropped_image, cropped_label
 
 
@@ -255,7 +282,9 @@ def apply_augmentations(
 
     if "randomcrop" in augmentations_to_apply:
         if crop_size is not None:
-            image_tensor, label_tensor = apply_randomcrop(image_tensor, label_tensor, crop_size, mode='random')
+            bbox_labels = augment_para.get("bbox_labels", None)
+            debug = True if augment_para.get("debug") else False
+            image_tensor, label_tensor = apply_randomcrop(image_tensor, label_tensor, crop_size, mode='random', bbox_labels=bbox_labels, debug=debug)
             if save_volumes is not None and output_dir is not None:
                 save_volume(
                     image_tensor,
@@ -272,7 +301,9 @@ def apply_augmentations(
 
     if "randomcrop_center" in augmentations_to_apply:
         if crop_size is not None:
-            image_tensor, label_tensor = apply_randomcrop(image_tensor, label_tensor, crop_size, mode='center')
+            bbox_labels = augment_para.get("bbox_labels", None)
+            debug = True if augment_para.get("debug") else False
+            image_tensor, label_tensor = apply_randomcrop(image_tensor, label_tensor, crop_size, mode='center', bbox_labels=bbox_labels, debug=debug)
             if save_volumes is not None and output_dir is not None:
                 save_volume(
                     image_tensor,

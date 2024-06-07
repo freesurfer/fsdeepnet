@@ -20,8 +20,9 @@ model:
   refine_conv: False 
 
 preprocessing:
+  debug: False
   train_augmentations: [
-    #"flipping",
+    #"flipping",    # need to define left_right_corresponding
     "spatial_transform",
     "cropping",
     #"randomcrop",
@@ -30,6 +31,7 @@ preprocessing:
     "bias_field",
     ]
   #augmentation_dir: /path/to-save-augmented-data
+  #bbox_labels: list of labels to make the bounding box
   flip_prob: 0.5
   crop_size: [64, 64, 64]
   flip_axes: [1]
