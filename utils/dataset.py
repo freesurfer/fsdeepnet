@@ -66,23 +66,29 @@ class SegmentationDataset(Dataset):
     # this method preprocesses all label maps, retrieve input tensor shape and unique classes
     def preload(self):
         self.unique_classes = set()
+        all_labels = []
+        
         # loop through self.label_files, get unique classes
         for f_label in self.label_files:
             label, label_tensor = load_volume(f_label)
             if (self.input_shape is None):
                 self.input_shape = label_tensor.shape
-                
+
             unique_values = np.unique(label.data).tolist()
             self.unique_classes.update(unique_values)
+            all_labels.append(label_tensor)
 
-        return self.input_shape, self.unique_classes
+        return self.input_shape, self.unique_classes, torch.cat(all_labels, dim=0)
 
+    """
+    # the functionality is merged into preload()
     def get_all_labels(self):
         all_labels = []
         for i in range(len(self)):
             _, labels = self[i]
             all_labels.append(labels)
         return torch.cat(all_labels, dim=0)
+    """
 
     # test routines
     def test_preprocessing(self, outdir, augmentations=None):

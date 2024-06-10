@@ -136,15 +136,15 @@ train_dataset, validation_dataset, _ = load_datasets(
     config, train_augmentations, validation_augmentations, test_augmentations
 )
 
-label_mapping = save_label_mapping(train_dataset.get_all_labels(), output_folder=output_folder)
-
 # Create Data Loaders
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 validation_loader = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False)
 # test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-sample_input_shape, unique_classes = train_dataset.preload()
+sample_input_shape, unique_classes, all_labels = train_dataset.preload()
 input_shape = sample_input_shape[1:]
+
+label_mapping = save_label_mapping(all_labels, output_folder=output_folder)
 
 num_classes = len(unique_classes)
 
