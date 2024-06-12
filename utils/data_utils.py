@@ -102,7 +102,7 @@ def onehot(labels, num_classes, device=None):
 
 def bbox(image, labels):
     """
-    return bounding box of labels in the image
+    calculate label bounding box in the image
 
     Args:
         image (torch.Tensor):
