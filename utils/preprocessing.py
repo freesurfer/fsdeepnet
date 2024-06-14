@@ -75,11 +75,13 @@ def apply_spatial_transform(image, label, voxsize,
 
 def apply_randomcrop(image, label, crop_size, mode='random', bbox_labels=None, debug=False):
     """
-    Randomly crop input tensors to a given shape. The input tensors are expected to have shape [batch H W D].
+    Randomly crop input tensors to a given shape. 
+    The input tensors are expected to have shape [batch H W D].
 
     Returns:
         cropped_image, cropped_label
         TODO: raise exception if there is no crops found that fit the bounding box of all labels
+              handle batch > 1 ???
     """
 
     # assuming image and label have the same dimensions
@@ -140,9 +142,9 @@ def apply_randomcrop(image, label, crop_size, mode='random', bbox_labels=None, d
             end_center = np.array(image_shape) - half_crop
         else:
             """
-            |                     |       |              |       |        |
-            ---------------------------------------------------------------
-            0                  center1  bound1        bound2  center2  image size
+            |                     |       |              |       |                   |
+            --------------------------------------------------------------------------
+            0                  center1  bound1        bound2  center2           image size
 
             The [bbox_lower, bbox_upper] can be in any of these boundary.
 
@@ -161,7 +163,7 @@ def apply_randomcrop(image, label, crop_size, mode='random', bbox_labels=None, d
             
             # initial values for start_center and end_center
             # where [bbox_lower, bbox_upper] is within [bound1, bound2]
-            start_center = half_crop.copy()
+            start_center = half_crop.copy()  # make a copy for start_center to be modified later
             end_center = np.array(image_shape) - half_crop
 
             bound1 = end_center - half_crop
@@ -264,11 +266,130 @@ def apply_bias_field(image, voxsize,
     return bf_augmented_image
 
 
+def apply_sampleConditionalGMM(label_map, expected_classes, prior_mean=[25, 225], prior_std=[5, 25], distribution='uniform'):
+    """
+    The label_map tensors are expected to have shape [batch H W D].
+    gaussian mean and std are sampled independently for each batch
+    """    
+
+    assert expected_classes is not None, 'expected_classes is needed for sampleConditionalGMM'
+
+    batchsize = label_map.shape[0]
+    n_classes = len(expected_classes)
+
+    prior_shape = [batchsize, n_classes]
+    if distribution == 'uniform':
+        means = np.random.uniform(low=prior_mean[0], high=prior_mean[1], size=prior_shape)
+        stds  = np.random.uniform(low=prior_std[0], high=prior_std[1], size=prior_shape)
+    elif distribution == 'normal':
+        means = np.random.normal(loc=prior_mean[0], scale=prior_mean[1], size=prior_shape)
+        stds  = np.random.normal(loc=prior_std[0], scale=prior_std[1], size=prior_shape)
+    else:
+        raise ValueError("Distribution not supported, should be 'uniform' or 'normal'.")    
+
+    sampled_image = np.zeros(label_map.shape)
+    for labelid in range(n_classes):
+        label_indices = (label_map == expected_classes[labelid])
+        indices_count = label_indices.sum(axis=[1,2,3])
+        gauss_samples = np.random.normal(loc=means[:, labelid], scale=stds[:, labelid], size=(batchsize, indices_count))
+        for batch, indices in enumerate(label_indices):
+            sampled_image[batch][indices] = gauss_samples[batch]
+        
+    # convert it to tensor        
+    sampled_image_tensor = torch.from_numpy(sampled_image).to(label_map.device)
+ 
+    return sampled_image_tensor
+
+
+def apply_biasFieldCorruption(image, bias_field_std=.5, bias_scale=.025, prob=0.95):
+    """
+    The input tensors are expected to have shape [batch H W D].
+    bias field is sampled independently for each batch. 
+    """
+    
+    if (not np.random.rand() < prob):
+        return image
+
+    batchsize = image.shape[0]
+    ndims = len(image.shape) - 1
+    image_shape = image.shape[1:]
+    
+    # sampling shapes
+    std_shape = [batchsize] + [1] * ndims
+    small_bias_shape = [batchsize] + [math.ceil(image_shape[i] * bias_scale) for i in range(len(image_shape))]
+
+    # sample small bias field
+    stddev = np.random.uniform(low=0, high=bias_field_std, size=std_shape)
+    bias_field = np.random.normal(loc=0, scale=stddev, size=small_bias_shape) 
+
+    bias_field_tensor = torch.from_numpy(bias_field)
+    bias_field_tensor = bias_field_tensor.to(image.device, dtype=image.dtype)
+        
+    # resize bias field and take exponential
+    bias_field_tensor = torch.nn.functional.interpolate(bias_field_tensor.unsqueeze(1), image_shape, mode='trilinear')
+    bias_field_tensor = bias_field_tensor.squeeze(1)  # remove the dummy channel dimension
+    bias_field_tensor = torch.exp(bias_field_tensor)
+
+    # elementwise multiplication
+    bf_augmented_image = torch.mul(bias_field_tensor, image)
+
+    return bf_augmented_image
+
+
+def apply_intensityAugmentation(image, noise_std=0, clip_values=[0, 300], normalise=True, gamma_std=0, contrast_inversion=False,
+                                prob_noise=0.95, prob_gamma=1):
+    """
+    The input tensors are expected to have shape [batch H W D].
+    noise and gamma are sampled independently for each batch.
+    """
+    
+    image_cpu = image.cpu().detach().numpy()
+    
+    batchsize = image_cpu.shape[0]
+    ndims = len(image_cpu.shape) - 1
+
+    sample_shape = None
+    if (noise_std > 0 or gamma_std > 0 or contrast_inversion):
+        sample_shape = [batchsize] + [1] * ndims
+    
+    # add noise with predefined probability
+    if (noise_std > 0 and np.random.rand() < prob_noise):
+        noise_stddev = np.random.uniform(low=0, high=noise_std, size=sample_shape)
+        noise = np.random.normal(loc=0, scale=noise_stddev, size=image_cpu.shape)
+        image_cpu += noise
+
+    # clip image_cpus to given values
+    if (clip_values is not None):
+        image_cpu = np.clip(image_cpu, a_min=clip_values[0], a_max=clip_values[1])
+
+    # normalise
+    if (normalise):
+        # simple min and max
+        axis = tuple(dim for dim in range(image_cpu.ndim))
+        m = np.min(image_cpu, axis=axis)
+        M = np.max(image_cpu, axis=axis)
+        # normalise
+        image_cpu = np.clip(image_cpu, a_min=m, a_max=M)
+        image_cpu = (image_cpu - m) / (M - m + np.finfo(float).eps)
+
+    # apply voxel-wise exponentiation with predefined probability
+    if (gamma_std > 0 and np.random.rand() < prob_gamma):
+        gamma = np.random.normal(loc=0, scale=gamma_std, size=sample_shape)
+        image_cpu = np.power(image_cpu, np.exp(gamma))
+
+    # apply random contrast inversion
+    if (contrast_inversion):
+        image_cpu = 1 - image_cpu
+
+    return torch.from_numpy(image_cpu).to(image.device)
+
+
 def apply_augmentations(
     image_tensor,
     label_tensor,
     original_image,
     original_label,
+    expected_classes,
     augment_para,
     voxsize,
     output_dir=None,
@@ -425,6 +546,7 @@ def apply_augmentations(
                 os.path.join(output_dir, save_volumes + "_blur_resampled_image.mgz"),
             )
 
+    # ??? only allow one "bias_field" or "biasFieldCorruption" ???
     if "bias_field" in augmentations_to_apply:
         image_tensor = apply_bias_field(
             image_tensor, voxsize,
@@ -439,6 +561,38 @@ def apply_augmentations(
                 os.path.join(output_dir, save_volumes + "_bias_field_augmented_image.mgz"),
             )
 
-    # ??? global intensity augmentation ???
+    if "biasFieldCorruption" in augmentations_to_apply:
+        image_tensor = apply_biasFieldCorruption(
+            image_tensor
+        )
+        if save_volumes is not None and output_dir is not None:
+            save_volume(
+                image_tensor,
+                original_image,
+                os.path.join(output_dir, save_volumes + "_biasFieldCorruption_image.mgz"),
+            )
+            
+    if "sampleConditionalGMM" in augmentations_to_apply:
+        image_tensor = apply_sampleConditionalGMM(
+            label_tensor, expected_classes
+        )
+        if save_volumes is not None and output_dir is not None:
+            save_volume(
+                image_tensor,
+                original_image,
+                os.path.join(output_dir, save_volumes + "_sampleConditionalGMM_image.mgz"),
+            )
+
+    if "intensityAugmentation" in augmentations_to_apply:
+        image_tensor = apply_intensityAugmentation(
+            image_tensor,
+        )
+        if save_volumes is not None and output_dir is not None:
+            save_volume(
+                image_tensor,
+                original_image,
+                os.path.join(output_dir, save_volumes + "_intensityAugmentation_image.mgz"),
+            )
+
 
     return image_tensor, label_tensor

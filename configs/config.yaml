@@ -29,12 +29,16 @@ preprocessing:
     #"randomcrop_center",
     "blur_resample",
     "bias_field",
+    #"biasFieldCorruption",
+    #"intensityAugmentation",
+    #"sampleConditionalGMM",  # this doesn't apply to trainings using image/label pairs
     ]
   #augmentation_dir: /path/to-save-augmented-data
   #bbox_labels: list of labels to make the bounding box
   flip_prob: 0.5
   crop_size: [64, 64, 64]
-  flip_axes: [1]
+  # spatial deformation parameters
+  affine_probability: 1.0          # new
   max_translation: 0.5
   max_rotation: 5.0
   max_scaling: 1.1
@@ -42,12 +46,17 @@ preprocessing:
   warp_integrations: 1
   warp_smoothing_range: [10, 20]
   warp_magnitude_range: [1, 2]
+  # blurring and resampling parameters
   smoothing_probability: 0.25
   smoothing_max_sigma: 2.0
   added_noise_probability: 0.5
   added_noise_max_sigma: 0.05
   gamma_scaling_probability: 0.5
   gamma_scaling_max: 0.8
+  resized_probability: 0           # new
+  resized_one_axis_probability: 0  # new
+  resized_max_voxsize: 2           # new
+  # bias field parameters
   bias_field_probability: 0.25
   bias_field_max_magnitude: 0.1
   bias_field_smoothing_range: [1, 2]
