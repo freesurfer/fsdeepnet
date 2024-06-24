@@ -1,30 +1,19 @@
 import os
-import numpy as np
 import torch
-import yaml
 from torch.utils.data import Dataset
-from utils.preprocessing import apply_augmentations
+import yaml
+from omegaconf import DictConfig
 from utils.data_utils import load_volume, save_volume
+from utils.preprocessing import apply_augmentations
 import logging
 
-logging.basicConfig(
-    level=logging.INFO,  # Set the log level (e.g., DEBUG, INFO, WARNING, ERROR)
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(),  # Print log messages to the console
-    ],
-)
-
+log = logging.getLogger(__name__)
 
 class SegmentationDataset(Dataset):
-    def __init__(self, dataset_entries, config, transform=None):
+    def __init__(self, dataset_entries, cfg: DictConfig, transform=None):
         self.dataset_list = dataset_entries
-        self.config = config
-        self.augment_para = config["preprocessing"]
+        self.cfg = cfg
         self.transform = transform
-
-        self.input_shape = None
-        self.unique_classes = None
 
         # Extract image and label file paths
         self.image_files = [item["image_filepath"] for item in self.dataset_list]
@@ -39,12 +28,8 @@ class SegmentationDataset(Dataset):
         label_path = data_item["label_filepath"]
 
         # Load image and label using the load_volume function
-        image, image_tensor = load_volume(image_path, orientation="RAS")
-        label, label_tensor = load_volume(label_path, orientation="RAS")
-
-        # where/whether to save preprocessed data
-        save_volumes = os.path.basename(image_path)
-        output_dir = self.augment_para.get("augmentation_dir", None)
+        image, image_tensor = load_volume(image_path, orientation='RAS')
+        label, label_tensor = load_volume(label_path, orientation='RAS')
 
         # Apply data augmentation if transform is specified
         if self.transform:
@@ -53,49 +38,9 @@ class SegmentationDataset(Dataset):
                 label_tensor,
                 image,
                 label,
-                self.config["dataset"].get("expected_classes"),
-                self.augment_para,
-                voxsize=image.geom.voxsize,
-                output_dir=output_dir,
-                save_volumes=save_volumes,
-                augmentations_to_apply=self.transform,
-                left_right_corresponding=self.config["dataset"].get(
-                    "left_right_corresponding", None
-                ),
+                self.cfg,
+                augmentations_to_apply=self.transform
             )
-
-        return image_tensor, label_tensor
-
-    def preload(self):
-        """preprocesses all label maps, retrieve input tensor shape and unique classes."""
-        self.unique_classes = set()
-        all_labels = []
-
-        for f_label, f_image in zip(self.label_files, self.image_files):
-            label, label_tensor = load_volume(f_label)
-            image, image_tensor = load_volume(f_image)
-
-            if self.input_shape is None:
-                self.input_shape = image_tensor.shape  # This should be (2, H, W, D)
-
-            print(f"[debug - dataset] Preloaded image shape: {image_tensor.shape}")
-            print(f"[debug - dataset] Preloaded label shape: {label_tensor.shape}")
-
-            unique_values = np.unique(label.data).tolist()
-            self.unique_classes.update(unique_values)
-            all_labels.append(label_tensor)
-
-        return self.input_shape, self.unique_classes, torch.cat(all_labels, dim=0)
-
-    """
-    # the functionality is merged into preload()
-    def get_all_labels(self):
-        all_labels = []
-        for i in range(len(self)):
-            _, labels = self[i]
-            all_labels.append(labels)
-        return torch.cat(all_labels, dim=0)
-    """
 
     # test routines
     def test_preprocessing(self, outdir, augmentations=None):
@@ -130,30 +75,24 @@ class SegmentationDataset(Dataset):
                     ),
                 )
 
-
-def load_datasets(
-    config,
-    train_augmentations=None,
-    validation_augmentations=None,
-    test_augmentations=None,
-):
-    with open(config["dataset"]["dataset_list_file"], "r") as file:
+def load_datasets(cfg: DictConfig):
+    with open(cfg.dataset.dataset_list_file, "r") as file:
         dataset_dict = yaml.safe_load(file)
 
     train_dataset = SegmentationDataset(
         dataset_dict["train"],
-        config,
-        transform=train_augmentations,
+        cfg,
+        transform=cfg.preprocessing.train_augmentations,
     )
     validation_dataset = SegmentationDataset(
         dataset_dict["validation"],
-        config,
-        transform=validation_augmentations,
+        cfg,
+        transform=cfg.preprocessing.validation_augmentations,
     )
     test_dataset = SegmentationDataset(
         dataset_dict["test"],
-        config,
-        transform=test_augmentations,
+        cfg,
+        transform=cfg.preprocessing.test_augmentations,
     )
 
     return train_dataset, validation_dataset, test_dataset

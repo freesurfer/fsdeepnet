@@ -4,6 +4,10 @@ import surfa as sf
 import torch
 import yaml
 import json
+import logging
+from omegaconf import DictConfig
+
+log = logging.getLogger(__name__)
 
 def load_volume(file_path, orientation=None):
     """
@@ -44,19 +48,19 @@ def load_config(config_file):
         config = yaml.safe_load(file)
     return config
 
-def save_label_mapping(labels, output_folder, filename="label_mapping.json"):
+def save_label_mapping(labels, cfg: DictConfig):
     """Create a label mapping and save it to a JSON file."""
     unique_labels = torch.unique(labels)
     mapping = {label.item(): i for i, label in enumerate(unique_labels)}
 
     # Create output directory if it doesn't exist
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
+    # if not os.path.exists(cfg.output_dir):
+    #     os.makedirs(cfg.output_dir)
 
-    filepath = os.path.join(output_folder, filename)
-    print(f"Saving label mapping to {filepath}")
+    filepath = os.path.join(cfg.output_dir, "label_mapping.json")
+    log.info(f"Saving label mapping to {filepath}")
     with open(filepath, 'w') as f:
-        json.dump(mapping, f, indent=4) 
+        json.dump(mapping, f, indent=4)
 
     return mapping
 

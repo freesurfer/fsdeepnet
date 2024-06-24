@@ -1,0 +1,73 @@
+# Global configurations
+seed: 42
+output_dir: ${hydra:runtime.output_dir}
+
+# Model configurations
+model:
+  name: UNet3D
+  ndims: 3
+  nb_features: 24
+  nb_levels: 3
+  feat_mult: 2
+  nb_conv_per_level: 2
+  use_batchnorm: true
+  activation: "elu"
+  conv_size: 3
+  pool_size: 2
+  use_residuals: false
+  refine_conv: false
+
+# Dataset configurations
+dataset:
+  name: pgland
+  expected_num_channels: 1
+  expected_classes: [0, 883, 900, 903, 904]
+  crop_size: [160, 160, 160]
+
+# Training configurations
+training:
+  num_epochs: 300
+  pre_train_epochs: 20
+  batch_size: 1
+  learning_rate: 0.0001
+  pre_train_learning_rate: 0.001
+  ignore_indexes: [0] #background
+  best_model_metric: dice
+
+# Evaluation configurations
+evaluation:
+  batch_size: 1
+
+# Preprocessing configurations
+preprocessing:
+  train_augmentations: 
+    - "spatial_transform"
+    - "cropping"
+    - "blur_resample"
+    - "bias_field"
+  validation_augmentations:
+    - "cropping"
+  test_augmentations:
+    - "cropping"
+  flip_prob: 0.5
+  affine_probability: 1.0
+  max_translation: 30
+  max_rotation: 20
+  max_scaling: 1.2
+  warp_probability: 1
+  warp_integrations: 7
+  warp_smoothing_range: [10.61, 10.63]
+  warp_magnitude_range: [0, 3]
+  shearing_bounds: 0.015
+  smoothing_probability: 0.25
+  smoothing_max_sigma: 2.0
+  added_noise_probability: 1 #0.5
+  added_noise_max_sigma: 1.0
+  gamma_scaling_probability: 1
+  gamma_scaling_max: 0.59
+  resized_probability: 0
+  resized_one_axis_probability: 0
+  resized_max_voxsize: 2
+  bias_field_probability: 1
+  bias_field_max_magnitude: 0.5
+  bias_field_smoothing_range: [16.97, 16.99]
