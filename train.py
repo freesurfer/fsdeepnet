@@ -22,8 +22,7 @@ logging.basicConfig(
     level=logging.INFO,  # Set the log level (e.g., DEBUG, INFO, WARNING, ERROR)
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.StreamHandler(),  # Print log messages to the console
-        # logging.FileHandler(os.path.join(output_folder, 'training.log'))  # Save log messages to a file
+        logging.StreamHandler(),  # Print to terminal
     ],
 )
 

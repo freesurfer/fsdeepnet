@@ -25,6 +25,9 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = torch.device("cpu")  # force device to cpu
 
 parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--config", type=str, default="configs/config.yaml", help="Path to the configuration file"
+)
 parser.add_argument("--batch_size", type=int, help="Batch size for evaluation")
 parser.add_argument(
     "--model_checkpoint", type=str, required=True, help="Path to the model checkpoint"
@@ -43,8 +46,8 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-# Load main configuration
-config = load_config("configs/config.yaml")
+# Load main configuration file
+config = load_config(args.config)
 
 # Load datasets (including test data)
 test_augmentations = [

@@ -39,8 +39,8 @@ class SegmentationDataset(Dataset):
         label_path = data_item["label_filepath"]
 
         # Load image and label using the load_volume function
-        image, image_tensor = load_volume(image_path, orientation='RAS')
-        label, label_tensor = load_volume(label_path, orientation='RAS')
+        image, image_tensor = load_volume(image_path, orientation="RAS")
+        label, label_tensor = load_volume(label_path, orientation="RAS")
 
         # where/whether to save preprocessed data
         save_volumes = os.path.basename(image_path)
@@ -59,21 +59,27 @@ class SegmentationDataset(Dataset):
                 output_dir=output_dir,
                 save_volumes=save_volumes,
                 augmentations_to_apply=self.transform,
-                left_right_corresponding=self.config["dataset"].get("left_right_corresponding", None)
+                left_right_corresponding=self.config["dataset"].get(
+                    "left_right_corresponding", None
+                ),
             )
 
         return image_tensor, label_tensor
 
-    # this method preprocesses all label maps, retrieve input tensor shape and unique classes
     def preload(self):
+        """preprocesses all label maps, retrieve input tensor shape and unique classes."""
         self.unique_classes = set()
         all_labels = []
-        
-        # loop through self.label_files, get unique classes
-        for f_label in self.label_files:
+
+        for f_label, f_image in zip(self.label_files, self.image_files):
             label, label_tensor = load_volume(f_label)
-            if (self.input_shape is None):
-                self.input_shape = label_tensor.shape
+            image, image_tensor = load_volume(f_image)
+
+            if self.input_shape is None:
+                self.input_shape = image_tensor.shape  # This should be (2, H, W, D)
+
+            print(f"[debug - dataset] Preloaded image shape: {image_tensor.shape}")
+            print(f"[debug - dataset] Preloaded label shape: {label_tensor.shape}")
 
             unique_values = np.unique(label.data).tolist()
             self.unique_classes.update(unique_values)
@@ -95,42 +101,36 @@ class SegmentationDataset(Dataset):
     def test_preprocessing(self, outdir, augmentations=None):
         for idx in range(len(self.image_files)):
             f_image = self.image_files[idx]
-            image, image_tensor = load_volume(f_image, orientation='RAS')
+            image, image_tensor = load_volume(f_image, orientation="RAS")
             prefix = os.path.basename(f_image)
             reoriented = os.path.join(outdir, prefix + "_reoriented_image.mgz")
-            save_volume(
-                image_tensor,
-                image,
-                reoriented
-            )
+            save_volume(image_tensor, image, reoriented)
 
             f_label = self.label_files[idx]
-            label, label_tensor = load_volume(f_label, orientation='RAS')
+            label, label_tensor = load_volume(f_label, orientation="RAS")
             prefix = os.path.basename(f_label)
             reoriented = os.path.join(outdir, prefix + "_reoriented_label.mgz")
-            save_volume(
-                label_tensor,
-                label,
-                reoriented
-            )            
+            save_volume(label_tensor, label, reoriented)
 
-            if (augmentations is not None):
+            if augmentations is not None:
                 prefix = os.path.basename(f_image)
                 image_tensor, label_tensor = apply_augmentations(
                     image_tensor,
                     label_tensor,
                     image,
                     label,
-                    self.config["dataset"].get("expected_classes"),                    
+                    self.config["dataset"].get("expected_classes"),
                     self.augment_para,
                     voxsize=image.geom.voxsize,
                     output_dir=outdir,
                     save_volumes=prefix,
                     augmentations_to_apply=augmentations,
-                    left_right_corresponding=self.config["dataset"].get("left_right_corresponding", None)
+                    left_right_corresponding=self.config["dataset"].get(
+                        "left_right_corresponding", None
+                    ),
                 )
 
-            
+
 def load_datasets(
     config,
     train_augmentations=None,
