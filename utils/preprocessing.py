@@ -45,9 +45,10 @@ def apply_spatial_transform(image, label, voxsize,
                             max_rotation=5.0,
                             max_scaling=1.1,
                             warp_probability=1.0,
-                            warp_integrations=5,
+                            warp_integrations=7,
                             warp_smoothing_range=[10, 20],
-                            warp_magnitude_range=[1, 2]):
+                            warp_magnitude_range=[1, 2],
+                            shearing_bounds=0.015):
     """Applies a random spatial transformation to image and label volumes."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     image = image.to(device)
@@ -64,6 +65,7 @@ def apply_spatial_transform(image, label, voxsize,
         warp_integrations=warp_integrations,
         warp_smoothing_range=warp_smoothing_range,
         warp_magnitude_range=warp_magnitude_range,
+        shearing_bounds=shearing_bounds,
     )
 
     transformed_image = voxynth.transform.spatial_transform(image, trf)
@@ -454,9 +456,10 @@ def apply_augmentations(
             max_rotation=augment_para.get("max_rotation", 5.0),
             max_scaling=augment_para.get("max_scaling", 1.1),
             warp_probability=augment_para.get("warp_probability", 1.0),
-            warp_integrations=augment_para.get("warp_integrations", 5),
+            warp_integrations=augment_para.get("warp_integrations", 7),
             warp_smoothing_range=augment_para.get("warp_smoothing_range", [10, 20]),
-            warp_magnitude_range=augment_para.get("warp_magnitude_range", [1, 2])
+            warp_magnitude_range=augment_para.get("warp_magnitude_range", [1, 2]),
+            shearing_bounds=augment_para.get("shearing_bounds", 0.015),
         )
         if save_volumes is not None and output_dir is not None:
             save_volume(

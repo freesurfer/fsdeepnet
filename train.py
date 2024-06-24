@@ -144,6 +144,8 @@ validation_loader = DataLoader(validation_dataset, batch_size=batch_size, shuffl
 sample_input_shape, unique_classes, all_labels = train_dataset.preload()
 input_shape = sample_input_shape[1:]
 
+print("[debug] sample_input_shape: ", sample_input_shape)
+
 label_mapping = save_label_mapping(all_labels, output_folder=output_folder)
 
 num_classes = len(unique_classes)
