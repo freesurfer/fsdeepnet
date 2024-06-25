@@ -3,7 +3,14 @@ import numpy as np
 import torch
 import yaml
 from torch.utils.data import Dataset
-from utils.preprocessing import apply_augmentations
+from utils.preprocessing import (
+    apply_augmentations,
+    apply_flipping,
+    apply_spatial_transform,
+    apply_cropping,
+    apply_blur_resample,
+    apply_bias_field,
+)
 from utils.data_utils import load_volume, save_volume
 import logging
 
@@ -113,6 +120,7 @@ class SegmentationDataset(Dataset):
             save_volume(label_tensor, label, reoriented)
 
             if augmentations is not None:
+                print(f"Augmentations to apply: {augmentations}")
                 prefix = os.path.basename(f_image)
                 image_tensor, label_tensor = apply_augmentations(
                     image_tensor,
@@ -129,6 +137,111 @@ class SegmentationDataset(Dataset):
                         "left_right_corresponding", None
                     ),
                 )
+
+    def test_individual_augmentation(self, outdir, augmentations=None):
+        for idx in range(len(self.image_files)):
+            f_image = self.image_files[idx]
+            prefix = os.path.basename(f_image)
+
+            for augmentation_name in augmentations:
+                # --- Reload Original Volumes Before Each Augmentation ---
+                image, image_tensor = load_volume(f_image, orientation="RAS")
+                label, label_tensor = load_volume(self.label_files[idx], orientation="RAS")
+
+                # --- Apply Augmentations ---
+                if augmentation_name == "flipping":
+                    flip_prob = self.augment_para.get("flip_prob")
+                    aff = image.geom.vox2world.matrix
+                    image_tensor, label_tensor = apply_flipping(
+                        image_tensor,
+                        label_tensor,
+                        aff,
+                        self.config["dataset"].get("left_right_corresponding", None),
+                        flip_prob,
+                    )
+                    save_volumes = prefix + "_flipped"  # Create filename with augmentation name
+
+                elif augmentation_name == "spatial_transform":
+                    image_tensor, label_tensor = apply_spatial_transform(
+                        image_tensor,
+                        label_tensor,
+                        image.geom.voxsize,
+                        affine_probability=self.augment_para.get("affine_probability", 1.0),
+                        max_translation=self.augment_para.get("max_translation", 5.0),
+                        max_rotation=self.augment_para.get("max_rotation", 5.0),
+                        max_scaling=self.augment_para.get("max_scaling", 1.1),
+                        warp_probability=self.augment_para.get("warp_probability", 1.0),
+                        warp_integrations=self.augment_para.get("warp_integrations", 7),
+                        warp_smoothing_range=self.augment_para.get(
+                            "warp_smoothing_range", [10, 20]
+                        ),
+                        warp_magnitude_range=self.augment_para.get("warp_magnitude_range", [1, 2]),
+                        shearing_bounds=self.augment_para.get("shearing_bounds", 0.015),
+                    )
+                    save_volumes = prefix + "_transformed"
+
+                elif augmentation_name == "cropping":
+                    crop_size = self.augment_para.get("crop_size", None)
+                    if crop_size is not None:
+                        image_tensor, label_tensor = apply_cropping(
+                            image_tensor, label_tensor, crop_size
+                        )
+                        save_volumes = prefix + "_cropped"
+                    else:
+                        raise ValueError(
+                            "Crop size must be provided when using the 'cropping' augmentation."
+                        )
+
+                elif augmentation_name == "blur_resample":
+                    image_tensor = apply_blur_resample(
+                        image_tensor,
+                        image.geom.voxsize,
+                        smoothing_probability=self.augment_para.get("smoothing_probability", 0.5),
+                        smoothing_max_sigma=self.augment_para.get("smoothing_max_sigma", 2.0),
+                        added_noise_probability=self.augment_para.get(
+                            "added_noise_probability", 0.5
+                        ),
+                        added_noise_max_sigma=self.augment_para.get("added_noise_max_sigma", 0.05),
+                        gamma_scaling_probability=self.augment_para.get(
+                            "gamma_scaling_probability", 0.5
+                        ),
+                        gamma_scaling_max=self.augment_para.get("gamma_scaling_max", 0.8),
+                        resized_probability=self.augment_para.get("resized_probability", 0),
+                        resized_one_axis_probability=self.augment_para.get(
+                            "resized_one_axis_probability", 0
+                        ),
+                        resized_max_voxsize=self.augment_para.get("resized_max_voxsize", 2),
+                    )
+                    save_volumes = prefix + "_blur_resampled"
+
+                elif augmentation_name == "bias_field":
+                    image_tensor = apply_bias_field(
+                        image_tensor,
+                        image.geom.voxsize,
+                        bias_field_probability=self.augment_para.get("bias_field_probability", 0.5),
+                        bias_field_max_magnitude=self.augment_para.get(
+                            "bias_field_max_magnitude", 0.1
+                        ),
+                        bias_field_smoothing_range=self.augment_para.get(
+                            "bias_field_smoothing_range", [1, 2]
+                        ),
+                    )
+                    save_volumes = prefix + "_bias_field"
+                else:
+                    raise ValueError(f"Unknown augmentation: {augmentation_name}")
+
+                # --- Saving Augmented Volumes ---
+                if save_volumes is not None and outdir is not None:
+                    save_volume(
+                        image_tensor,
+                        image,
+                        os.path.join(outdir, save_volumes + "_image.mgz"),
+                    )
+                    save_volume(
+                        label_tensor,
+                        label,
+                        os.path.join(outdir, save_volumes + "_label.mgz"),
+                    )
 
 
 def load_datasets(
