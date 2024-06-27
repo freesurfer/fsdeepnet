@@ -12,6 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 from torchinfo import summary
 from models.model import UNet3D
+from utils.train_utils import load_checkpoint
 from utils.data_utils import onehot
 from utils.data_utils import load_config, save_label_mapping, remap_labels
 from utils.dataset import load_datasets
@@ -54,6 +55,11 @@ parser.add_argument(
     type=str,
     default=None,
     help="Descriptive name for the run (used for naming TensorBoard log directories)",
+)
+parser.add_argument(
+    "--checkpoint",
+    type=str,
+    help="Path to a checkpoint file to resume training from",
 )
 parser.add_argument(
     "--output_folder",
@@ -110,7 +116,7 @@ best_model_metric = config["training"]["best_model_metric"]
 # writer = SummaryWriter(f"{output_folder}/tensorboard_logs")
 
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-parent_output_folder = "tensorboard_logs"  # Common parent directory for all TensorBoard logs
+parent_output_folder = "new_runs/tensorboard_logs"  # Common parent directory for all TensorBoard logs
 run_name = args.run_name if args.run_name is not None else f"run_{timestamp}"
 output_folder = os.path.join(parent_output_folder, run_name)  # Output folder for current run
 best_model_dir = os.path.join(output_folder, "best_models")  # Folder for best models
@@ -210,12 +216,19 @@ train_losses = []
 validation_losses = []
 train_dices = []
 validation_dices = []
+start_epoch = 0
 best_validation_loss = float("inf")
 best_validation_dice = 0.0
 
+# Load Checkpoint if Provided
+if args.checkpoint:
+    logging.info(f"Resuming training from checkpoint: {args.checkpoint}")
+    start_epoch, best_validation_loss, best_validation_dice = load_checkpoint(
+        args.checkpoint, model, optimizer
+    )
 
 # Training loop
-for epoch in range(num_epochs):
+for epoch in range(start_epoch, num_epochs):
     model.train()
     train_loss = 0.0
     train_hard_dices = []
@@ -378,17 +391,25 @@ for epoch in range(num_epochs):
         f"Val Dice Avg: {validation_dice_avg:.4f}"
     )
 
+    checkpoint_dict = {
+        "epoch": epoch,
+        "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict(),
+        "loss": validation_loss,
+        "dice": validation_dice_avg,
+    }
+
     # Save the best model
     if best_model_metric == "loss":
         if validation_loss < best_validation_loss:
             best_validation_loss = validation_loss
-            checkpoint_dict = {
-                "epoch": epoch,
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "loss": validation_loss,
-                "dice": validation_dice_avg,
-            }
+            # checkpoint_dict = {
+            #     "epoch": epoch,
+            #     "model_state_dict": model.state_dict(),
+            #     "optimizer_state_dict": optimizer.state_dict(),
+            #     "loss": validation_loss,
+            #     "dice": validation_dice_avg,
+            # }
             checkpoint_path = os.path.join(
                 best_model_dir,
                 f"best_model_epoch{epoch+1}_val_loss{validation_loss:.4f}_val_dice{validation_dice_avg:.4f}.pth",
@@ -397,13 +418,13 @@ for epoch in range(num_epochs):
     elif best_model_metric == "dice":
         if validation_dice_avg > best_validation_dice:
             best_validation_dice = validation_dice_avg
-            checkpoint_dict = {
-                "epoch": epoch,
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "loss": validation_loss,
-                "dice": validation_dice_avg,
-            }
+            # checkpoint_dict = {
+            #     "epoch": epoch,
+            #     "model_state_dict": model.state_dict(),
+            #     "optimizer_state_dict": optimizer.state_dict(),
+            #     "loss": validation_loss,
+            #     "dice": validation_dice_avg,
+            # }
             checkpoint_path = os.path.join(
                 best_model_dir,
                 f"best_model_epoch{epoch+1}_val_loss{validation_loss:.4f}_val_dice{validation_dice_avg:.4f}.pth",
@@ -411,7 +432,7 @@ for epoch in range(num_epochs):
             torch.save(checkpoint_dict, checkpoint_path)
 
     # Save periodic checkpoints
-    if (epoch + 1) % 10 == 0:  # Save every 10 epochs
+    if (epoch + 1) % 100 == 0:  # Save every 100 epochs
         checkpoint_path = os.path.join(
             checkpoint_dir,
             f"checkpoint_epoch{epoch+1}_val_loss{validation_loss:.4f}_val_dice{validation_dice_avg:.4f}.pth",
