@@ -60,10 +60,16 @@ def save_label_mapping(labels, output_folder, filename="label_mapping.json"):
 
     return mapping
 
+# def remap_labels(labels, mapping):
+#     remapped_labels = torch.zeros_like(labels)
+#     for old_label, new_label in mapping.items():
+#         remapped_labels[labels == old_label] = new_label
+#     return remapped_labels
+
 def remap_labels(labels, mapping):
     remapped_labels = torch.zeros_like(labels)
     for old_label, new_label in mapping.items():
-        remapped_labels[labels == old_label] = new_label
+        remapped_labels[labels == int(old_label)] = new_label
     return remapped_labels
 
 def load_labels_color_table(file_path):

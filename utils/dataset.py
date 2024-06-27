@@ -53,6 +53,15 @@ class SegmentationDataset(Dataset):
         save_volumes = os.path.basename(image_path)
         output_dir = self.augment_para.get("augmentation_dir", None)
 
+        # # [DEBUG eval augmentations]
+        # debug_dir = os.path.join(self.augment_para.get("augmentation_dir", "debug_volumes"), "eval")
+        # os.makedirs(debug_dir, exist_ok=True)
+
+        # Save Original Data
+        # base_filename = os.path.splitext(os.path.basename(image_path))[0]
+        # save_volume(image_tensor, image, os.path.join(debug_dir, f"{base_filename}_original_image.mgz"))
+        # save_volume(label_tensor, label, os.path.join(debug_dir, f"{base_filename}_original_label.mgz"))
+
         # Apply data augmentation if transform is specified
         if self.transform:
             image_tensor, label_tensor = apply_augmentations(
@@ -71,6 +80,8 @@ class SegmentationDataset(Dataset):
                 ),
             )
 
+            # save_volume(image_tensor, image, os.path.join(debug_dir, f"{base_filename}_augmented_image.mgz"))
+            # save_volume(label_tensor, label, os.path.join(debug_dir, f"{base_filename}_augmented_label.mgz"))
         return image_tensor, label_tensor
 
     def preload(self):
@@ -84,9 +95,6 @@ class SegmentationDataset(Dataset):
 
             if self.input_shape is None:
                 self.input_shape = image_tensor.shape  # This should be (2, H, W, D)
-
-            print(f"[debug - dataset] Preloaded image shape: {image_tensor.shape}")
-            print(f"[debug - dataset] Preloaded label shape: {label_tensor.shape}")
 
             unique_values = np.unique(label.data).tolist()
             self.unique_classes.update(unique_values)

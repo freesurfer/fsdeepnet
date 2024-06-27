@@ -419,14 +419,14 @@ def apply_augmentations(
         tuple: Augmented image and label tensors.
     """
 
-    if augmentations_to_apply is None:
-        augmentations_to_apply = [
-            "flipping",
-            "spatial_transform",
-            "cropping",
-            "blur_resample",
-            "bias_field",
-        ]
+    # if augmentations_to_apply is None:
+    #     augmentations_to_apply = [
+    #         "flipping",
+    #         "spatial_transform",
+    #         "cropping",
+    #         "blur_resample",
+    #         "bias_field",
+    #     ]
 
     crop_size = augment_para.get("crop_size", None)
             
