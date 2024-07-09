@@ -35,7 +35,7 @@ class ConvBlock(nn.Module):
 
         # self.bn = nn.BatchNorm3d(out_channels) if use_batchnorm else nn.Identity()
         self.bn = (
-            getattr(nn, "BatchNorm%dd" % ndims)(out_channels) if use_batchnorm else nn.Identity()
+            getattr(nn, "BatchNorm%dd" % ndims)(out_channels, track_running_stats=False) if use_batchnorm else nn.Identity()
         )
 
         if activation.lower() == "elu":
@@ -71,7 +71,7 @@ class ConvBlock(nn.Module):
             x += residual
             x = self.activation(x)
     
-        x= self.bn(x)
+        x = self.bn(x)
         return x
 
 
