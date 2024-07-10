@@ -132,16 +132,10 @@ shutil.copyfile(config["dataset"]["dataset_list_file"], os.path.join(output_fold
 # Create TensorBoard writer
 writer = SummaryWriter(output_folder)
 
-# Specify the desired augmentations for training data
+# Specify the desired augmentations for training/evaluation/test data
 train_augmentations = config["preprocessing"].get("train_augmentations")
-
-validation_augmentations = [
-#    "cropping",
-]
-
-test_augmentations = [
-    "cropping",
-]
+validation_augmentations = config["evaluation"].get("evaluation_augmentations")
+test_augmentations = config["evaluation"].get("test_augmentations")
 
 train_dataset, validation_dataset, _ = load_datasets(
     config, train_augmentations, validation_augmentations, test_augmentations

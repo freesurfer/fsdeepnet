@@ -85,5 +85,15 @@ training:
   best_model_metric: dice
 
 evaluation:
+  evaluation_augmentations: [
+    "cropping",
+    #"randomcrop",
+    #"randomcrop_center",
+    ]
+  test_augmentations: [
+    "cropping",
+    #"randomcrop",
+    #"randomcrop_center",
+  ]
   output_folder: output/evaluation
   batch_size: 1
