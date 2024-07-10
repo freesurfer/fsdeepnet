@@ -6,6 +6,7 @@ import argparse
 import datetime
 import random
 import numpy as np
+import shutil
 
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -62,7 +63,7 @@ parser.add_argument(
     help="Path to a checkpoint file to resume training from",
 )
 parser.add_argument(
-    "--output_folder",
+    "--train_root_folder",
     type=str,
     default=None,
     help="Base folder for saving training outputs",
@@ -105,32 +106,37 @@ pre_train_learning_rate = config["training"]["pre_train_learning_rate"]
 num_epochs = config["training"]["num_epochs"]
 pre_train_epochs = config["training"]["pre_train_epochs"]
 ignore_indexes = config["training"].get("ignore_indexes", [])
-output_folder = (
-    args.output_folder
-    if args.output_folder is not None
-    else config.get("training", {}).get("output_folder", "output/training_outputs")
+train_root_folder = (
+    args.train_root_folder
+    if args.train_root_folder is not None
+    else config.get("training", {}).get("train_root_folder", "new_runs/tensorboard_logs")
+)
+timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+run_name  = (
+    args.run_name
+    if args.run_name is not None
+    else config.get("training", {}).get("run_name", f"run_{timestamp}")
 )
 best_model_metric = config["training"]["best_model_metric"]
 
-# # Create TensorBoard writer
-# writer = SummaryWriter(f"{output_folder}/tensorboard_logs")
-
-timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-parent_output_folder = "new_runs/tensorboard_logs"  # Common parent directory for all TensorBoard logs
-run_name = args.run_name if args.run_name is not None else f"run_{timestamp}"
-output_folder = os.path.join(parent_output_folder, run_name)  # Output folder for current run
+output_folder = os.path.join(train_root_folder, run_name)  # Output folder for current run
 best_model_dir = os.path.join(output_folder, "best_models")  # Folder for best models
 checkpoint_dir = os.path.join(output_folder, "checkpoints")  # Folder for checkpoints
 os.makedirs(best_model_dir, exist_ok=True)
 os.makedirs(checkpoint_dir, exist_ok=True)
 
+# save the config files
+shutil.copyfile(args.config, os.path.join(output_folder, "config.yaml"))
+shutil.copyfile(config["dataset"]["dataset_list_file"], os.path.join(output_folder, "dataset_list.yaml"))
+
+# Create TensorBoard writer
 writer = SummaryWriter(output_folder)
 
 # Specify the desired augmentations for training data
 train_augmentations = config["preprocessing"].get("train_augmentations")
 
 validation_augmentations = [
-    "cropping",
+#    "cropping",
 ]
 
 test_augmentations = [
@@ -161,6 +167,11 @@ assert (
 ), f"Expected {expected_num_channels} channels, but got {sample_input_shape[0]}"
 
 logging.info("Device: {}".format(device))
+logging.info(f"train_root_folder: {train_root_folder}")
+logging.info(f"run_name: {run_name}")
+logging.info(f"best_model_metric: {best_model_metric}")
+logging.info(f"training config: saved as {output_folder}/config.yaml")
+logging.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
 logging.info("Dataset information:")
 logging.info(f"Dataset list: {config['dataset']['dataset_list_file']}")
 logging.info(f"Number of samples in training dataset: {len(train_dataset)}")
@@ -212,10 +223,6 @@ dice_metric_hard = DiceScore(
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 pre_train_optimizer = optim.Adam(model.parameters(), lr=pre_train_learning_rate)
 
-train_losses = []
-validation_losses = []
-train_dices = []
-validation_dices = []
 start_epoch = 0
 best_validation_loss = float("inf")
 best_validation_dice = 0.0
@@ -301,7 +308,6 @@ for epoch in range(start_epoch, num_epochs):
             )
 
     train_loss /= len(train_loader)
-    train_losses.append(train_loss)
 
     # Validation loop
     model.eval()
@@ -378,7 +384,6 @@ for epoch in range(start_epoch, num_epochs):
                 )
 
     validation_loss /= len(validation_loader)
-    validation_losses.append(validation_loss)
 
     train_dice_avg = torch.mean(torch.tensor(np.concatenate(train_hard_dices)))
     validation_dice_avg = torch.mean(torch.tensor(np.concatenate(validation_hard_dices)))

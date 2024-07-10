@@ -33,7 +33,13 @@ class ConvBlock(nn.Module):
                 convL(in_channels_conv, out_channels, kernel_size=conv_size, padding=1)
             )
 
-        # self.bn = nn.BatchNorm3d(out_channels) if use_batchnorm else nn.Identity()
+        """
+        The default BatchNorm3d layer behavior is different between .train() and .eval().
+        By default, during training this layer keeps running estimates of its computed mean and variance, which are then used for normalization during evaluation.
+        This causes the evaluation to perform much worse than training if the data distribution of the training set and the evaluation/test set is very different.
+        Set track_running_stats=False, this module does not track such statistics, and initializes statistics buffers running_mean and running_var as None.
+        When these buffers are None, this module always uses batch statistics in both training and eval modes.
+        """
         self.bn = (
             getattr(nn, "BatchNorm%dd" % ndims)(out_channels, track_running_stats=False) if use_batchnorm else nn.Identity()
         )

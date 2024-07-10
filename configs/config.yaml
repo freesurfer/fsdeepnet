@@ -29,7 +29,7 @@ preprocessing:
     #"randomcrop_center",
     "blur_resample",
     "bias_field",
-    "biasFieldCorruption",
+    #"biasFieldCorruption",
     # "intensityAugmentation",
     #"sampleConditionalGMM",  # this doesn't apply to trainings using image/label pairs
     ]
@@ -76,7 +76,8 @@ preprocessing:
 training:
   num_epochs: 300
   pre_train_epochs: 20
-  output_folder: output 
+  train_root_folder: new_runs/tensorboard_logs   # Common parent directory for all TensorBoard logs
+  #run_name: Descriptive name for the run (used for naming TensorBoard log directories), default is run_YYYYMMDD_HHMMSS
   batch_size: 1
   learning_rate: 0.0001
   pre_train_learning_rate: 0.001
