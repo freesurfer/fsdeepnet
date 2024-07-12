@@ -9,8 +9,6 @@ import numpy as np
 import shutil
 
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
-from torchvision.utils import make_grid
 from torchinfo import summary
 from models.model import UNet3D
 from utils.train_utils import load_checkpoint
@@ -118,6 +116,8 @@ run_name  = (
     else config.get("training", {}).get("run_name", f"run_{timestamp}")
 )
 best_model_metric = config["training"]["best_model_metric"]
+write_tensorboard_summary = config["training"].get("write_tensorboard_summary", False)
+perform_evaluation = config["training"].get("perform_evaluation", False)
 
 output_folder = os.path.join(train_root_folder, run_name)  # Output folder for current run
 best_model_dir = os.path.join(output_folder, "best_models")  # Folder for best models
@@ -129,8 +129,13 @@ os.makedirs(checkpoint_dir, exist_ok=True)
 shutil.copyfile(args.config, os.path.join(output_folder, "config.yaml"))
 shutil.copyfile(config["dataset"]["dataset_list_file"], os.path.join(output_folder, "dataset_list.yaml"))
 
-# Create TensorBoard writer
-writer = SummaryWriter(output_folder)
+writer = None
+if (write_tensorboard_summary):
+    from torch.utils.tensorboard import SummaryWriter
+    from torchvision.utils import make_grid
+
+    # Create TensorBoard writer
+    writer = SummaryWriter(output_folder)
 
 # Specify the desired augmentations for training/evaluation/test data
 train_augmentations = config["preprocessing"].get("train_augmentations")
@@ -264,93 +269,19 @@ for epoch in range(start_epoch, num_epochs):
 
         num_train_batches += 1
 
-        # Write to TensorBoard every batch
-        writer.add_scalar("Train/Loss", loss.item(), epoch * len(train_loader) + batch_idx)
-        writer.add_scalar(
-            "Train/Dice",
-            torch.mean(torch.tensor(batch_hard_dice)),
-            epoch * len(train_loader) + batch_idx,
-        )
-
-        # logging.info(
-        #     f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx+1}/{len(train_loader)}], "
-        #     f"Train Loss: {loss.item():.4f}, "
-        ##    f"Train Soft Dice: {np.mean(train_soft_dices, axis=0)}, "
-        #     f"Train Hard Dice: {np.mean(train_hard_dices, axis=0)}"
-        # )
-
-        # --- TensorBoard Visualization (Inside Training Loop) ---
-        if batch_idx % 10 == 0:  # Visualize every 10 batches (adjust as needed)
-            slice_index = random.randint(20, 50)  # Choose representative slice index
-            num_examples_to_visualize = min(images.size(0), 6)  # visualize upto 6 examples
-
-            # Get slices from different examples in the batch
-            image_slices = images[:num_examples_to_visualize, 0, slice_index].cpu()
-            label_slices = labels[:num_examples_to_visualize, 0, slice_index].cpu()
-            output_slices = outputs[:num_examples_to_visualize, 0, slice_index].cpu()
-
-            # Create grids (using a colormap if needed)
-            image_grid = make_grid(image_slices, nrow=num_examples_to_visualize, cmap="viridis")
-            label_grid = make_grid(label_slices, nrow=num_examples_to_visualize, cmap="viridis")
-            output_grid = make_grid(output_slices, nrow=num_examples_to_visualize, cmap="viridis")
-
-            # Add images to TensorBoard
-            writer.add_image("Train/Input Image", image_grid, epoch * len(train_loader) + batch_idx)
-            writer.add_image("Train/Label", label_grid, epoch * len(train_loader) + batch_idx)
-            writer.add_image(
-                "Train/Predicted Output", output_grid, epoch * len(train_loader) + batch_idx
-            )
-
-    train_loss /= len(train_loader)
-
-    # Validation loop
-    model.eval()
-    validation_loss = 0.0
-    validation_hard_dices = []
-    num_val_batches = 0
-
-    with torch.no_grad():
-        for batch_idx, (images, labels) in enumerate(validation_loader):
-            images, labels = images.to(device).float(), labels.to(device)
-            labels = remap_labels(labels, label_mapping)
-            labels = onehot(labels, num_classes=len(label_mapping), device=device)
-
-            outputs = model(images)
-
-            if epoch < pre_train_epochs:
-                loss = pre_train_loss_fn(outputs, labels)
-            else:
-                loss = main_loss_fn(outputs, labels)
-
-            validation_loss += loss.item()
-
-            # --- Metrics Calculation ---
-            # Calculate hard Dice
-            batch_hard_dice = dice_metric_hard(outputs, labels)
-            validation_hard_dices.append(batch_hard_dice.detach().cpu().numpy())
-
-            num_val_batches += 1
-
-            # logging.info(
-            #     f"Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx+1}/{len(validation_loader)}], "
-            #     f"Val Loss: {loss.item():.4f}, "
-            ##    f"Val Soft Dice: {np.mean(validation_soft_dices, axis=0)}, "
-            #     f"Val Hard Dice: {np.mean(validation_hard_dices, axis=0)}"
-            # )
-
-            # Write validation loss and Dice to TensorBoard (once per epoch)
+        if (writer is not None):
+            # Write to TensorBoard every batch
+            writer.add_scalar("Train/Loss", loss.item(), epoch * len(train_loader) + batch_idx)
             writer.add_scalar(
-                "Validation/Loss", validation_loss, epoch * len(validation_loader) + batch_idx
-            )
-            writer.add_scalar(
-                "Validation/Dice",
+                "Train/Dice",
                 torch.mean(torch.tensor(batch_hard_dice)),
-                epoch * len(validation_loader) + batch_idx,
+                epoch * len(train_loader) + batch_idx,
             )
 
-            # --- TensorBoard Visualization (Inside Validation Loop) ---
-            if batch_idx % 3 == 0:  # Visualize every 3 batches (adjust as needed)
-                slice_index = random.randint(20, 50)
+            # --- TensorBoard Visualization (Inside Training Loop) ---
+            if batch_idx % 10 == 0:  # Visualize every 10 batches (adjust as needed)
+                slice_index = random.randint(20, 50)  # Choose representative slice index
+                num_examples_to_visualize = min(images.size(0), 6)  # visualize upto 6 examples
 
                 # Get slices from different examples in the batch
                 image_slices = images[:num_examples_to_visualize, 0, slice_index].cpu()
@@ -360,80 +291,153 @@ for epoch in range(start_epoch, num_epochs):
                 # Create grids (using a colormap if needed)
                 image_grid = make_grid(image_slices, nrow=num_examples_to_visualize, cmap="viridis")
                 label_grid = make_grid(label_slices, nrow=num_examples_to_visualize, cmap="viridis")
-                output_grid = make_grid(
-                    output_slices, nrow=num_examples_to_visualize, cmap="viridis"
-                )
+                output_grid = make_grid(output_slices, nrow=num_examples_to_visualize, cmap="viridis")
 
                 # Add images to TensorBoard
+                writer.add_image("Train/Input Image", image_grid, epoch * len(train_loader) + batch_idx)
+                writer.add_image("Train/Label", label_grid, epoch * len(train_loader) + batch_idx)
                 writer.add_image(
-                    "Validation/Input Image", image_grid, epoch * len(validation_loader) + batch_idx
-                )
-                writer.add_image(
-                    "Validation/Label", label_grid, epoch * len(validation_loader) + batch_idx
-                )
-                writer.add_image(
-                    "Validation/Predicted Output",
-                    output_grid,
-                    epoch * len(validation_loader) + batch_idx,
+                    "Train/Predicted Output", output_grid, epoch * len(train_loader) + batch_idx
                 )
 
-    validation_loss /= len(validation_loader)
-
+    train_loss /= len(train_loader)
     train_dice_avg = torch.mean(torch.tensor(np.concatenate(train_hard_dices)))
-    validation_dice_avg = torch.mean(torch.tensor(np.concatenate(validation_hard_dices)))
-
-    logging.info(
-        f"Epoch [{epoch+1}/{num_epochs}], "
-        f"Train Loss: {train_loss:.4f}, "
-        f"Train Dice Avg: {train_dice_avg:.4f}, "
-        f"Val Loss: {validation_loss:.4f}, "
-        f"Val Dice Avg: {validation_dice_avg:.4f}"
-    )
-
-    checkpoint_dict = {
-        "epoch": epoch,
-        "model_state_dict": model.state_dict(),
-        "optimizer_state_dict": optimizer.state_dict(),
-        "loss": validation_loss,
-        "dice": validation_dice_avg,
-    }
-
-    # Save the best model
-    if best_model_metric == "loss":
-        if validation_loss < best_validation_loss:
-            best_validation_loss = validation_loss
-            # checkpoint_dict = {
-            #     "epoch": epoch,
-            #     "model_state_dict": model.state_dict(),
-            #     "optimizer_state_dict": optimizer.state_dict(),
-            #     "loss": validation_loss,
-            #     "dice": validation_dice_avg,
-            # }
-            checkpoint_path = os.path.join(
-                best_model_dir,
-                f"best_model_epoch{epoch+1}_val_loss{validation_loss:.4f}_val_dice{validation_dice_avg:.4f}.pth",
-            )
-            torch.save(checkpoint_dict, checkpoint_path)
-    elif best_model_metric == "dice":
-        if validation_dice_avg > best_validation_dice:
-            best_validation_dice = validation_dice_avg
-            # checkpoint_dict = {
-            #     "epoch": epoch,
-            #     "model_state_dict": model.state_dict(),
-            #     "optimizer_state_dict": optimizer.state_dict(),
-            #     "loss": validation_loss,
-            #     "dice": validation_dice_avg,
-            # }
-            checkpoint_path = os.path.join(
-                best_model_dir,
-                f"best_model_epoch{epoch+1}_val_loss{validation_loss:.4f}_val_dice{validation_dice_avg:.4f}.pth",
-            )
-            torch.save(checkpoint_dict, checkpoint_path)
-
-    # Save periodic checkpoints
-    if (epoch + 1) % 100 == 0:  # Save every 100 epochs
-        checkpoint_path = os.path.join(
-            checkpoint_dir,
-            f"checkpoint_epoch{epoch+1}_val_loss{validation_loss:.4f}_val_dice{validation_dice_avg:.4f}.pth",
+    
+    if (not perform_evaluation):
+        logging.info(
+            f"Epoch [{epoch+1}/{num_epochs}], "
+            f"Train Loss: {train_loss:.4f}, "
+            f"Train Dice Avg: {train_dice_avg:.4f}"
         )
-        torch.save(checkpoint_dict, checkpoint_path)
+        # model dict
+        checkpoint_dict = {
+            "epoch": epoch,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "loss": train_loss,
+            "dice": train_dice_avg,
+        }
+        # Save periodic checkpoints
+        if (epoch + 1) % 100 == 0:  # Save every 100 epochs
+            checkpoint_path = os.path.join(
+                checkpoint_dir,
+                f"checkpoint_epoch{epoch+1}_val_loss{train_loss:.4f}_val_dice{train_dice_avg:.4f}.pth",
+            )
+            torch.save(checkpoint_dict, checkpoint_path)
+    else:
+        # perform evaluation
+        model.eval()
+        validation_loss = 0.0
+        validation_hard_dices = []
+        num_val_batches = 0
+
+        # Validation loop
+        with torch.no_grad():
+            for batch_idx, (images, labels) in enumerate(validation_loader):
+                images, labels = images.to(device).float(), labels.to(device)
+                labels = remap_labels(labels, label_mapping)
+                labels = onehot(labels, num_classes=len(label_mapping), device=device)
+
+                outputs = model(images)
+
+                if epoch < pre_train_epochs:
+                    loss = pre_train_loss_fn(outputs, labels)
+                else:
+                    loss = main_loss_fn(outputs, labels)
+
+                validation_loss += loss.item()
+
+                # --- Metrics Calculation ---
+                # Calculate hard Dice
+                batch_hard_dice = dice_metric_hard(outputs, labels)
+                validation_hard_dices.append(batch_hard_dice.detach().cpu().numpy())
+
+                num_val_batches += 1
+
+                if (writer is not None):
+                    # Write validation loss and Dice to TensorBoard (once per epoch)
+                    writer.add_scalar(
+                        "Validation/Loss", validation_loss, epoch * len(validation_loader) + batch_idx
+                    )
+                    writer.add_scalar(
+                        "Validation/Dice",
+                        torch.mean(torch.tensor(batch_hard_dice)),
+                        epoch * len(validation_loader) + batch_idx,
+                    )
+
+                    # --- TensorBoard Visualization (Inside Validation Loop) ---
+                    if batch_idx % 3 == 0:  # Visualize every 3 batches (adjust as needed)
+                        slice_index = random.randint(20, 50)
+
+                        # Get slices from different examples in the batch
+                        image_slices = images[:num_examples_to_visualize, 0, slice_index].cpu()
+                        label_slices = labels[:num_examples_to_visualize, 0, slice_index].cpu()
+                        output_slices = outputs[:num_examples_to_visualize, 0, slice_index].cpu()
+
+                        # Create grids (using a colormap if needed)
+                        image_grid = make_grid(image_slices, nrow=num_examples_to_visualize, cmap="viridis")
+                        label_grid = make_grid(label_slices, nrow=num_examples_to_visualize, cmap="viridis")
+                        output_grid = make_grid(
+                            output_slices, nrow=num_examples_to_visualize, cmap="viridis"
+                        )
+
+                        # Add images to TensorBoard
+                        writer.add_image(
+                            "Validation/Input Image", image_grid, epoch * len(validation_loader) + batch_idx
+                        )
+                        writer.add_image(
+                            "Validation/Label", label_grid, epoch * len(validation_loader) + batch_idx
+                        )
+                        writer.add_image(
+                            "Validation/Predicted Output",
+                            output_grid,
+                            epoch * len(validation_loader) + batch_idx,
+                        )
+        # End of validation loop
+
+        validation_loss /= len(validation_loader)
+        validation_dice_avg = torch.mean(torch.tensor(np.concatenate(validation_hard_dices)))
+
+        logging.info(
+            f"Epoch [{epoch+1}/{num_epochs}], "
+            f"Train Loss: {train_loss:.4f}, "
+            f"Train Dice Avg: {train_dice_avg:.4f}, "
+            f"Val Loss: {validation_loss:.4f}, "
+            f"Val Dice Avg: {validation_dice_avg:.4f}"
+        )
+
+        # model dict
+        checkpoint_dict = {
+            "epoch": epoch,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "loss": validation_loss,
+            "dice": validation_dice_avg,
+        }
+
+        # Save the best model
+        if best_model_metric == "loss":
+            if validation_loss < best_validation_loss:
+                best_validation_loss = validation_loss
+                checkpoint_path = os.path.join(
+                    best_model_dir,
+                    f"best_model_epoch{epoch+1}_val_loss{validation_loss:.4f}_val_dice{validation_dice_avg:.4f}.pth",
+                )
+                torch.save(checkpoint_dict, checkpoint_path)
+        elif best_model_metric == "dice":
+            if validation_dice_avg > best_validation_dice:
+                best_validation_dice = validation_dice_avg
+                checkpoint_path = os.path.join(
+                    best_model_dir,
+                    f"best_model_epoch{epoch+1}_val_loss{validation_loss:.4f}_val_dice{validation_dice_avg:.4f}.pth",
+                )
+                torch.save(checkpoint_dict, checkpoint_path)
+                
+        # Save periodic checkpoints
+        if (epoch + 1) % 100 == 0:  # Save every 100 epochs
+            checkpoint_path = os.path.join(
+                checkpoint_dir,
+                f"checkpoint_epoch{epoch+1}_val_loss{validation_loss:.4f}_val_dice{validation_dice_avg:.4f}.pth",
+            )
+            torch.save(checkpoint_dict, checkpoint_path)
+    # End of perform evaluation
