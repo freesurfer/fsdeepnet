@@ -321,7 +321,7 @@ for epoch in range(start_epoch, num_epochs):
         if (epoch + 1) % 100 == 0:  # Save every 100 epochs
             checkpoint_path = os.path.join(
                 checkpoint_dir,
-                f"checkpoint_epoch{epoch+1}_val_loss{train_loss:.4f}_val_dice{train_dice_avg:.4f}.pth",
+                f"checkpoint_epoch{epoch+1}_train_loss{train_loss:.4f}_train_dice{train_dice_avg:.4f}.pth",
             )
             torch.save(checkpoint_dict, checkpoint_path)
     else:
