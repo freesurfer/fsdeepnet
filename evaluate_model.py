@@ -12,6 +12,19 @@ from models.model import UNet3D
 from utils.data_utils import load_config, load_volume, save_volume, remap_labels, onehot
 from utils.metrics import DiceScore
 
+"""
+Usage: evaluate_model.py 
+       --config <config.yaml>
+       --model_checkpoint <checkpoint>
+       --out_root_folder <out_root_folder>
+       [--label_mapping <label_mapping.json>]
+       [--write_posteriors]
+
+       * config.yaml need to have the same network parameters as training. 
+         "test_augmentations" needs to be defined in the config.yaml
+       * If <label_mapping.json> is not given, label_mapping.json in the training root directory is used
+"""
+
 # Configure logging settings
 logging.basicConfig(
     level=logging.DEBUG,
@@ -25,7 +38,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--config", type=str, default="configs/config.yaml", help="Path to the configuration file"
+    "--config", type=str, required=True, help="Path to the configuration file"
 )
 parser.add_argument("--batch_size", type=int, help="Batch size for evaluation")
 parser.add_argument(
@@ -38,29 +51,32 @@ parser.add_argument(
     help="Path to the label_mapping.json file. If not provided, the script will search for it in the model checkpoint directory.",
 )
 parser.add_argument(
-    "--output_folder",
+    "--out_root_folder",
     type=str,
     required=True,
-    help="Base folder for saving evaluation results",
+    help="Base folder for saving test results",
 )
+parser.add_argument(
+    "--write_posteriors",
+    action='store_true',
+    help="Save the label posteriors."
+)
+
 args = parser.parse_args()
+write_posteriors = args.write_posteriors
 
 config = load_config(args.config)
 
-test_augmentations = [
-    "cropping",
-]
+test_augmentations = config["evaluation"].get("test_augmentations")
+
 _, _, test_dataset = load_datasets(config, test_augmentations=test_augmentations)
 
 # Create unique subfolder for this run
 model_name = os.path.basename(args.model_checkpoint).replace(".pth", "")
-unique_output_folder = os.path.join(args.output_folder, model_name)
+unique_output_folder = os.path.join(args.out_root_folder, model_name)
 os.makedirs(unique_output_folder, exist_ok=True)
 
 batch_size = config["evaluation"]["batch_size"]
-num_classes = config["model"]["num_classes"]
-nb_features = config["model"]["nb_features"]
-nb_levels = config["model"]["nb_levels"]
 ignore_indexes = config["training"].get("ignore_indexes", [])
 expected_num_channels = config["dataset"]["expected_num_channels"]
 
@@ -114,6 +130,11 @@ total_dice_scores = torch.zeros(len(non_ignored_label_names), device=device)
 num_samples = 0
 start_time = time()
 
+# initialize dice_scores (n_labels x n_samples)
+n_labels  = len(non_ignored_label_names)
+n_samples = len(test_loader)
+dice_scores = np.zeros((n_labels, n_samples))
+
 with torch.no_grad():
     for idx, (images, labels) in enumerate(test_loader):
         images, labels = images.to(device).float(), labels.to(device)
@@ -127,6 +148,7 @@ with torch.no_grad():
 
         # Calculate metrics
         hard_dice_scores = dice_metric_hard(outputs, labels_onehot)
+        dice_scores[:, idx] = hard_dice_scores
 
         total_dice_scores += torch.mean(hard_dice_scores, dim=0)
         num_samples += 1
@@ -152,10 +174,23 @@ with torch.no_grad():
             os.path.join(unique_output_folder, f"{base_filename}_prediction.mgz"),
         )
 
+        if (write_posteriors):
+            print("write_posteriors")
+            posteriors = outputs.movedim(1, -1)
+            save_volume(
+                posteriors,
+                original_image,
+                os.path.join(unique_output_folder, f"{base_filename}_posteriors.mgz"),
+            )
+            
         logging.info(f"Sample {idx+1} (Hard Dice):")
         for label_idx, label_name in enumerate(non_ignored_label_names):
             dice_score = torch.mean(hard_dice_scores[:, label_idx]).item()
             logging.info(f" Class {label_name}: {dice_score:.4f}")
+
+# output dice_scores (n_labels x n_samples)
+f_dice_scores = os.path.join(unique_output_folder, "dice_scores.npy")
+np.save(f_dice_scores, dice_scores)
 
 # Calculate average Dice scores for non-ignored classes
 avg_dice_scores = total_dice_scores / num_samples
