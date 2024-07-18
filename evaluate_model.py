@@ -4,9 +4,11 @@ import torch
 import logging
 import argparse
 import numpy as np
+import shutil
 from pathlib import Path
 from torch.utils.data import DataLoader
 from time import time
+import datetime
 from utils.dataset import load_datasets
 from models.model import UNet3D
 from utils.data_utils import load_config, load_volume, save_volume, remap_labels, onehot
@@ -57,6 +59,12 @@ parser.add_argument(
     help="Base folder for saving test results",
 )
 parser.add_argument(
+    "--run_name",
+    type=str,
+    default=None,
+    help="Descriptive name for the run (used for naming TensorBoard log directories)",
+)
+parser.add_argument(
     "--write_posteriors",
     action='store_true',
     help="Save the label posteriors."
@@ -64,6 +72,11 @@ parser.add_argument(
 
 args = parser.parse_args()
 write_posteriors = args.write_posteriors
+if (args.run_name is not None):
+    run_name = args.run_name
+else:
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_name = f"{timestamp}"
 
 config = load_config(args.config)
 
@@ -73,7 +86,7 @@ _, _, test_dataset = load_datasets(config, test_augmentations=test_augmentations
 
 # Create unique subfolder for this run
 model_name = os.path.basename(args.model_checkpoint).replace(".pth", "")
-unique_output_folder = os.path.join(args.out_root_folder, model_name)
+unique_output_folder = os.path.join(args.out_root_folder, f"{model_name}", run_name)
 os.makedirs(unique_output_folder, exist_ok=True)
 
 batch_size = config["evaluation"]["batch_size"]
@@ -116,6 +129,13 @@ model = UNet3D(
 
 model.load_state_dict(torch.load(args.model_checkpoint, map_location=device)["model_state_dict"])
 model.eval()
+
+logging.info(f"model_checkpoint: {args.model_checkpoint}")
+logging.info(f"unique_output_folder: {unique_output_folder}")
+# save the config file and label_mapping.json
+shutil.copyfile(args.config, os.path.join(unique_output_folder, "config.yaml"))
+shutil.copyfile(config["dataset"]["dataset_list_file"], os.path.join(unique_output_folder, "dataset_list.yaml"))
+shutil.copyfile(label_mapping_path, os.path.join(unique_output_folder, "label_mapping.json"))
 
 dice_metric_hard = DiceScore(
     num_classes=len(label_mapping),
