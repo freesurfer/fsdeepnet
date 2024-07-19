@@ -164,7 +164,7 @@ with torch.no_grad():
 
         labels_onehot = onehot(remapped_labels, num_classes=len(label_mapping), device=device)
 
-        outputs = model(images)
+        (outputs, _) = model(images)
 
         # Calculate metrics
         hard_dice_scores = dice_metric_hard(outputs, labels_onehot)

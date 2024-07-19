@@ -169,7 +169,8 @@ assert (
 logging.info("Device: {}".format(device))
 logging.info(f"train_root_folder: {train_root_folder}")
 logging.info(f"run_name: {run_name}")
-logging.info(f"best_model_metric: {best_model_metric}")
+if (perform_evaluation):
+    logging.info(f"best_model_metric: {best_model_metric}")
 logging.info(f"training config: saved as {output_folder}/config.yaml")
 logging.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
 logging.info("Dataset information:")
@@ -254,11 +255,11 @@ for epoch in range(start_epoch, num_epochs):
 
         if epoch < pre_train_epochs:
             pre_train_optimizer.zero_grad()
-            outputs = model(images)
+            (outputs, penultimate) = model(images)
             loss = pre_train_loss_fn(outputs, labels)
         else:
             optimizer.zero_grad()
-            outputs = model(images)
+            (outputs, _) = model(images)
             loss = main_loss_fn(outputs, labels)
 
         loss.backward()
@@ -279,11 +280,11 @@ for epoch in range(start_epoch, num_epochs):
 
         if (writer is not None):
             # Write to TensorBoard every batch
-            writer.add_scalar("Train/Loss", loss.item(), epoch * len(train_loader) + batch_idx)
+            writer.add_scalar("Train/Loss", loss.item(), epoch * steps_per_epoch + batch_idx)
             writer.add_scalar(
                 "Train/Dice",
                 torch.mean(torch.tensor(batch_hard_dice)),
-                epoch * len(train_loader) + batch_idx,
+                epoch * steps_per_epoch + batch_idx,
             )
 
             # --- TensorBoard Visualization (Inside Training Loop) ---
@@ -302,14 +303,14 @@ for epoch in range(start_epoch, num_epochs):
                 output_grid = make_grid(output_slices, nrow=num_examples_to_visualize, cmap="viridis")
 
                 # Add images to TensorBoard
-                writer.add_image("Train/Input Image", image_grid, epoch * len(train_loader) + batch_idx)
-                writer.add_image("Train/Label", label_grid, epoch * len(train_loader) + batch_idx)
+                writer.add_image("Train/Input Image", image_grid, epoch * steps_per_epoch + batch_idx)
+                writer.add_image("Train/Label", label_grid, epoch * steps_per_epoch + batch_idx)
                 writer.add_image(
-                    "Train/Predicted Output", output_grid, epoch * len(train_loader) + batch_idx
+                    "Train/Predicted Output", output_grid, epoch * steps_per_epoch + batch_idx
                 )
     # end of training steps_per_epoch steps
 
-    train_loss /= len(train_loader)
+    train_loss /= steps_per_epoch
     #train_dice_avg = torch.mean(torch.tensor(np.concatenate(train_hard_dices)))
     train_dice_avg = np.mean(train_dices)
 
@@ -318,13 +319,11 @@ for epoch in range(start_epoch, num_epochs):
     np.save(f_dice_scores, train_dices)
 
     if (not perform_evaluation):
-        """
         logging.info(
             f"Epoch [{epoch+1}/{num_epochs}], "
             f"Train Loss: {train_loss:.4f}, "
             f"Train Dice Avg: {train_dice_avg:.4f}"
         )
-        """
         
         # model dict
         checkpoint_dict = {
@@ -354,7 +353,7 @@ for epoch in range(start_epoch, num_epochs):
                 labels = remap_labels(labels, label_mapping)
                 labels = onehot(labels, num_classes=len(label_mapping), device=device)
 
-                outputs = model(images)
+                (outputs, _) = model(images)
 
                 if epoch < pre_train_epochs:
                     loss = pre_train_loss_fn(outputs, labels)
@@ -419,7 +418,6 @@ for epoch in range(start_epoch, num_epochs):
         f_dice_scores = os.path.join(checkpoint_dir, f"validation_dices_{epoch+1}.npy")
         np.save(f_dice_scores, validation_dices)
 
-        """
         logging.info(
             f"Epoch [{epoch+1}/{num_epochs}], "
             f"Train Loss: {train_loss:.4f}, "
@@ -427,7 +425,6 @@ for epoch in range(start_epoch, num_epochs):
             f"Val Loss: {validation_loss:.4f}, "
             f"Val Dice Avg: {validation_dice_avg:.4f}"
         )
-        """
 
         # model dict
         checkpoint_dict = {

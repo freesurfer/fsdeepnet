@@ -197,7 +197,8 @@ class UNet3D(nn.Module):
             x = self.decoder[level][n](x) # ConvBlock
         
         # Classification layer
-        x = self.classifier(x)
+        x1 = x = self.classifier(x)
+        
 
         if self.final_pred_activation == 'softmax':
             x = nn.functional.softmax(x, dim=1)
@@ -209,4 +210,5 @@ class UNet3D(nn.Module):
             raise ValueError(f"Unknown final_pred_activation: {self.final_pred_activation}")
 
 
-        return x
+        # also return penultimate layer output for WeightedL2Loss
+        return [x, x1]
