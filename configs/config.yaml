@@ -74,13 +74,14 @@ preprocessing:
   bias_field_smoothing_range: [16.97, 16.99]
   
 training:
-  num_epochs: 300
-  pre_train_epochs: 20
+  num_epochs: 100
+  pre_train_epochs: 5
+  steps_per_epoch: 1000
   train_root_folder: new_runs/tensorboard_logs   # Common parent directory for all TensorBoard logs
   #run_name: Descriptive name for the run (used for naming TensorBoard log directories), default is run_YYYYMMDD_HHMMSS
   batch_size: 1
   learning_rate: 0.0001
-  pre_train_learning_rate: 0.001
+  pre_train_learning_rate: 0.0001
   ignore_indexes: [0] # 0==background
   best_model_metric: dice
   write_tensorboard_summary: False

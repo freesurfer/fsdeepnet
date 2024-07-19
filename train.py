@@ -14,7 +14,7 @@ from models.model import UNet3D
 from utils.train_utils import load_checkpoint
 from utils.data_utils import onehot
 from utils.data_utils import load_config, save_label_mapping, remap_labels
-from utils.dataset import load_datasets
+from utils.dataset import load_datasets, dataGenerator
 from utils.metrics import WeightedL2Loss, DiceLoss, DiceScore
 
 # Configure logging settings
@@ -103,6 +103,7 @@ learning_rate = config["training"]["learning_rate"]
 pre_train_learning_rate = config["training"]["pre_train_learning_rate"]
 num_epochs = config["training"]["num_epochs"]
 pre_train_epochs = config["training"]["pre_train_epochs"]
+steps_per_epoch = config["training"]["steps_per_epoch"]
 ignore_indexes = config["training"].get("ignore_indexes", [])
 train_root_folder = (
     args.train_root_folder
@@ -233,17 +234,24 @@ if args.checkpoint:
         args.checkpoint, model, optimizer
     )
 
+# initialize dice_scores (n_labels x n_samples)
+n_labels  = len(label_mapping) - len(ignore_indexes)
+train_dices = np.zeros((n_labels, steps_per_epoch))
+if (perform_evaluation):
+    validation_dices = np.zeros((n_labels, len(validation_loader)))
+
+train_data_gen = dataGenerator(train_loader, device, label_mapping)
+
 # Training loop
 for epoch in range(start_epoch, num_epochs):
     model.train()
     train_loss = 0.0
-    train_hard_dices = []
-    num_train_batches = 0
+    #train_hard_dices = []
 
-    for batch_idx, (images, labels) in enumerate(train_loader):
-        images, labels = images.to(device).float(), labels.to(device)
-        labels = remap_labels(labels, label_mapping)  # Remap labels
-        labels = onehot(labels, num_classes=len(label_mapping), device=device)
+    logging.info(f"Epoch {epoch+1}/{num_epochs}") 
+    for step in range(steps_per_epoch):
+        (batch_idx, images, labels) = next(train_data_gen)
+
         if epoch < pre_train_epochs:
             pre_train_optimizer.zero_grad()
             outputs = model(images)
@@ -265,9 +273,9 @@ for epoch in range(start_epoch, num_epochs):
         # --- Metrics Calculation ---
         # Calculate hard Dice
         batch_hard_dice = dice_metric_hard(outputs, labels)
-        train_hard_dices.append(batch_hard_dice.detach().cpu().numpy())
-
-        num_train_batches += 1
+        #train_hard_dices.append(batch_hard_dice.detach().cpu().numpy())
+        train_dices[:, step] = batch_hard_dice.detach().cpu().numpy()
+        logging.info(f"  {step}/{steps_per_epoch} loss: {loss.item():.4f}, dice avg: {np.mean(train_dices[:, step]):.4f}")
 
         if (writer is not None):
             # Write to TensorBoard every batch
@@ -299,16 +307,25 @@ for epoch in range(start_epoch, num_epochs):
                 writer.add_image(
                     "Train/Predicted Output", output_grid, epoch * len(train_loader) + batch_idx
                 )
+    # end of training steps_per_epoch steps
 
     train_loss /= len(train_loader)
-    train_dice_avg = torch.mean(torch.tensor(np.concatenate(train_hard_dices)))
-    
+    #train_dice_avg = torch.mean(torch.tensor(np.concatenate(train_hard_dices)))
+    train_dice_avg = np.mean(train_dices)
+
+    # output training dices (n_labels x steps_per_epoch)
+    f_dice_scores = os.path.join(checkpoint_dir, f"train_dices_{epoch+1}.npy")
+    np.save(f_dice_scores, train_dices)
+
     if (not perform_evaluation):
+        """
         logging.info(
             f"Epoch [{epoch+1}/{num_epochs}], "
             f"Train Loss: {train_loss:.4f}, "
             f"Train Dice Avg: {train_dice_avg:.4f}"
         )
+        """
+        
         # model dict
         checkpoint_dict = {
             "epoch": epoch,
@@ -317,19 +334,18 @@ for epoch in range(start_epoch, num_epochs):
             "loss": train_loss,
             "dice": train_dice_avg,
         }
-        # Save periodic checkpoints
-        if (epoch + 1) % 100 == 0:  # Save every 100 epochs
-            checkpoint_path = os.path.join(
-                checkpoint_dir,
-                f"checkpoint_epoch{epoch+1}_train_loss{train_loss:.4f}_train_dice{train_dice_avg:.4f}.pth",
-            )
-            torch.save(checkpoint_dict, checkpoint_path)
+        # Save checkpoints every steps_per_epoch steps
+        checkpoint_path = os.path.join(
+            checkpoint_dir,
+            f"checkpoint_epoch{epoch+1}_train_loss{train_loss:.4f}_train_dice{train_dice_avg:.4f}.pth",
+        )
+        logging.info(f"Epoch {epoch+1}: saving model to {checkpoint_path}")
+        torch.save(checkpoint_dict, checkpoint_path)
     else:
         # perform evaluation
         model.eval()
         validation_loss = 0.0
-        validation_hard_dices = []
-        num_val_batches = 0
+        #validation_hard_dices = []
 
         # Validation loop
         with torch.no_grad():
@@ -350,9 +366,9 @@ for epoch in range(start_epoch, num_epochs):
                 # --- Metrics Calculation ---
                 # Calculate hard Dice
                 batch_hard_dice = dice_metric_hard(outputs, labels)
-                validation_hard_dices.append(batch_hard_dice.detach().cpu().numpy())
-
-                num_val_batches += 1
+                #validation_hard_dices.append(batch_hard_dice.detach().cpu().numpy())
+                validation_dices[:, batch_idx] = batch_hard_dice.detach().cpu().numpy()
+                logging.info(f"  validation {batch_idx}/{len(validation_loader)} val loss: {loss.item():.4f}, val dice avg: {np.mean(validation_dices[:, batch_idx]):.4f}")
 
                 if (writer is not None):
                     # Write validation loss and Dice to TensorBoard (once per epoch)
@@ -396,8 +412,14 @@ for epoch in range(start_epoch, num_epochs):
         # End of validation loop
 
         validation_loss /= len(validation_loader)
-        validation_dice_avg = torch.mean(torch.tensor(np.concatenate(validation_hard_dices)))
+        #validation_dice_avg = torch.mean(torch.tensor(np.concatenate(validation_hard_dices)))
+        validation_dice_avg = np.mean(validation_dices)
+        
+        # output validation dices (n_labels x len(validation_loader))
+        f_dice_scores = os.path.join(checkpoint_dir, f"validation_dices_{epoch+1}.npy")
+        np.save(f_dice_scores, validation_dices)
 
+        """
         logging.info(
             f"Epoch [{epoch+1}/{num_epochs}], "
             f"Train Loss: {train_loss:.4f}, "
@@ -405,6 +427,7 @@ for epoch in range(start_epoch, num_epochs):
             f"Val Loss: {validation_loss:.4f}, "
             f"Val Dice Avg: {validation_dice_avg:.4f}"
         )
+        """
 
         # model dict
         checkpoint_dict = {
@@ -433,11 +456,11 @@ for epoch in range(start_epoch, num_epochs):
                 )
                 torch.save(checkpoint_dict, checkpoint_path)
                 
-        # Save periodic checkpoints
-        if (epoch + 1) % 100 == 0:  # Save every 100 epochs
-            checkpoint_path = os.path.join(
-                checkpoint_dir,
-                f"checkpoint_epoch{epoch+1}_val_loss{validation_loss:.4f}_val_dice{validation_dice_avg:.4f}.pth",
-            )
-            torch.save(checkpoint_dict, checkpoint_path)
+        # Save checkpoints every steps_per_epoch steps
+        checkpoint_path = os.path.join(
+            checkpoint_dir,
+            f"checkpoint_epoch{epoch+1}_val_loss{validation_loss:.4f}_val_dice{validation_dice_avg:.4f}.pth",
+        )
+        logging.info(f"Epoch {epoch+1}: saving model to {checkpoint_path}")
+        torch.save(checkpoint_dict, checkpoint_path)
     # End of perform evaluation

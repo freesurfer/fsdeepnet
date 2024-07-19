@@ -11,7 +11,7 @@ from utils.preprocessing import (
     apply_blur_resample,
     apply_bias_field,
 )
-from utils.data_utils import load_volume, save_volume
+from utils.data_utils import load_volume, save_volume, remap_labels, onehot
 import logging
 
 logging.basicConfig(
@@ -278,3 +278,13 @@ def load_datasets(
     )
 
     return train_dataset, validation_dataset, test_dataset
+
+
+def dataGenerator(dataloader, device, label_mapping):
+    while (True):
+        for idx, (images, labels) in enumerate(dataloader):
+            images, labels = images.to(device).float(), labels.to(device)
+            labels = remap_labels(labels, label_mapping)
+            labels = onehot(labels, num_classes=len(label_mapping), device=device)
+
+            yield idx, images, labels
