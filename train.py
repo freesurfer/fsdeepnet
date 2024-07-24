@@ -120,11 +120,13 @@ best_model_metric = config["training"]["best_model_metric"]
 write_tensorboard_summary = config["training"].get("write_tensorboard_summary", False)
 perform_evaluation = config["training"].get("perform_evaluation", False)
 
-output_folder = os.path.join(train_root_folder, run_name)  # Output folder for current run
+output_folder = os.path.join(train_root_folder, run_name)    # Output folder for current run
 best_model_dir = os.path.join(output_folder, "best_models")  # Folder for best models
 checkpoint_dir = os.path.join(output_folder, "checkpoints")  # Folder for checkpoints
+dice_dir = os.path.join(checkpoint_dir, "dices")             # Floder for training/validation dices
 os.makedirs(best_model_dir, exist_ok=True)
 os.makedirs(checkpoint_dir, exist_ok=True)
+os.makedirs(dice_dir, exist_ok=True)
 
 # save the config files
 shutil.copyfile(args.config, os.path.join(output_folder, "config.yaml"))
@@ -256,7 +258,8 @@ for epoch in range(start_epoch, num_epochs):
         if epoch < pre_train_epochs:
             pre_train_optimizer.zero_grad()
             (outputs, penultimate) = model(images)
-            loss = pre_train_loss_fn(outputs, labels)
+            #loss = pre_train_loss_fn(outputs, labels)
+            loss = pre_train_loss_fn(penultimate, labels)
         else:
             optimizer.zero_grad()
             (outputs, _) = model(images)
@@ -276,7 +279,7 @@ for epoch in range(start_epoch, num_epochs):
         batch_hard_dice = dice_metric_hard(outputs, labels)
         #train_hard_dices.append(batch_hard_dice.detach().cpu().numpy())
         train_dices[:, step] = batch_hard_dice.detach().cpu().numpy()
-        logging.info(f"  {step}/{steps_per_epoch} loss: {loss.item():.4f}, dice avg: {np.mean(train_dices[:, step]):.4f}")
+        logging.info(f"  {step+1}/{steps_per_epoch} loss: {loss.item():.4f}, dice avg: {np.mean(train_dices[:, step]):.4f}")
 
         if (writer is not None):
             # Write to TensorBoard every batch
@@ -315,7 +318,7 @@ for epoch in range(start_epoch, num_epochs):
     train_dice_avg = np.mean(train_dices)
 
     # output training dices (n_labels x steps_per_epoch)
-    f_dice_scores = os.path.join(checkpoint_dir, f"train_dices_{epoch+1}.npy")
+    f_dice_scores = os.path.join(dice_dir, f"train_dices_epoch{epoch+1}.npy")
     np.save(f_dice_scores, train_dices)
 
     if (not perform_evaluation):
@@ -415,7 +418,7 @@ for epoch in range(start_epoch, num_epochs):
         validation_dice_avg = np.mean(validation_dices)
         
         # output validation dices (n_labels x len(validation_loader))
-        f_dice_scores = os.path.join(checkpoint_dir, f"validation_dices_{epoch+1}.npy")
+        f_dice_scores = os.path.join(dice_dir, f"validation_dices_epoch{epoch+1}.npy")
         np.save(f_dice_scores, validation_dices)
 
         logging.info(

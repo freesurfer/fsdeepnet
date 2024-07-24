@@ -33,6 +33,8 @@ class ConvBlock(nn.Module):
                 convL(in_channels_conv, out_channels, kernel_size=conv_size, padding=1)
             )
 
+        self.weight_init(self.convs)
+
         """
         The default BatchNorm3d layer behavior is different between .train() and .eval().
         By default, during training this layer keeps running estimates of its computed mean and variance, which are then used for normalization during evaluation.
@@ -58,9 +60,18 @@ class ConvBlock(nn.Module):
             self.residual_conv = convL(
                 in_channels, out_channels, kernel_size=conv_size, padding=1
             )
+            weight_init(self.residual_conv)
         else:
             self.residual_conv = None
 
+
+    # initialize weights/bias
+    def weight_init(self, modulelist):
+        for m in modulelist:
+            nn.init.xavier_uniform_(m.weight)
+            nn.init.zeros_(m.bias)
+
+                
     def forward(self, x):
         residual = x
 
@@ -173,6 +184,9 @@ class UNet3D(nn.Module):
 
         # Classification layer
         self.classifier = convL(self.nb_features, nb_labels, kernel_size=1)
+        nn.init.xavier_uniform_(self.classifier.weight)
+        nn.init.zeros_(self.classifier.bias)
+        
 
     def forward(self, x):
         skip_connections = []

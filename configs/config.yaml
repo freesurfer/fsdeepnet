@@ -82,7 +82,7 @@ training:
   batch_size: 1
   learning_rate: 0.0001
   pre_train_learning_rate: 0.0001
-  ignore_indexes: [0] # 0==background
+  ignore_indexes: [] # define the label index to be excluded in dice computation, 0=background
   best_model_metric: dice
   write_tensorboard_summary: False
   perform_evaluation: False  

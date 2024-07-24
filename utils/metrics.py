@@ -77,7 +77,11 @@ class Dice(nn.Module):
 
         intersection = torch.sum(outputs * targets, dim=(2, 3, 4))  # Sum across spatial dimensions
         # print(f"[debug-metrics] intersection shape: {intersection.shape}")
-        union = torch.sum(outputs, dim=(2, 3, 4)) + torch.sum(targets, dim=(2, 3, 4))
+        if (True):
+            union = torch.sum(outputs, dim=(2, 3, 4)) + torch.sum(targets, dim=(2, 3, 4))
+        else:
+            union = torch.square(outputs) + torch.square(targets)
+            union = torch.sum(union, dim=(2, 3, 4))
         # print(f"[debug-metrics] union shape: {union.shape}")
         dice_scores = (2.0 * intersection + self.smooth) / (union + self.smooth)  # Calculate Dice for each class
         # print(f"[debug-metrics] dice_scores shape: {dice_scores.shape}")
@@ -145,12 +149,21 @@ class DiceScore(Dice):
 
 
 class WeightedL2Loss(nn.Module):
-    def __init__(self, epsilon=1e-4, ignore_indexes=None):
+    def __init__(self, target_value=15, epsilon=1e-4, ignore_indexes=None):
         super(WeightedL2Loss, self).__init__()
+        self.target_value = target_value
         self.epsilon = epsilon
         self.ignore_indexes = ignore_indexes if ignore_indexes is not None else []
 
     def forward(self, y_pred, y_true):
+        """
+        # this is original implementation.
+        # y_pred is the posterior, y_true is one hot encoded ground truth. 
+        # if ignore_indexes=[0], y_pred * mask.float() will leave only 
+        #   the correspoding label probabilities, the rest are zeroed out
+        # normalizer = torch.sum(weights) * y_pred.size(-1) makes loss very small
+        #
+
         # Create a mask that sets all ignore_indexes to False, others to True
         mask = torch.ones_like(y_true, dtype=torch.bool)
         for index in self.ignore_indexes:
@@ -166,6 +179,32 @@ class WeightedL2Loss(nn.Module):
 
         loss = torch.sum(weights * torch.square(y_pred - y_true)) / normalizer
         return loss
+        """
+
+        # compute weighted l2 loss
+        num_classes = y_true.size(1)
+        weights = torch.unsqueeze(1 - y_true[:, 0] + self.epsilon, dim=1)
+        normaliser = (torch.sum(weights) * num_classes)  
+        w2l = torch.sum(weights * torch.square(y_pred - self.target_value * (y_true * 2 - 1))) / normaliser
+
+        # implemented in /space/metropolis/1/users/yh887/hthsuseg-billot/metrics_model.metrics_model()
+        # weights = KL.Lambda(lambda x: K.expand_dims(1 - x[..., 0] + 1e-4))(labels_gt)
+        # normaliser = KL.Lambda(lambda x: K.sum(x[0]) * K.int_shape(x[1])[-1])([weights, last_tensor])
+        # last_tensor = KL.Lambda(
+        #     lambda x: K.sum(x[2] * K.square(x[1] - (x[0] * 30 - 15))) / x[3],
+        #     # lambda x: K.sum(x[2] * K.square(x[1] - (x[0] * 6 - 3))) / x[3],
+        #     name='wl2')([labels_gt, last_tensor, weights, normaliser])
+
+        """
+        # in current SynthSeg/Hypothalamus ext/lab2im/layers.WeightedL2Loss()
+        # target_value = 5
+        # epsilon = 1e-8
+        num_classes = y_true.size(1)        
+        weights = torch.unsqueeze(1 - y_true[:, 0] + elf.epsilon, dim=1)
+        w2l = torch.sum(weights * torch.square(y_pred - self.target_value * (2 * y_true - 1))) / (torch.sum(weights) * num_classes)
+        """
+        
+        return w2l
 
 
 class WeightedCrossEntropyLoss(nn.Module):
