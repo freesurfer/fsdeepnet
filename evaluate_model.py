@@ -36,12 +36,11 @@ logging.basicConfig(
     ],
 )
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--config", type=str, required=True, help="Path to the configuration file"
 )
+parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
 parser.add_argument("--batch_size", type=int, help="Batch size for evaluation")
 parser.add_argument(
     "--model_checkpoint", type=str, required=True, help="Path to the model checkpoint"
@@ -69,8 +68,17 @@ parser.add_argument(
     action='store_true',
     help="Save the label posteriors."
 )
+parser.add_argument(
+    "--cpu",
+    action='store_true',
+    help="Run on CPU."
+)
 
 args = parser.parse_args()
+if (args.cpu):
+    os.environ["CUDA_VISIBLE_DEVICES"]=""
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 write_posteriors = args.write_posteriors
 if (args.run_name is not None):
     run_name = args.run_name
@@ -81,6 +89,11 @@ else:
 config = load_config(args.config)
 
 test_augmentations = config["evaluation"].get("test_augmentations")
+dataset_list_file = args.dataset_list_file
+if (dataset_list_file is None):
+    dataset_list_file = config["dataset"]["dataset_list_file"]
+else:
+    config["dataset"]["dataset_list_file"] = dataset_list_file
 
 _, _, test_dataset = load_datasets(config, test_augmentations=test_augmentations)
 
@@ -134,7 +147,7 @@ logging.info(f"model_checkpoint: {args.model_checkpoint}")
 logging.info(f"unique_output_folder: {unique_output_folder}")
 # save the config file and label_mapping.json
 shutil.copyfile(args.config, os.path.join(unique_output_folder, "config.yaml"))
-shutil.copyfile(config["dataset"]["dataset_list_file"], os.path.join(unique_output_folder, "dataset_list.yaml"))
+shutil.copyfile(dataset_list_file, os.path.join(unique_output_folder, "dataset_list.yaml"))
 shutil.copyfile(label_mapping_path, os.path.join(unique_output_folder, "label_mapping.json"))
 
 dice_metric_hard = DiceScore(
@@ -168,7 +181,7 @@ with torch.no_grad():
 
         # Calculate metrics
         hard_dice_scores = dice_metric_hard(outputs, labels_onehot)
-        dice_scores[:, idx] = hard_dice_scores
+        dice_scores[:, idx] = hard_dice_scores.detach().cpu().numpy()
 
         total_dice_scores += torch.mean(hard_dice_scores, dim=0)
         num_samples += 1
@@ -195,7 +208,6 @@ with torch.no_grad():
         )
 
         if (write_posteriors):
-            print("write_posteriors")
             posteriors = outputs.movedim(1, -1)
             save_volume(
                 posteriors,

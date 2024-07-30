@@ -9,7 +9,6 @@ import numpy as np
 import shutil
 
 from torch.utils.data import DataLoader
-from torchinfo import summary
 from models.model import UNet3D
 from utils.train_utils import load_checkpoint
 from utils.data_utils import onehot
@@ -25,9 +24,6 @@ logging.basicConfig(
         logging.StreamHandler(),  # Print to terminal
     ],
 )
-
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser()
@@ -73,8 +69,16 @@ parser.add_argument(
     choices=["loss", "dice"],
     help="Metric for saving the best model (loss or dice)",
 )
+parser.add_argument(
+    "--cpu",
+    action='store_true',
+    help="Run on CPU."
+)
 args = parser.parse_args()
-
+if (args.cpu):
+    os.environ["CUDA_VISIBLE_DEVICES"]=""
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")    
+    
 # Load config file
 config = load_config(args.config)
 
@@ -128,9 +132,19 @@ os.makedirs(best_model_dir, exist_ok=True)
 os.makedirs(checkpoint_dir, exist_ok=True)
 os.makedirs(dice_dir, exist_ok=True)
 
-# save the config files
+# save the config file
 shutil.copyfile(args.config, os.path.join(output_folder, "config.yaml"))
-shutil.copyfile(config["dataset"]["dataset_list_file"], os.path.join(output_folder, "dataset_list.yaml"))
+
+# save dataset_list_file
+dataset_list_file = args.dataset_list_file
+if (dataset_list_file is None):
+    dataset_list_file = config["dataset"]["dataset_list_file"]
+else:
+    config["dataset"]["dataset_list_file"] = dataset_list_file
+dataset_list_file_copy = os.path.join(output_folder, "dataset_list.yaml")
+shutil.copyfile(dataset_list_file, dataset_list_file_copy)
+dataset_list_file = dataset_list_file_copy
+
 
 writer = None
 if (write_tensorboard_summary):
@@ -176,7 +190,7 @@ if (perform_evaluation):
 logging.info(f"training config: saved as {output_folder}/config.yaml")
 logging.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
 logging.info("Dataset information:")
-logging.info(f"Dataset list: {config['dataset']['dataset_list_file']}")
+logging.info(f"Dataset list: {dataset_list_file}")
 logging.info(f"Number of samples in training dataset: {len(train_dataset)}")
 logging.info(f"Number of unique classes: {num_classes}")
 logging.info(f"Unique class values: {sorted(unique_classes)}")
@@ -202,6 +216,7 @@ model = UNet3D(
 ).to(device)
 
 # print Model Architecture
+# from torchinfo import summary
 # summary(model, input_size=(1, 1, 160, 160, 160))
 
 # Define loss functions
