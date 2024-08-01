@@ -206,6 +206,11 @@ with torch.no_grad():
             original_image,
             os.path.join(unique_output_folder, f"{base_filename}_prediction.mgz"),
         )
+        save_volume(
+            torch.squeeze(labels),
+            original_image,
+            os.path.join(unique_output_folder, f"{base_filename}_gt.mgz"),
+        )
 
         if (write_posteriors):
             posteriors = outputs.movedim(1, -1)
