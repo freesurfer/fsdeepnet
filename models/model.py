@@ -92,7 +92,7 @@ class ConvBlock(nn.Module):
         return x
 
 
-class UNet3D(nn.Module):
+class UNet(nn.Module):
     def __init__(
         self,
         # in_channels,

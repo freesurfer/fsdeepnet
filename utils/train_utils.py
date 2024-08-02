@@ -8,7 +8,8 @@ def load_checkpoint(filepath, model, optimizer):
     model.load_state_dict(checkpoint['model_state_dict'])  # Load model weights
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])  # Load optimizer state
     start_epoch = checkpoint['epoch'] + 1  # Resume from the next epoch
+    metric_type = checkpoint['metric_type']
     best_validation_loss = checkpoint['loss']  # Load the best validation loss
     best_validation_dice = checkpoint['dice']  # Load the best validation dice
 
-    return start_epoch, best_validation_loss, best_validation_dice 
+    return start_epoch, metric_type, best_validation_loss, best_validation_dice 

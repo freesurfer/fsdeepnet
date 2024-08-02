@@ -1,13 +1,13 @@
 dataset:
   dataset_list_file: configs/pgland_dataset_list.yaml
-  expected_classes: [0, 883, 900, 903, 904] #[0, 3, 5, 8]
+  expected_classes: [0, 883, 900, 903, 904]
   #left_right_corresponding: define-left-right-label-correspondings #ex. this is for SynthSeg training [2, 41, 3, 42, 4, 43, 5, 44, 7, 46, 8, 47, 10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54, 25, 57, 26, 58, 28, 60, 30, 62, 136, 163, 137, 164]
   expected_num_channels: 1
 
 model:
   name: UNet3D
   num_classes: 4
-  nb_levels: 3 #5?
+  nb_levels: 3
   nb_features: 24 
   feat_mult: 2
   nb_conv_per_level: 2
@@ -22,16 +22,14 @@ model:
 preprocessing:
   debug: False
   train_augmentations: [
-    # "flipping",    # need to define left_right_corresponding
+    # "flipping",          # need to define left_right_corresponding
     "spatial_transform",
-    "cropping",
-    #"randomcrop",
-    #"randomcrop_center",
+    # only one type of cropping should be listed
+    "cropping",            # crop around the image cener
+    #"randomcrop",         # crop from a randomly selected point
+    #"randomcrop_center",  # crop around a randomly selected point
     "blur_resample",
     "bias_field",
-    #"biasFieldCorruption",
-    # "intensityAugmentation",
-    #"sampleConditionalGMM",  # this doesn't apply to trainings using image/label pairs
     ]
   #augmentation_dir: /path/to-save-augmented-data
   #bbox_labels: list of labels to make the bounding box
@@ -39,11 +37,11 @@ preprocessing:
   crop_size: [160, 160, 160]
   
   # spatial deformation parameters
-  affine_probability: 1.0          # new
-  max_translation: 30 #0.5
-  max_rotation: 20 #5.0
-  max_scaling: 1.2 #1.1
-  warp_probability: 1 #0.25
+  affine_probability: 1.0
+  max_translation: 30  #0.5
+  max_rotation: 20     #5.0
+  max_scaling: 1.2     #1.1
+  warp_probability: 1  #0.25
   warp_integrations: 7 #1
   # Ben: voxel size of the vector field - ben_voxelsize=1/nonlin_scale=25 (nonlin_scale=.04)
   # set fwhm=ben_voxelsize
@@ -61,42 +59,39 @@ preprocessing:
   # uniform distribution between +-gamma_scaling_max (Ben: zero-mean gaussian distribution with fixed std)
   # Set max to half ben’s FWHM=gstd*sqrt(log(256.0)) ???
   gamma_scaling_max: 0.59
-  resized_probability: 0           # new
-  resized_one_axis_probability: 0  # new
-  resized_max_voxsize: 2           # new
+  resized_probability: 0
+  resized_one_axis_probability: 0
+  resized_max_voxsize: 2
   
   # bias field parameters
   bias_field_probability: 1 # Ben: turned on if bias_field_std > 0
-  bias_field_max_magnitude: 0.5 # [0, 0.5]
+  bias_field_max_magnitude: 0.5
   # Ben: voxel size of the bias field - ben_voxelsize=1/bias_scale=40 (bias_scale=.025)
   # set fwhm=ben_voxelsize
   # gstd=fwhm/sqrt(log(256))=40/sqrt(log(256))=16.98
   bias_field_smoothing_range: [16.97, 16.99]
   
 training:
-  num_epochs: 100
-  pre_train_epochs: 5
+  dice_epochs: 100
+  wl2_epochs: 5
   steps_per_epoch: 1000
-  train_root_folder: new_runs/tensorboard_logs   # Common parent directory for all TensorBoard logs
-  #run_name: Descriptive name for the run (used for naming TensorBoard log directories), default is run_YYYYMMDD_HHMMSS
+  train_root_folder: new_runs/tensorboard_logs   # Common parent directory for training output
+  #run_name: Descriptive name for the run, default is run_YYYYMMDD_HHMMSS
   batch_size: 1
   learning_rate: 0.0001
   pre_train_learning_rate: 0.0001
-  ignore_indexes: [] # define the label index to be excluded in dice computation, 0=background
-  best_model_metric: dice
-  write_tensorboard_summary: False
-  perform_evaluation: False  
+  # define label index to be excluded from dice computation, 0=background
+  # we compute background dice so it is set to empty []
+  ignore_indexes: []                
+  write_tensorboard_summary: False  # whether to output tensorboard logs
+  perform_evaluation: False         # whether to perform evaluation after each epoch
+  best_model_metric: dice           # metric to pick best model when perform_evaluation=True  
 
 evaluation:
   evaluation_augmentations: [
     "cropping",
-    #"randomcrop",
-    #"randomcrop_center",
     ]
   test_augmentations: [
     "cropping",
-    #"randomcrop",
-    #"randomcrop_center",
   ]
-  output_folder: output/evaluation
   batch_size: 1
