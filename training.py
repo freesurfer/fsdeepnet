@@ -29,6 +29,10 @@ class Training:
                  train_output_folder,
                  labels_segmentation,
                  label_mapping,
+                 input_generator,                 
+                 model,
+                 model_arch_dict=[],
+                 ctab=None,
                  validation_loader=None,
                  checkpoint=None,
                  best_model_metric="dice",                 
@@ -44,6 +48,8 @@ class Training:
         labels_segmentation : 1d numpy array
             List of labels for which to compute Dice scores. 
             It should be the same list as the segmentation_labels used in training.
+        input_generator : input_generator
+            training data generator
         validation_loader : DataLoader
             (optional) validation DataLoader
         checkpoint : string
@@ -51,18 +57,19 @@ class Training:
 
         """
 
-        self._checkpoint = checkpoint        
+        self._input_generator = input_generator
+        self._model = model
+        self._model_arch_dict = model_arch_dict
+        self._checkpoint = checkpoint
+        self._ctab = ctab
         self._validation_loader = validation_loader
         self._best_model_metric = best_model_metric
-        
+
         self._setup_training_directory(train_output_folder)
         
         self._labels_segmentation, self._unique_idx = np.unique(labels_segmentation, return_index=True)
         self._nlabels = len(self._labels_segmentation)
         self._label_mapping = label_mapping  # ??? todo: calculate this from labels_segmentation
-
-        self._model = None
-        self._unet_levels = None
 
         self._device = device
         if (self._device is None):
@@ -74,6 +81,17 @@ class Training:
             from torch.utils.tensorboard import SummaryWriter
             self._summary_writer = SummaryWriter(train_output_folder)
             
+        self._dice_metric_hard = DiceScore(
+            num_classes=self._nlabels,
+            input_type="prob",
+            dice_type="hard",
+            # return_loss=False,
+        )
+
+        self._label_lookup = None
+        if (self._ctab is not None):
+            import surfa as sf
+            self._label_lookup = sf.load_label_lookup(self._ctab) 
 
 
     def _setup_training_directory(self, train_output_folder):
@@ -86,21 +104,12 @@ class Training:
         os.makedirs(self._dice_dir, exist_ok=True)
 
 
-    def train_model(self,
-                    input_generator,
-                    model,
-                    lr,
-                    epochs,
-                    steps_per_epoch,
-                    metric_type,
-                    loss_fn):
+    def train_model(self, lr, epochs, steps_per_epoch, metric_type, loss_fn):
         """
         model training loop
 
         Parameters
         ----------
-        input_generator : input_generator
-            training data generator
         lr : float
             learning rate for the training.
         epochs : int
@@ -110,17 +119,7 @@ class Training:
         metric_type : string
             wl2 or dice
         """
-            
-        self._input_generator = input_generator
-        self._model = model
 
-        self._dice_metric_hard = DiceScore(
-            num_classes=self._nlabels,
-            input_type="prob",
-            dice_type="hard",
-            # return_loss=False,
-        )
-        
         start_epoch = 0
         best_validation_loss = float("inf")
         best_validation_dice = 0.0
@@ -136,13 +135,15 @@ class Training:
             self._model.load_state_dict(state_dict["model_state_dict"])
             """
             from utils.train_utils import load_checkpoint
-            start_epoch, model_metric_type, best_validation_loss, best_validation_dice = load_checkpoint(
+            start_epoch, model_metric_type, _, label_lookup, best_validation_loss, best_validation_dice = load_checkpoint(
                 self._checkpoint, self._model, optimizer
             )
-            if (model_metric_type != metric_type):
+            if (model_metric_type is not None and model_metric_type != metric_type):
                 return
             
             logging.info(f"Resuming training from checkpoint: {self._checkpoint}")
+            if (self._label_lookup is None):
+                self._label_lookup = label_lookup
             self._checkpoint = None  # the checkpoint will only be used once in the training
 
         # training loop
@@ -169,6 +170,8 @@ class Training:
                 checkpoint_dict = {
                     "epoch": epoch,
                     "metric_type": metric_type,
+                    "model_arch_dict" : self._model_arch_dict,
+                    "label_lookup": self._label_lookup,
                     "model_state_dict": self._model.state_dict(),
                     "optimizer_state_dict": optimizer.state_dict(),
                     "loss": train_loss,
@@ -203,7 +206,9 @@ class Training:
                 checkpoint_dict = {
                     "epoch": epoch,
                     "metric_type": metric_type,
-                    "model_state_dict": model.state_dict(),
+                    "model_arch_dict" : self._model_arch_dict,
+                    "label_lookup": self._label_lookup,
+                    "model_state_dict": self._model.state_dict(),
                     "optimizer_state_dict": optimizer.state_dict(),
                     "loss": validation_loss,
                     "dice": validation_dice_avg,

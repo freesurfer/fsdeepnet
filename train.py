@@ -20,14 +20,15 @@ from utils.metrics import WeightedL2Loss, DiceLoss, DiceScore
 Usage: train.py 
        --config <config.yaml>
        [--dataset_list_file <dataset_list_file>]
+       [--ctab <ctab>]
        [--train_root_folder <train_root_folder>]
        [--run_name <--run_name>]
        [--checkpoint <checkpoint>]
-       [--crop_size <crop_size>]
-       [--cpu]
+       [--crop_size <W H D>]
        [--write_tensorboard_summary]
        [--perform_evaluation]
        [--best_model_metric <loss|dice>]
+       [--cpu]
 """
 
 # Configure logging settings
@@ -46,6 +47,7 @@ def argument_parse():
     # input/outputs
     parser.add_argument("--config", type=str, required=True, help="Path to the configuration file")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
+    parser.add_argument("--ctab", type=str, help="Path to the lookup table")
     parser.add_argument("--train_root_folder", type=str, default=None, help="Base folder for saving training outputs")    
     parser.add_argument("--run_name", type=str, default=None, help="Descriptive name for the run (used for naming TensorBoard log directories)")
     parser.add_argument("--checkpoint", type=str, help="Path to a checkpoint file to resume training from")
@@ -63,8 +65,28 @@ def argument_parse():
 
 
 # ??? todo: remove label_mapping
-def train(input_generator, config, train_output_folder, label_mapping, input_shape, checkpoint=None, validation_loader=None, device=None):
+def train(input_generator, config, train_output_folder, label_mapping, ctab, input_shape, checkpoint=None, validation_loader=None, device=None):
     # create the model to train
+    model_arch_dict = config["model"]
+    model_arch_dict["input_shape"] = (config["dataset"]["expected_num_channels"], *input_shape)
+    model_arch_dict["nb_labels"] = len(config["dataset"]["expected_classes"])
+    model_arch_dict["final_pred_activation"] = config["model"].get("final_pred_activation", "softmax")
+    model = UNet(
+        input_shape=model_arch_dict["input_shape"],
+        ndims=model_arch_dict["ndims"],
+        conv_size=model_arch_dict["conv_size"],
+        pool_size=model_arch_dict["pool_size"],
+        refine_conv=model_arch_dict["refine_conv"],
+        nb_features=model_arch_dict["nb_features"],
+        nb_levels=model_arch_dict["nb_levels"],
+        nb_labels=model_arch_dict["nb_labels"],
+        feat_mult=model_arch_dict["feat_mult"],
+        nb_conv_per_level=model_arch_dict["nb_conv_per_level"],
+        use_residuals=model_arch_dict["use_residuals"],
+        use_batchnorm=model_arch_dict["use_batchnorm"],
+        activation=model_arch_dict["activation"],
+        final_pred_activation=model_arch_dict["final_pred_activation"]).to(device)     
+    """
     model = UNet(
         input_shape=(config["dataset"]["expected_num_channels"], *input_shape),
         ndims=config["model"]["ndims"],
@@ -79,8 +101,9 @@ def train(input_generator, config, train_output_folder, label_mapping, input_sha
         use_residuals=config["model"]["use_residuals"],
         use_batchnorm=config["model"]["use_batchnorm"],
         activation=config["model"]["activation"],
-        final_pred_activation="softmax").to(device)
-
+        final_pred_activation=config["model"].get("final_pred_activation", "softmax")).to(device)
+    """
+   
     # print Model Architecture
     # from torchinfo import summary
     # summary(model, input_size=input_shape)
@@ -89,6 +112,10 @@ def train(input_generator, config, train_output_folder, label_mapping, input_sha
     trainer = Training(train_output_folder,
                        np.array(config["dataset"]["expected_classes"]),
                        label_mapping,
+                       input_generator,
+                       model,
+                       model_arch_dict=model_arch_dict,
+                       ctab=ctab,
                        checkpoint=checkpoint,
                        validation_loader=validation_loader,
                        best_model_metric=config["training"]["best_model_metric"],
@@ -97,9 +124,7 @@ def train(input_generator, config, train_output_folder, label_mapping, input_sha
                        
     # train wl2 epochs (??? todo: make this optional ???)
     wl2_loss_fn = WeightedL2Loss()
-    trainer.train_model(input_generator,
-                        model,
-                        lr=config["training"]["pre_train_learning_rate"],
+    trainer.train_model(lr=config["training"]["pre_train_learning_rate"],
                         epochs=config["training"]["wl2_epochs"],
                         steps_per_epoch=config["training"]["steps_per_epoch"],
                         metric_type='wl2',
@@ -111,9 +136,7 @@ def train(input_generator, config, train_output_folder, label_mapping, input_sha
         input_type="prob",
         dice_type="soft"
     )                   
-    trainer.train_model(input_generator,
-                        model,
-                        lr=config["training"]["pre_train_learning_rate"],
+    trainer.train_model(lr=config["training"]["pre_train_learning_rate"],
                         epochs=config["training"]["dice_epochs"],
                         steps_per_epoch=config["training"]["steps_per_epoch"],
                         metric_type='dice',
@@ -129,6 +152,7 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     checkpoint = args.checkpoint
+    ctab = args.ctab
     
     # Load config file
     config = load_config(args.config)
@@ -173,6 +197,8 @@ if __name__ == '__main__':
     shutil.copyfile(config["dataset"]["dataset_list_file"], os.path.join(output_folder, "dataset_list.yaml"))
 
     # Access updated configuration values
+    crop_size = config["preprocessing"]["crop_size"]
+    
     # create training/validation dataset with the desired augmentations specified
     train_dataset, validation_dataset, _ = load_datasets(
         config, config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations")
@@ -210,6 +236,9 @@ if __name__ == '__main__':
         logging.info(f"resume training from model: {checkpoint}")
     logging.info(f"train_root_folder: {train_root_folder}")
     logging.info(f"run_name: {run_name}")
+    logging.info(f"crop_size: {crop_size}")
+    if (ctab is not None):
+        logging.info(f"color table: {ctab}")
     if (perform_evaluation):
         logging.info(f"best_model_metric: {best_model_metric}")
     logging.info(f"training config: saved as {output_folder}/config.yaml")
@@ -223,5 +252,5 @@ if __name__ == '__main__':
 
     input_generator = dataGenerator(train_loader, device, label_mapping)
                        
-    train(input_generator, config, output_folder, label_mapping, input_shape, checkpoint, validation_loader, device)
+    train(input_generator, config, output_folder, label_mapping, ctab, input_shape, checkpoint, validation_loader, device)
                        
