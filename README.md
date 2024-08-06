@@ -11,17 +11,19 @@ git clone <freeseg-repo>
 
 2. Source the accompanying Conda environment:
 ```bash
-source /autofs/space/curv_001/users/avnish/miniconda3/bin/activate /autofs/space/curv_001/users/avnish/miniconda3/envs/pgland/
+export FREESURFER_HOME=/space/metropolis/1/users/yh887/dev.copy.2024-07-01
+source $FREESURFER_HOME/SetUpFreeSurfer.sh dev.copy.2024-07-01
 ```
+Note: This is a copy of nightly dev environment from 2024-07-01 with torchvision manually installed.
 
 3. Copy voxynth library code into the freeseg directory
 ```bash
-cp -r /autofs/space/curv_001/users/avnish/for_Doug/Pituitary-segmentation/voxynth/ <freeseg-repo>
+cp -rp /autofs/space/curv_001/users/avnish/freeseg/voxynth/ <freeseg-repo>
 ```
 
 4. Setup the train/validation/test dataset
 ```bash
-python create_data_list.py -d data/pgland_cropped/ -o "pgland_cropped_dataset_list.yaml"
+fspython create_data_list.py -d data/pgland_cropped/ -o "pgland_cropped_dataset_list.yaml"
 ```
 Note: this is a simple script to help create your ```dataset_list.yaml``` file. It may not cover your specific use-case. But as long as your ```dataset_list.yaml``` file looks like the following, you should be good to go:
 ```yaml
@@ -44,7 +46,8 @@ validation:
   label_filepath: path/to/validation_segmentation2
 ...
 ```
-5. Edit your configs/config.yaml file as per your dataset and model requirements etc.
+5. Edit your config.yaml file as per your dataset and model requirements etc.
+   Use configs/config/yaml as an example.
 
 
 ## Training the Model
@@ -54,7 +57,18 @@ To train the model on your dataset, follow these steps:
 
 6. Run the training script:
 ```bash
-python train.py --config configs/config.yaml
+fspython train.py
+         --config <config.yaml>
+         [--dataset_list_file <dataset_list_file>]
+         [--ctab <ctab>]
+         [--train_root_folder <train_root_folder>]
+         [--run_name <--run_name>]
+         [--checkpoint <checkpoint>]
+         [--crop_size <W H D>]
+         [--write_tensorboard_summary]
+         [--perform_evaluation]
+         [--best_model_metric <loss|dice>]
+         [--cpu]
 ```
 
 ## Evaluating the Model
@@ -63,5 +77,20 @@ To evaluate the model on your dataset, follow these steps:
 
 7. Run the evaluation script:
 ```bash
-python evaluate_model.py --config configs/config.yaml --model_checkpoint <path/to/saved/model.pth>
+fspython evaluate_model.py
+         --checkpoint <checkpoint>
+         --test_root_folder <test_root_folder>
+         --dataset_list_file <dataset_list_file>
+         [--run_name <run_name>]
+         [--batch_size <n>]
+         [--expected_num_channels <n>]
+         [--crop_size <W H D>]
+         [--config <config.yaml>]
+         [--label_mapping <label_mapping.json>]
+         [--write_posteriors]
+         [--cpu]
+
+       * config.yaml need to have the same network parameters as training.
+       * If config.yaml and label_mapping.json are not given,
+         the copies saved in the <checkpoint> parent directory are used.
 ```
