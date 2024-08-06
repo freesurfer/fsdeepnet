@@ -9,12 +9,12 @@ A generic deep-learning pipeline to accompany freesurfer adjacent models.
 git clone <freeseg-repo>
 ```
 
-2. Source the accompanying Conda environment:
+2. Source the environment
 ```bash
 export FREESURFER_HOME=/space/metropolis/1/users/yh887/dev.copy.2024-07-01
 source $FREESURFER_HOME/SetUpFreeSurfer.sh dev.copy.2024-07-01
 ```
-Note: This is a copy of nightly dev environment from 2024-07-01 with torchvision manually installed.
+Note: This is a copy of nightly dev environment from 2024-07-01 with torchvision manually installed. Source it like any other Freesurfer environments.
 
 3. Copy voxynth library code into the freeseg directory
 ```bash
