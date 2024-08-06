@@ -145,7 +145,7 @@ label_mapping = {int(k): v for k, v in label_mapping.items()}
 inverse_label_mapping = {v: k for k, v in label_mapping.items()}
 
 # Load the Trained Model
-_, _, model_arch_dict, label_lookup, _, _ = load_checkpoint(args.checkpoint)
+_, _, model_arch_dict, label_lookup, _, _ = load_checkpoint(args.checkpoint, device=device)
 if (model_arch_dict):
     model = UNet(
         input_shape=model_arch_dict["input_shape"],
@@ -186,6 +186,7 @@ else:
 model.load_state_dict(torch.load(args.checkpoint, map_location=device)["model_state_dict"])
 model.eval()
 
+logging.info("Device: {}".format(device))
 logging.info(f"model_checkpoint: {args.checkpoint}")
 logging.info(f"unique_output_folder: {unique_output_folder}")
 # save the config file and label_mapping.json

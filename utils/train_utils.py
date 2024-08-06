@@ -1,9 +1,11 @@
 import torch
 
 
-def load_checkpoint(filepath, model=None, optimizer=None):
+def load_checkpoint(filepath, model=None, optimizer=None, device=None):
     """Loads a checkpoint file to resume training."""
-    checkpoint = torch.load(filepath)  # Load the saved checkpoint
+    if (device is None):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    checkpoint = torch.load(filepath, map_location=device)  # Load the saved checkpoint
 
     if (model is not None):
         model.load_state_dict(checkpoint['model_state_dict'])  # Load model weights

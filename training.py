@@ -136,7 +136,7 @@ class Training:
             """
             from utils.train_utils import load_checkpoint
             start_epoch, model_metric_type, _, label_lookup, best_validation_loss, best_validation_dice = load_checkpoint(
-                self._checkpoint, self._model, optimizer
+                self._checkpoint, self._model, optimizer, self._device
             )
             if (model_metric_type is not None and model_metric_type != metric_type):
                 return
