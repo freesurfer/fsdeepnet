@@ -25,7 +25,7 @@ def load_volume(file_path, orientation=None):
     volume_tensor = torch.from_numpy(volume_data_writable).movedim(-1, 0)
     return volume, volume_tensor
 
-def save_volume(volume_tensor, original_volume, output_file):
+def save_volume(volume_tensor, original_volume, output_file, labels=None):
     """
     Save the augmented volume to a file.
     
@@ -37,6 +37,8 @@ def save_volume(volume_tensor, original_volume, output_file):
     tensor_cpu = volume_tensor.cpu().squeeze(0)
     np_vol = tensor_cpu.detach().numpy().astype(original_volume.dtype)
     surfa_vol = original_volume.new(np_vol)
+    if (labels is not None):
+        surfa_vol.labels = labels
     surfa_vol.save(output_file)
 
 def load_config(config_file):

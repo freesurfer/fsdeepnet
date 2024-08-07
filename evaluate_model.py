@@ -51,6 +51,8 @@ parser.add_argument("--dataset_list_file", type=str, required=True, help="Path t
 parser.add_argument("--batch_size", type=int, default=1, help="Batch size for evaluation")
 parser.add_argument("--expected_num_channels", type=int, default=1, help="expected_num_channels")
 parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
+parser.add_argument("--addctab", action='store_true', default=True, help="Embed colortable into seg output")
+parser.add_argument("--noaddctab", action="store_true", help="Do not embed colortable into seg output")
                     
 parser.add_argument(
     "--checkpoint", type=str, required=True, help="Path to the model checkpoint"
@@ -89,6 +91,9 @@ if (args.cpu):
     os.environ["CUDA_VISIBLE_DEVICES"]=""
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+if(args.noaddctab):
+    args.addctab = False
+addctab = args.addctab
 write_posteriors = args.write_posteriors
 if (args.run_name is not None):
     run_name = args.run_name
@@ -146,6 +151,9 @@ inverse_label_mapping = {v: k for k, v in label_mapping.items()}
 
 # Load the Trained Model
 _, _, model_arch_dict, label_lookup, _, _ = load_checkpoint(args.checkpoint, device=device)
+if (not addctab):
+    label_lookup = None
+
 if (model_arch_dict):
     model = UNet(
         input_shape=model_arch_dict["input_shape"],
@@ -249,11 +257,13 @@ with torch.no_grad():
             original_predictions,
             original_image,
             os.path.join(unique_output_folder, f"{base_filename}_prediction.mgz"),
+            labels=label_lookup
         )
         save_volume(
             torch.squeeze(labels),
             original_image,
             os.path.join(unique_output_folder, f"{base_filename}_gt.mgz"),
+            labels=label_lookup
         )
 
         if (write_posteriors):
@@ -262,6 +272,7 @@ with torch.no_grad():
                 posteriors,
                 original_image,
                 os.path.join(unique_output_folder, f"{base_filename}_posteriors.mgz"),
+                labels=label_lookup
             )
             
         logging.info(f"Sample {idx+1} (Hard Dice):")
