@@ -94,3 +94,36 @@ fspython evaluate_model.py
        * If config.yaml and label_mapping.json are not given,
          the copies saved in the <checkpoint> parent directory are used.
 ```
+
+## Prediction and Evaluation
+
+8. Run the prediction script to segment any input images
+```bash
+fspython predict.py 
+       	 --i <input_images>
+      	 --o  <output_segmentations>
+    	 --checkpoint <checkpoint>
+    	 --crop_size <W H D>
+       	 [--gt <ground_truth_dir>] 
+       	 [--path_dice <path_dice>]
+       	 [--label_mapping <label_mapping.json>]
+       	 [--addctab]
+       	 [--write_posteriors]
+       	 [--cpu]
+
+       * config.yaml need to have the same network parameters as training.
+         If it is not given, config.yaml saved in the training root directory is used.
+       * If <label_mapping.json> is not given, label_mapping.json in the training root directory is used.
+```
+
+
+9. Run the evaluation script to compute dice between ground truth and segmentation
+```bash
+fspython evaluate.py 
+       	 --label_mapping <label_mapping.json>
+       	 --gt <ground_truth>
+       	 --seg <segmentation>
+       	 [--path_dice <path_dice>]
+
+       * <label_mapping.json> can be found in the training output directory.
+```
