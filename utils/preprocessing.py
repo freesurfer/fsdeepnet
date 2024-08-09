@@ -218,11 +218,10 @@ def apply_randomcrop(image, label, crop_size, mode='random', bbox_labels=None, d
     return cropped_image, cropped_label
 
 
-def apply_cropping(image, label, crop_size=None):
-    """Applies center cropping to image and label volumes."""
+def apply_cropping(image, crop_size=None):
+    """Applies center cropping to input volumes."""
     cropped_image = voxynth.augment.apply_center_crop(image, crop_size)
-    cropped_label = voxynth.augment.apply_center_crop(label, crop_size)
-    return cropped_image, cropped_label
+    return cropped_image
 
 
 def apply_blur_resample(image, voxsize,
@@ -476,7 +475,8 @@ def apply_augmentations(
     # ??? we are now supporting cropping, randomcrop, randomcrop_center. check to allow only one type of cropping ???
     if "cropping" in augmentations_to_apply:
         if crop_size is not None:
-            image_tensor, label_tensor = apply_cropping(image_tensor, label_tensor, crop_size)
+            image_tensor = apply_cropping(image_tensor, crop_size)
+            label_tensor = apply_cropping(label_tensor, crop_size)
             if save_volumes is not None and output_dir is not None:
                 save_volume(
                     image_tensor,

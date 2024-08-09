@@ -41,9 +41,9 @@ class SegmentationDataset(Dataset):
         return len(self.dataset_list)
 
     def __getitem__(self, index):
-        data_item = self.dataset_list[index]
-        image_path = data_item["image_filepath"]
-        label_path = data_item["label_filepath"]
+        data_item = self.dataset_list[index]  # data_item is dict
+        image_path = data_item.get("image_filepath")
+        label_path = data_item.get("label_filepath")
 
         # Load image and label using the load_volume function
         image, image_tensor = load_volume(image_path, orientation="RAS")
@@ -136,21 +136,32 @@ def load_datasets(
     with open(config["dataset"]["dataset_list_file"], "r") as file:
         dataset_dict = yaml.safe_load(file)
 
-    train_dataset = SegmentationDataset(
-        dataset_dict["train"],
-        config,
-        transform=train_augmentations,
-    )
-    validation_dataset = SegmentationDataset(
-        dataset_dict["validation"],
-        config,
-        transform=validation_augmentations,
-    )
-    test_dataset = SegmentationDataset(
-        dataset_dict["test"],
-        config,
-        transform=test_augmentations,
-    )
+    dataset = dataset_dict.get("train")
+    train_dataset = None
+    if (dataset is not None):
+        train_dataset = SegmentationDataset(
+            dataset,
+            config,
+            transform=train_augmentations,
+        )
+
+    dataset = dataset_dict.get("validation")
+    validation_dataset = None
+    if (dataset is not None):
+        validation_dataset = SegmentationDataset(
+            dataset,
+            config,
+            transform=validation_augmentations,
+        )
+
+    dataset = dataset_dict.get("test")
+    test_dataset = None
+    if (dataset is not None):
+        test_dataset = SegmentationDataset(
+            dataset,
+            config,
+            transform=test_augmentations,
+        )
 
     return train_dataset, validation_dataset, test_dataset
 
