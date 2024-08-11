@@ -111,9 +111,8 @@ fspython predict.py
        	 [--write_posteriors]
        	 [--cpu]
 
-       * config.yaml need to have the same network parameters as training.
-         If it is not given, config.yaml saved in the training root directory is used.
-       * If <label_mapping.json> is not given, label_mapping.json in the training root directory is used.
+       * If <label_mapping.json> is not given,
+         label_mapping.json in the <checkpoint> parent directory are used.
 ```
 
 

@@ -20,13 +20,7 @@ Usage: predict.py
        [--write_posteriors]
        [--cpu]
 
-       * config.yaml need to have the same network parameters as training.
-         If it is not given, config.yaml saved in the training root directory is used.
        * If <label_mapping.json> is not given, label_mapping.json in the training root directory is used.
-
-python -m pdb predict.py --i /space/metropolis/1/users/yh887/trainings/freeseg/data/pitgland_cropped/images --o /space/metropolis/1/users/yh887/freeseg.restructure/test.predict+evaluate2 --checkpoint /space/metropolis/1/users/yh887/trainings/freeseg/pitgland_cropped/train/restructure//restructure.metropolis.model_arch_dict+label_lookup/checkpoints/dice_100_train_loss0.2551_train_dice0.7455.pth  --crop_size 64 64 64 --write_posteriors --gt /space/metropolis/1/users/yh887/trainings/freeseg/data/pitgland_cropped/labels/
-
-python -m pdb predict.py --i /space/metropolis/1/users/yh887/trainings/freeseg/data/pitgland_cropped/images --o /space/metropolis/1/users/yh887/freeseg.restructure/test.predict+evaluate3 --checkpoint /space/metropolis/1/users/yh887/trainings/freeseg/pitgland_cropped/train/restructure//restructure.metropolis.model_arch_dict+label_lookup/checkpoints/dice_100_train_loss0.2551_train_dice0.7455.pth  --crop_size 64 64 64 --write_posteriors --gt /space/metropolis/1/users/yh887/trainings/freeseg/data/pitgland_cropped/labels/ --path_dice /space/metropolis/1/users/yh887/freeseg.restructure/test.predict+evaluate3/dices.freeseg-predict+evaluate.npy
 """
 
 # Configure logging settings

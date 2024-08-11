@@ -10,8 +10,6 @@ Usage: evaluate.py
        --gt <ground_truth>
        --seg <segmentation>
        [--path_dice <path_dice>]
-
-python -m pdb evaluate.py --label_mapping /space/metropolis/1/users/yh887/trainings/freeseg/pitgland_cropped/train/restructure//restructure.metropolis.model_arch_dict+label_lookup/label_mapping.json --gt /space/metropolis/1/users/yh887/trainings/freeseg/data/pitgland_cropped/labels/ --seg /space/metropolis/1/users/yh887/freeseg.restructure/test.predict+evaluate/ --path_dice /space/metropolis/1/users/yh887/freeseg.restructure/test.predict+evaluate/dices.freeseg-evaluate.npy
 """
 
 def main():
