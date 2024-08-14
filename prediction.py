@@ -132,7 +132,7 @@ class Prediction:
         for i in range(len(path_images)):
             ### preprocessing ###
             # reorient to 'RAS'
-            sfimage, image_tensor = load_volume(path_images[i], orientation="RAS")
+            sfimage, image_tensor, orig_orientation = load_volume(path_images[i], orientation="RAS")
             
             # add channel axes, crop the images
             image_tensor = image_tensor.unsqueeze(1)
@@ -152,13 +152,15 @@ class Prediction:
             
             ### save results ###
             save_volume(segmentation, sfimage, out_segmentations[i],
+                        orientation=orig_orientation,
                         labels=self._label_lookup if (addctab) else None)
             if (write_posteriors):
                 basename = os.path.basename(out_segmentations[i])
                 out_posteriors = basename.replace(f"_{pred_suffix}.", f"_{posteriors_suffix}.")
                 out_posteriors = os.path.join(out_posteriors_dir, out_posteriors)
                 posteriors = outputs.movedim(1, -1)  # move channel to last axis
-                save_volume(posteriors, sfimage, out_posteriors)
+                save_volume(posteriors, sfimage, out_posteriors,
+                            orientation=orig_orientation)
                     
         # evaluate
         if (path_gt is not None):
@@ -175,8 +177,8 @@ class Prediction:
                 eval.evaluate(path_gt, out_segmentations[0], path_dice=path_dice)
             
     
-    def evaluate_model(self, test_dataset, unique_output_folder,
-                       addctab=True, write_posteriors=None, output_gt=None):
+    def evaluate_dataset(self, test_dataset, unique_output_folder,
+                         addctab=True, write_posteriors=None, output_gt=None):
 
         from torch.utils.data import DataLoader
         from utils.metrics import DiceScore            
@@ -199,7 +201,7 @@ class Prediction:
 
         for idx, (images, labels) in enumerate(test_loader):
             original_image_path = test_dataset.image_files[idx]
-            sfimage, _ = load_volume(original_image_path, orientation='RAS')
+            sfimage, _, orig_orientation = load_volume(original_image_path, orientation='RAS')
             base_filename = os.path.splitext(os.path.basename(original_image_path))[0]
 
             output_segmentation = os.path.join(unique_output_folder, f"{base_filename}_prediction.mgz")
@@ -216,12 +218,16 @@ class Prediction:
             segmentation = remap_labels(predicted_segmentation, self._inverse_label_mapping)
 
             # save segmentation
-            save_volume(segmentation, sfimage, output_segmentation, labels=self._label_lookup if (addctab) else None)
-            save_volume(torch.squeeze(labels), sfimage, output_gt)
+            save_volume(segmentation, sfimage, output_segmentation,
+                        orientation=orig_orientation,
+                        labels=self._label_lookup if (addctab) else None)
+            save_volume(torch.squeeze(labels), sfimage, output_gt,
+                        orientation=orig_orientation)
                 
             if (output_posteriors is not None):
                 posteriors = outputs.movedim(1, -1)
-                save_volume(posteriors, sfimage, output_posteriors)
+                save_volume(posteriors, sfimage, output_posteriors,
+                        orientation=orig_orientation)
 
             # Remap labels for metric calculation
             remapped_labels = remap_labels(labels, self._label_mapping)

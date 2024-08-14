@@ -46,8 +46,8 @@ class SegmentationDataset(Dataset):
         label_path = data_item.get("label_filepath")
 
         # Load image and label using the load_volume function
-        image, image_tensor = load_volume(image_path, orientation="RAS")
-        label, label_tensor = load_volume(label_path, orientation="RAS")
+        image, image_tensor, _ = load_volume(image_path, orientation="RAS")
+        label, label_tensor, _ = load_volume(label_path, orientation="RAS")
 
         # where/whether to save preprocessed data
         save_volumes = os.path.basename(image_path)
@@ -79,8 +79,8 @@ class SegmentationDataset(Dataset):
         all_labels = []
 
         for f_label, f_image in zip(self.label_files, self.image_files):
-            label, label_tensor = load_volume(f_label)
-            image, image_tensor = load_volume(f_image)
+            label, label_tensor, _ = load_volume(f_label)
+            image, image_tensor, _ = load_volume(f_image)
 
             if self.input_shape is None:
                 self.input_shape = image_tensor.shape
@@ -96,13 +96,13 @@ class SegmentationDataset(Dataset):
     def test_preprocessing(self, outdir, augmentations=None):
         for idx in range(len(self.image_files)):
             f_image = self.image_files[idx]
-            image, image_tensor = load_volume(f_image, orientation="RAS")
+            image, image_tensor, _ = load_volume(f_image, orientation="RAS")
             prefix = os.path.basename(f_image)
             reoriented = os.path.join(outdir, prefix + "_reoriented_image.mgz")
             save_volume(image_tensor, image, reoriented)
 
             f_label = self.label_files[idx]
-            label, label_tensor = load_volume(f_label, orientation="RAS")
+            label, label_tensor, _ = load_volume(f_label, orientation="RAS")
             prefix = os.path.basename(f_label)
             reoriented = os.path.join(outdir, prefix + "_reoriented_label.mgz")
             save_volume(label_tensor, label, reoriented)

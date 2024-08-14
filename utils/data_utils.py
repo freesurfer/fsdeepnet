@@ -17,15 +17,16 @@ def load_volume(file_path, orientation=None):
         tuple: A tuple containing the loaded volume and its PyTorch tensor representation.
     """
     volume = sf.load_volume(file_path)
+    orig_orientation = sf.transform.orientation.rotation_matrix_to_orientation(volume.geom.vox2world.matrix)
     if (orientation is not None):
         volume = volume.reorient(orientation, copy=True)
     
     volume_data_native = volume.framed_data.astype(volume.dtype.newbyteorder('='))
     volume_data_writable = np.copy(volume_data_native)  # Create a writable copy of the array
     volume_tensor = torch.from_numpy(volume_data_writable).movedim(-1, 0)
-    return volume, volume_tensor
+    return volume, volume_tensor, orig_orientation
 
-def save_volume(volume_tensor, original_volume, output_file, labels=None):
+def save_volume(volume_tensor, original_volume, output_file, orientation=None, labels=None):
     """
     Save the augmented volume to a file.
     
@@ -37,6 +38,8 @@ def save_volume(volume_tensor, original_volume, output_file, labels=None):
     tensor_cpu = volume_tensor.cpu().squeeze(0)
     np_vol = tensor_cpu.detach().numpy().astype(original_volume.dtype)
     surfa_vol = original_volume.new(np_vol)
+    if (orientation is not None):
+        surfa_vol = surfa_vol.reorient(orientation, copy=True)
     if (labels is not None):
         surfa_vol.labels = labels
     surfa_vol.save(output_file)
