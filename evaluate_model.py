@@ -244,7 +244,7 @@ with torch.no_grad():
         original_predictions = remap_labels(predicted_segmentation, inverse_label_mapping)
 
         original_image_path = test_dataset.image_files[idx]
-        original_image, _ = load_volume(original_image_path, orientation='RAS')
+        original_image, _, orig_orientation = load_volume(original_image_path, orientation='RAS')
         base_filename = os.path.splitext(os.path.basename(original_image_path))[0]
 
         # Label remapping check
@@ -257,12 +257,14 @@ with torch.no_grad():
             original_predictions,
             original_image,
             os.path.join(unique_output_folder, f"{base_filename}_prediction.mgz"),
+            orientation=orig_orientation,
             labels=label_lookup
         )
         save_volume(
             torch.squeeze(labels),
             original_image,
             os.path.join(unique_output_folder, f"{base_filename}_gt.mgz"),
+            orientation=orig_orientation,
             labels=label_lookup
         )
 
@@ -272,6 +274,7 @@ with torch.no_grad():
                 posteriors,
                 original_image,
                 os.path.join(unique_output_folder, f"{base_filename}_posteriors.mgz"),
+                orientation=orig_orientation,
                 labels=label_lookup
             )
             
