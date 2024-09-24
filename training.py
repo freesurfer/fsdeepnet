@@ -8,6 +8,7 @@ import torch.optim as optim
 import torch.nn as nn
 from torchvision.utils import make_grid
 
+from checkpoint import Checkpoint
 from utils.metrics import DiceScore
 from utils.data_utils import remap_labels, onehot
 
@@ -31,10 +32,11 @@ class Training:
                  label_mapping,
                  input_generator,                 
                  model,
-                 model_arch_dict=[],
+                 model_arch_dict=None,
+                 train_dataset_dict=None,
                  ctab=None,
                  validation_loader=None,
-                 checkpoint=None,
+                 model_checkpoint=None,
                  best_model_metric="dice",                 
                  write_tensorboard_summary=False,
                  device=None):
@@ -52,7 +54,7 @@ class Training:
             training data generator
         validation_loader : DataLoader
             (optional) validation DataLoader
-        checkpoint : string
+        model_checkpoint : string
             (optional) path of an already saved model to load before starting the training
 
         """
@@ -60,7 +62,8 @@ class Training:
         self._input_generator = input_generator
         self._model = model
         self._model_arch_dict = model_arch_dict
-        self._checkpoint = checkpoint
+        self._train_dataset_dict = train_dataset_dict
+        self._model_checkpoint = model_checkpoint
         self._ctab = ctab
         self._validation_loader = validation_loader
         self._best_model_metric = best_model_metric
@@ -91,7 +94,10 @@ class Training:
         self._label_lookup = None
         if (self._ctab is not None):
             import surfa as sf
-            self._label_lookup = sf.load_label_lookup(self._ctab) 
+            self._label_lookup = sf.load_label_lookup(self._ctab)
+
+        # create Checkpoint object
+        self._checkpoint = Checkpoint(model_arch_dict=self._model_arch_dict, label_lookup=self._label_lookup, train_dataset_dict=self._train_dataset_dict)        
 
 
     def _setup_training_directory(self, train_output_folder):
@@ -128,23 +134,17 @@ class Training:
         optimizer = torch.optim.Adam(self._model.parameters(), lr=lr)
                     
         # load checkpoint if provided
-        if (self._checkpoint is not None):
-            """            
-            # load the network weights
-            state_dict = torch.load(path_model)
-            self._model.load_state_dict(state_dict["model_state_dict"])
-            """
-            from utils.train_utils import load_checkpoint
-            start_epoch, model_metric_type, _, label_lookup, best_validation_loss, best_validation_dice = load_checkpoint(
-                self._checkpoint, self._model, optimizer, self._device
-            )
-            if (model_metric_type is not None and model_metric_type != metric_type):
+        if (self._model_checkpoint is not None):
+            self._checkpoint.load(self._model_checkpoint, self._model, optimizer, self._device)
+            
+            if (self._checkpoint.metric_type is not None and self._checkpoint.metric_type != metric_type):
                 return
             
-            logging.info(f"Resuming training from checkpoint: {self._checkpoint}")
+            logging.info(f"Resuming training from checkpoint: {self._model_checkpoint}")
+            start_epoch = self._checkpoint.epoch + 1
             if (self._label_lookup is None):
-                self._label_lookup = label_lookup
-            self._checkpoint = None  # the checkpoint will only be used once in the training
+                self._label_lookup = self._checkpoint.label_lookup
+            self._model_checkpoint = None  # the checkpoint will only be used once in the training
 
         # training loop
         for epoch in range(start_epoch, epochs):
@@ -156,7 +156,8 @@ class Training:
             train_dice_avg = np.mean(train_dices)
         
             # output training dices (n_labels x steps_per_epoch)
-            f_dice_scores = os.path.join(self._dice_dir, f"train_dices_epoch{epoch+1}.npy")
+            #f_dice_scores = os.path.join(self._dice_dir, f"train_dices_epoch{epoch+1}.npy")
+            f_dice_scores = os.path.join(self._dice_dir, f"train_{metric_type}_{epoch+1:03d}.npy")
             np.save(f_dice_scores, train_dices)
     
             if (self._validation_loader is None):
@@ -170,8 +171,6 @@ class Training:
                 checkpoint_dict = {
                     "epoch": epoch,
                     "metric_type": metric_type,
-                    "model_arch_dict" : self._model_arch_dict,
-                    "label_lookup": self._label_lookup,
                     "model_state_dict": self._model.state_dict(),
                     "optimizer_state_dict": optimizer.state_dict(),
                     "loss": train_loss,
@@ -183,7 +182,7 @@ class Training:
                     f"{metric_type}_{epoch+1:03d}_train_loss{train_loss:.4f}_train_dice{train_dice_avg:.4f}.pth",
                 )
                 logging.info(f"Epoch {epoch+1}: saving model to {checkpoint_path}")
-                torch.save(checkpoint_dict, checkpoint_path)
+                self._checkpoint.save(checkpoint_path, checkpoint_dict)
             else:
                 # perform validation
                 (validation_loss, validation_dices) = self._validate(optimizer, loss_fn, epoch, metric_type=metric_type)
@@ -206,13 +205,18 @@ class Training:
                 checkpoint_dict = {
                     "epoch": epoch,
                     "metric_type": metric_type,
-                    "model_arch_dict" : self._model_arch_dict,
-                    "label_lookup": self._label_lookup,
                     "model_state_dict": self._model.state_dict(),
                     "optimizer_state_dict": optimizer.state_dict(),
                     "loss": validation_loss,
                     "dice": validation_dice_avg,
                 }
+                # Save checkpoints every steps_per_epoch steps
+                checkpoint_path = os.path.join(
+                    self._checkpoint_dir,
+                    f"{metric_type}_{epoch+1:03d}_val_loss{validation_loss:.4f}_val_dice{validation_dice_avg:.4f}.pth",
+                )
+                logging.info(f"Epoch {epoch+1}: saving model to {checkpoint_path}")
+                self._checkpoint.save(checkpoint_path, checkpoint_dict)                
 
                 # pick and save the best model
                 if self._best_model_metric == "loss":
@@ -222,7 +226,7 @@ class Training:
                             self._best_model_dir,
                             f"best_model_epoch{epoch+1}_val_loss{validation_loss:.4f}_val_dice{validation_dice_avg:.4f}.pth",
                         )
-                        torch.save(checkpoint_dict, checkpoint_path)
+                        self._checkpoint.save(checkpoint_path, checkpoint_dict)
                 elif self._best_model_metric == "dice":
                     if validation_dice_avg > best_validation_dice:
                         best_validation_dice = validation_dice_avg
@@ -230,15 +234,7 @@ class Training:
                             self._best_model_dir,
                             f"best_model_epoch{epoch+1}_val_loss{validation_loss:.4f}_val_dice{validation_dice_avg:.4f}.pth",
                         )
-                        torch.save(checkpoint_dict, checkpoint_path)
-                
-                # Save checkpoints every steps_per_epoch steps
-                checkpoint_path = os.path.join(
-                    self._checkpoint_dir,
-                    f"{metric_type}_{epoch+1:03d}_val_loss{validation_loss:.4f}_val_dice{validation_dice_avg:.4f}.pth",
-                )
-                logging.info(f"Epoch {epoch+1}: saving model to {checkpoint_path}")
-                torch.save(checkpoint_dict, checkpoint_path)
+                        self._checkpoint.save(checkpoint_path, checkpoint_dict)
             # End of perform evaluation
         # End of training loop
 

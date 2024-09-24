@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import surfa as sf
 
-from utils.train_utils import load_checkpoint
+from checkpoint import Checkpoint
 from models.model import UNet
 from utils.data_utils import load_volume, save_volume, remap_labels, onehot
 from utils.preprocessing import apply_cropping
@@ -48,39 +48,41 @@ class Prediction:
         self._labels_segmentation, self._unique_idx = np.unique(labels_segmentation, return_index=True)
 
 
-    def load_model(self, checkpoint):
+    def load_model(self, model_checkpoint):
         """
         load trained model
 
         Parameters
         ----------
-        checkpoint : string
+        model_checkpoint : string
             path of the trained model
         """
         
-        assert os.path.isfile(checkpoint), "The provided model path does not exist."        
+        assert os.path.isfile(model_checkpoint), "The provided model path does not exist."        
 
         # Load the Trained Model
-        _, _, self._model_arch_dict, self._label_lookup, _, _ = load_checkpoint(checkpoint, device=self._device)
-        assert self._model_arch_dict is not None, "Model architecture information not available."
+        checkpoint = Checkpoint()
+        checkpoint.load(model_checkpoint, device=self._device)
+        assert checkpoint.model_arch_dict is not None, "Model architecture information not available."
         
         self._model = UNet(
-            input_shape=self._model_arch_dict["input_shape"],
-            ndims=self._model_arch_dict["ndims"],
-            conv_size=self._model_arch_dict["conv_size"],
-            pool_size=self._model_arch_dict["pool_size"],
-            refine_conv=self._model_arch_dict["refine_conv"],
-            nb_features=self._model_arch_dict["nb_features"],
-            nb_levels=self._model_arch_dict["nb_levels"],
-            nb_labels=self._model_arch_dict["nb_labels"],
-            feat_mult=self._model_arch_dict["feat_mult"],
-            nb_conv_per_level=self._model_arch_dict["nb_conv_per_level"],
-            use_residuals=self._model_arch_dict["use_residuals"],
-            use_batchnorm=self._model_arch_dict["use_batchnorm"],
-            activation=self._model_arch_dict["activation"],
-            final_pred_activation=self._model_arch_dict["final_pred_activation"]).to(self._device)
+            input_shape=checkpoint.model_arch_dict["input_shape"],
+            ndims=checkpoint.model_arch_dict["ndims"],
+            conv_size=checkpoint.model_arch_dict["conv_size"],
+            pool_size=checkpoint.model_arch_dict["pool_size"],
+            refine_conv=checkpoint.model_arch_dict["refine_conv"],
+            nb_features=checkpoint.model_arch_dict["nb_features"],
+            nb_levels=checkpoint.model_arch_dict["nb_levels"],
+            nb_labels=checkpoint.model_arch_dict["nb_labels"],
+            feat_mult=checkpoint.model_arch_dict["feat_mult"],
+            nb_conv_per_level=checkpoint.model_arch_dict["nb_conv_per_level"],
+            use_residuals=checkpoint.model_arch_dict["use_residuals"],
+            use_batchnorm=checkpoint.model_arch_dict["use_batchnorm"],
+            activation=checkpoint.model_arch_dict["activation"],
+            final_pred_activation=checkpoint.model_arch_dict["final_pred_activation"]).to(self._device)
 
-        self._model.load_state_dict(torch.load(checkpoint, map_location=self._device)["model_state_dict"])        
+        self._label_lookup = checkpoint.label_lookup
+        self._model.load_state_dict(checkpoint.model_state_dict)
         self._model.eval()
 
         
@@ -154,6 +156,7 @@ class Prediction:
             save_volume(segmentation, sfimage, out_segmentations[i],
                         orientation=orig_orientation,
                         labels=self._label_lookup if (addctab) else None)
+            print(f"output segmentation {out_segmentations[i]}")
             if (write_posteriors):
                 basename = os.path.basename(out_segmentations[i])
                 out_posteriors = basename.replace(f"_{pred_suffix}.", f"_{posteriors_suffix}.")
@@ -161,7 +164,8 @@ class Prediction:
                 posteriors = outputs.movedim(1, -1)  # move channel to last axis
                 save_volume(posteriors, sfimage, out_posteriors,
                             orientation=orig_orientation)
-                    
+                print(f"output posteriors {out_posteriors}")
+
         # evaluate
         if (path_gt is not None):
             # calculate hard-dice between saved segmentations and their ground truth
@@ -170,6 +174,7 @@ class Prediction:
             if (path_dice is None):
                 path_dice = os.path.join(os.path.dirname(out_segmentations[0]), 'dices.npy')
 
+            printf(f"\nEvaluating segmentations ...")
             eval = Evaluation(self._labels_segmentation)                
             if (os.path.isdir(path_gt)):
                 eval.evaluate(path_gt, os.path.dirname(out_segmentations[0]), path_dice=path_dice)

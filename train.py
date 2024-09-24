@@ -11,7 +11,6 @@ from torch.utils.data import DataLoader
 from models.model import UNet
 from training import Training
 
-from utils.train_utils import load_checkpoint
 from utils.data_utils import load_config, save_label_mapping, remap_labels
 from utils.dataset import load_datasets, dataGenerator
 from utils.metrics import WeightedL2Loss, DiceLoss, DiceScore
@@ -147,9 +146,18 @@ def main():
     logging.info(f"Input shape: {input_shape}")
     logging.info(f"Number of channels: {sample_input_shape[0]}")
 
+    train_dataset_dict = {
+        "batch_size": config["training"]["batch_size"],
+        "segmentation_labels": sorted(unique_classes),
+        "crop_size": crop_size,
+        "num_samples": len(train_dataset),
+        "input_shape": input_shape,
+        "n_channels": sample_input_shape[0],        
+    }
+    
     input_generator = dataGenerator(train_loader, device, label_mapping)
                        
-    train(input_generator, config, output_folder, label_mapping, ctab, input_shape, checkpoint, validation_loader, device)
+    train(input_generator, config, output_folder, label_mapping, ctab, input_shape, checkpoint, validation_loader, device, train_dataset_dict)
                        
     
 def argument_parse():
@@ -177,9 +185,10 @@ def argument_parse():
 
 
 # ??? todo: remove label_mapping
-def train(input_generator, config, train_output_folder, label_mapping, ctab, input_shape, checkpoint=None, validation_loader=None, device=None):
+def train(input_generator, config, train_output_folder, label_mapping, ctab, input_shape, checkpoint=None, validation_loader=None, device=None, train_dataset_dict=None):
     # create the model to train
     model_arch_dict = config["model"]
+    model_arch_dict["name"] = "UNet"
     model_arch_dict["input_shape"] = (config["dataset"]["expected_num_channels"], *input_shape)
     model_arch_dict["nb_labels"] = len(config["dataset"]["expected_classes"])
     model_arch_dict["final_pred_activation"] = config["model"].get("final_pred_activation", "softmax")
@@ -227,8 +236,9 @@ def train(input_generator, config, train_output_folder, label_mapping, ctab, inp
                        input_generator,
                        model,
                        model_arch_dict=model_arch_dict,
+                       train_dataset_dict=train_dataset_dict,
                        ctab=ctab,
-                       checkpoint=checkpoint,
+                       model_checkpoint=checkpoint,
                        validation_loader=validation_loader,
                        best_model_metric=config["training"]["best_model_metric"],
                        write_tensorboard_summary=config["training"].get("write_tensorboard_summary", False),

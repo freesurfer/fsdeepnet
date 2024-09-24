@@ -16,7 +16,7 @@ Usage: predict.py
        [--gt <ground_truth_dir>] 
        [--path_dice <path_dice>]
        [--label_mapping <label_mapping.json>]
-       [--addctab]
+       [--noaddctab]
        [--write_posteriors]
        [--cpu]
 
