@@ -103,26 +103,24 @@ fspython predict.py
        	 --i <input_images>
       	 --o  <output_segmentations>
     	 --checkpoint <checkpoint>
-    	 --crop_size <W H D>
+    	 [--crop_size <W H D>]
        	 [--gt <ground_truth_dir>] 
        	 [--path_dice <path_dice>]
-       	 [--label_mapping <label_mapping.json>]
        	 [--noaddctab]
        	 [--write_posteriors]
        	 [--cpu]
-
-       * If <label_mapping.json> is not given,
-         label_mapping.json in the <checkpoint> parent directory are used.
 ```
 
 
 9. Run the evaluation script to compute dice between ground truth and segmentation
 ```bash
 fspython evaluate.py 
-       	 --label_mapping <label_mapping.json>
        	 --gt <ground_truth>
        	 --seg <segmentation>
-       	 [--path_dice <path_dice>]
+         [--segmentation_labels <segmentation_labels.npy>]
+         [--evaluation_labels <label1 label2 ...>]
+         [--path_dice <path_dice>]
 
-       * <label_mapping.json> can be found in the training output directory.
+       * specify labels for dice evaluation using either --segmentation_labels <segmentation_labels.npy> or --evaluation_labels <label1 label2 ...>.
+       * <segmentation_labels.npy> can be found in the training output directory.
 ```

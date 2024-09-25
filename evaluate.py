@@ -1,37 +1,41 @@
 import sys
-import json
+import numpy as np
 import argparse
 
 from evaluation import Evaluation
 
 """
 Usage: evaluate.py 
-       --label_mapping <label_mapping.json>
        --gt <ground_truth>
        --seg <segmentation>
+       [--segmentation_labels <segmentation_labels.npy>]
+       [--evaluation_labels <label1 label2 ...>]
        [--path_dice <path_dice>]
 """
 
 def main():
     args = argument_parse()
 
-    with open(args.label_mapping, "r") as f:
-        label_mapping = json.load(f)
+    labels_segmentation = None
+    if (args.segmentation_labels is not None):
+        labels_segmentation = np.load(args.segmentation_labels)
+    if (args.evaluation_labels is not None):
+        labels_segmentation = args.evaluation_labels
 
-    # Ensure keys in label_mapping are integers
-    label_mapping = {int(k): v for k, v in label_mapping.items()}
-    labels_segmentation = [label for label, idx in label_mapping.items()]
-    
+    assert labels_segmentation is not None, 'please specify labels for dice evaluation using either --segmentation_labels <segmentation_labels.npy> or --evaluation_labels <label1 label2 ...>'
+        
+
+    # evaluate() expects labels_segmentation as a list [] or 1D numpy array
     evaluate(labels_segmentation, args.gt, args.seg, args.path_dice)
 
 
-# ??? todo: replace label_mapping with something else ???
 def argument_parse():
     # Parse command-line arguments
     parser = argparse.ArgumentParser()
 
     # input/outputs
-    parser.add_argument("--label_mapping", type=str, required=True, help="Path to the label_mapping.json file. If not provided, the script will search for it in the model checkpoint directory.")    
+    parser.add_argument("--segmentation_labels", type=str, help="Path to segmentation_labels.npy")
+    parser.add_argument("--evaluation_labels", nargs="+", type=int, help="Labels for dice evaluation")
     parser.add_argument("--gt", type=str, required=True, help="Path to ground truth (folder) for dice evaluation.")
     parser.add_argument("--seg", type=str, required=True, help="Path to segmentation (folder) for dice evaluation.")
     parser.add_argument("--path_dice", type=str, help="Path to dice scores output.")

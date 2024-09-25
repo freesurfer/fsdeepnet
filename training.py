@@ -29,7 +29,6 @@ class Training:
     def __init__(self,
                  train_output_folder,
                  labels_segmentation,
-                 label_mapping,
                  input_generator,                 
                  model,
                  model_arch_dict=None,
@@ -71,8 +70,8 @@ class Training:
         self._setup_training_directory(train_output_folder)
         
         self._labels_segmentation, self._unique_idx = np.unique(labels_segmentation, return_index=True)
-        self._nlabels = len(self._labels_segmentation)
-        self._label_mapping = label_mapping  # ??? todo: calculate this from labels_segmentation
+        self._num_labels = len(self._labels_segmentation)
+        self._label_mapping = {label.item(): i for i, label in enumerate(self._labels_segmentation)}
 
         self._device = device
         if (self._device is None):
@@ -85,7 +84,7 @@ class Training:
             self._summary_writer = SummaryWriter(train_output_folder)
             
         self._dice_metric_hard = DiceScore(
-            num_classes=self._nlabels,
+            num_classes=self._num_labels,
             input_type="prob",
             dice_type="hard",
             # return_loss=False,
@@ -257,11 +256,13 @@ class Training:
         """
 
         train_loss = 0.0
-        train_dices = np.zeros((self._nlabels, steps_per_epoch))
+        train_dices = np.zeros((self._num_labels, steps_per_epoch))
 
         self._model.train()        
         for step in range(steps_per_epoch):
             (batch_idx, images, labels) = next(self._input_generator)
+            labels = remap_labels(labels, self._label_mapping)
+            labels = onehot(labels, num_classes=self._num_labels, device=self._device)
 
             # Zero your gradients for every batch
             optimizer.zero_grad()
@@ -343,7 +344,7 @@ class Training:
         """
         
         validation_loss = 0.0
-        validation_dices = np.zeros((self._nlabels, len(self._validation_loader)))
+        validation_dices = np.zeros((self._num_labels, len(self._validation_loader)))
         
         self._model.eval()        
         
@@ -351,7 +352,7 @@ class Training:
             for batch_idx, (images, labels) in enumerate(self._validation_loader):
                 images, labels = images.to(self._device).float(), labels.to(self._device)
                 labels = remap_labels(labels, self._label_mapping)
-                labels = onehot(labels, num_classes=self._nlabels, device=self._device)
+                labels = onehot(labels, num_classes=self._num_labels, device=self._device)
 
                 (outputs, penultimate) = self._model(images)
 

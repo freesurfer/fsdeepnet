@@ -11,7 +11,7 @@ from utils.preprocessing import (
     apply_blur_resample,
     apply_bias_field,
 )
-from utils.data_utils import load_volume, save_volume, remap_labels, onehot
+from utils.data_utils import load_volume, save_volume
 import logging
 
 logging.basicConfig(
@@ -76,7 +76,6 @@ class SegmentationDataset(Dataset):
     def preload(self):
         """preprocesses all label maps, retrieve input tensor shape and unique classes."""
         self.unique_classes = set()
-        all_labels = []
 
         for f_label, f_image in zip(self.label_files, self.image_files):
             label, label_tensor, _ = load_volume(f_label)
@@ -87,9 +86,8 @@ class SegmentationDataset(Dataset):
 
             unique_values = np.unique(label.data).tolist()
             self.unique_classes.update(unique_values)
-            all_labels.append(label_tensor)
 
-        return self.input_shape, self.unique_classes, torch.cat(all_labels, dim=0)
+        return self.input_shape, self.unique_classes
 
 
     # test routines
@@ -166,11 +164,9 @@ def load_datasets(
     return train_dataset, validation_dataset, test_dataset
 
 
-def dataGenerator(dataloader, device, label_mapping):
+def dataGenerator(dataloader, device):
     while (True):
         for idx, (images, labels) in enumerate(dataloader):
             images, labels = images.to(device).float(), labels.to(device)
-            labels = remap_labels(labels, label_mapping)
-            labels = onehot(labels, num_classes=len(label_mapping), device=device)
 
             yield idx, images, labels

@@ -1,7 +1,5 @@
 import os
-import json
 import torch
-import logging
 import argparse
 
 from prediction import Prediction
@@ -12,25 +10,13 @@ Usage: predict.py
        --i <input_images>
        --o  <output_segmentations>
        --checkpoint <checkpoint>
-       --crop_size <W H D>
+       [--crop_size <W H D>]
        [--gt <ground_truth_dir>] 
        [--path_dice <path_dice>]
-       [--label_mapping <label_mapping.json>]
        [--noaddctab]
        [--write_posteriors]
        [--cpu]
-
-       * If <label_mapping.json> is not given, label_mapping.json in the training root directory is used.
 """
-
-# Configure logging settings
-logging.basicConfig(
-    level=logging.INFO,  # Set the log level (e.g., DEBUG, INFO, WARNING, ERROR)
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(),  # Print to terminal
-    ],
-)
 
 def main():
     args = argument_parse()
@@ -39,21 +25,7 @@ def main():
         os.environ["CUDA_VISIBLE_DEVICES"]=""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # ??? todo: remove dependency on label_mapping.json ???
-    if args.label_mapping:
-        label_mapping_path = args.label_mapping
-    else:
-        # Search for label_mapping.json in the root dir of training output
-        model_checkpoint_dir = os.path.dirname(args.checkpoint)
-        label_mapping_path = os.path.join(model_checkpoint_dir, "..", "label_mapping.json")
-
-    with open(label_mapping_path, "r") as f:
-        label_mapping = json.load(f)
-
-    # Ensure keys in label_mapping are integers
-    label_mapping = {int(k): v for k, v in label_mapping.items()}
-
-    predict(args.i, args.o, label_mapping, args.checkpoint, args.crop_size,
+    predict(args.i, args.o, args.checkpoint, args.crop_size,
             path_gt=args.gt,
             path_dice=args.path_dice,
             addctab=True if (not args.noaddctab) else False,
@@ -69,13 +41,12 @@ def argument_parse():
     parser.add_argument("--i", type=str, required=True, help="Image(s) to segment. Can be a path to an image or to a folder.")
     parser.add_argument("--o", type=str, required=True, help="Segmentation output(s). Must be a folder if --i designates a folder.")
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to a checkpoint file to resume training from")
-    parser.add_argument("--crop_size", nargs="+", type=int, required=True, help="Crop size for training and validation")
+    parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     parser.add_argument("--gt", type=str, help="Path to ground truth folder for dice evaluation.")
     parser.add_argument("--path_dice", type=str, help="Path to dice scores output.")
     parser.add_argument("--noaddctab", action="store_true", help="Do not embed colortable into seg output")
     parser.add_argument("--write_posteriors", action='store_true', help="Save the label posteriors.")
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")    
-    parser.add_argument("--label_mapping", type=str, default=None, help="Path to the label_mapping.json file. If not provided, the script will search for it in the model checkpoint directory.")    
 
     # parse commandline
     args = parser.parse_args()
@@ -83,10 +54,9 @@ def argument_parse():
     return args
 
 
-# ??? todo: remove label_mapping
-def predict(path_images, out_segmentations, label_mapping, checkpoint, crop_size,
+def predict(path_images, out_segmentations, checkpoint, crop_size,
             path_gt=None, path_dice=None, addctab=True, write_posteriors=None, device=None):
-    prediction = Prediction(label_mapping, device)
+    prediction = Prediction(device)
     prediction.load_model(checkpoint)
     prediction.predict(path_images, out_segmentations, crop_size,
                        path_gt=path_gt,

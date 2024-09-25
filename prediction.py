@@ -30,7 +30,7 @@ class Prediction:
         predict/evaluate given test dataset
     """
         
-    def __init__(self, label_mapping, device=None):
+    def __init__(self, device=None):
         """
         Prediction Constructor.
         """
@@ -39,13 +39,6 @@ class Prediction:
         self._device = device
         if (self._device is None):
             self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        self._label_mapping = label_mapping
-        self._num_labels = len(self._label_mapping)
-        self._inverse_label_mapping = {v: k for k, v in self._label_mapping.items()}
-
-        labels_segmentation = [label for label, idx in self._label_mapping.items()]
-        self._labels_segmentation, self._unique_idx = np.unique(labels_segmentation, return_index=True)
 
 
     def load_model(self, model_checkpoint):
@@ -64,6 +57,7 @@ class Prediction:
         checkpoint = Checkpoint()
         checkpoint.load(model_checkpoint, device=self._device)
         assert checkpoint.model_arch_dict is not None, "Model architecture information not available."
+        assert checkpoint.train_dataset_dict is not None, "Training dataset information not available."
         
         self._model = UNet(
             input_shape=checkpoint.model_arch_dict["input_shape"],
@@ -81,6 +75,14 @@ class Prediction:
             activation=checkpoint.model_arch_dict["activation"],
             final_pred_activation=checkpoint.model_arch_dict["final_pred_activation"]).to(self._device)
 
+        self._crop_size = checkpoint.train_dataset_dict["crop_size"]
+        self._labels_segmentation, self._unique_idx = np.unique(checkpoint.train_dataset_dict["segmentation_labels"], return_index=True)
+        self._num_labels = len(self._labels_segmentation)
+        
+        # compute self._label_mapping, self._inverse_label_mapping from self._labels_segmentation
+        self._label_mapping = {label.item(): i for i, label in enumerate(self._labels_segmentation)}
+        self._inverse_label_mapping = {v: k for k, v in self._label_mapping.items()}
+        
         self._label_lookup = checkpoint.label_lookup
         self._model.load_state_dict(checkpoint.model_state_dict)
         self._model.eval()
@@ -89,7 +91,7 @@ class Prediction:
     def predict(self,
                 path_images,
                 out_segmentations,
-                crop_size,
+                crop_size=None,
                 path_gt=None, # for hard-dice calculation
                 path_dice=None,
                 addctab=True,
@@ -98,7 +100,10 @@ class Prediction:
         # check inputs
         assert path_images is not None, 'please specify an input file/folder'
         assert out_segmentations is not None, 'please specify an output file/folder'
-        assert crop_size is not None, 'please specify cropping size'
+
+        if (crop_size is not None):
+            self._crop_size = crop_size
+        assert self._crop_size is not None, 'please specify cropping size'
 
         pred_suffix = 'prediction'
         posteriors_suffix = 'posteriors'
@@ -138,7 +143,7 @@ class Prediction:
             
             # add channel axes, crop the images
             image_tensor = image_tensor.unsqueeze(1)
-            image_tensor_cropped = apply_cropping(image_tensor, crop_size)
+            image_tensor_cropped = apply_cropping(image_tensor, self._crop_size)
             image_tensor_cropped = image_tensor_cropped.to(self._device).float()
             
             # normalize
@@ -174,7 +179,7 @@ class Prediction:
             if (path_dice is None):
                 path_dice = os.path.join(os.path.dirname(out_segmentations[0]), 'dices.npy')
 
-            printf(f"\nEvaluating segmentations ...")
+            print(f"\nEvaluating segmentations ...")
             eval = Evaluation(self._labels_segmentation)                
             if (os.path.isdir(path_gt)):
                 eval.evaluate(path_gt, os.path.dirname(out_segmentations[0]), path_dice=path_dice)

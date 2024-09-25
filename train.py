@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from models.model import UNet
 from training import Training
 
-from utils.data_utils import load_config, save_label_mapping, remap_labels
+from utils.data_utils import load_config
 from utils.dataset import load_datasets, dataGenerator
 from utils.metrics import WeightedL2Loss, DiceLoss, DiceScore
 
@@ -104,12 +104,8 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=config["training"]["batch_size"], shuffle=True)
 
     # ??? todo: we probably can get rid of sample_input_shape too
-    sample_input_shape, unique_classes, all_labels = train_dataset.preload()
+    sample_input_shape, unique_classes = train_dataset.preload()
     input_shape = sample_input_shape[1:]
-
-    # ??? we need label_mapping for dataGenerator
-    # ??? move this to Training class, output from labels_segmentation
-    label_mapping = save_label_mapping(all_labels, output_folder=output_folder)
 
     expected_num_channels = config["dataset"]["expected_num_channels"]
     expected_classes = config["dataset"]["expected_classes"]
@@ -120,6 +116,10 @@ def main():
         sample_input_shape[0] == expected_num_channels
     ), f"Expected {expected_num_channels} channels, but got {sample_input_shape[0]}"
 
+    # output segmentation_labels.npy in training directory
+    f_segmentation_labels = os.path.join(output_folder, "segmentation_labels.npy")
+    np.save(f_segmentation_labels, np.array(expected_classes))
+    
     # create validation DataLoader
     validation_loader = None
     perform_evaluation = config["training"].get("perform_evaluation", False)
@@ -141,7 +141,7 @@ def main():
     logging.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
     logging.info("Dataset information:")
     logging.info(f"Number of samples in training dataset: {len(train_dataset)}")
-    logging.info(f"Number of unique classes: {len(label_mapping)}")
+    logging.info(f"Number of unique classes: {len(unique_classes)}")
     logging.info(f"Unique class values: {sorted(unique_classes)}")
     logging.info(f"Input shape: {input_shape}")
     logging.info(f"Number of channels: {sample_input_shape[0]}")
@@ -152,12 +152,12 @@ def main():
         "crop_size": crop_size,
         "num_samples": len(train_dataset),
         "input_shape": input_shape,
-        "n_channels": sample_input_shape[0],        
+        "num_channels": sample_input_shape[0],        
     }
     
-    input_generator = dataGenerator(train_loader, device, label_mapping)
+    input_generator = dataGenerator(train_loader, device)
                        
-    train(input_generator, config, output_folder, label_mapping, ctab, input_shape, checkpoint, validation_loader, device, train_dataset_dict)
+    train(input_generator, config, output_folder, len(unique_classes), ctab, input_shape, checkpoint, validation_loader, device, train_dataset_dict)
                        
     
 def argument_parse():
@@ -184,8 +184,7 @@ def argument_parse():
     return args
 
 
-# ??? todo: remove label_mapping
-def train(input_generator, config, train_output_folder, label_mapping, ctab, input_shape, checkpoint=None, validation_loader=None, device=None, train_dataset_dict=None):
+def train(input_generator, config, train_output_folder, num_labels, ctab, input_shape, checkpoint=None, validation_loader=None, device=None, train_dataset_dict=None):
     # create the model to train
     model_arch_dict = config["model"]
     model_arch_dict["name"] = "UNet"
@@ -207,23 +206,6 @@ def train(input_generator, config, train_output_folder, label_mapping, ctab, inp
         use_batchnorm=model_arch_dict["use_batchnorm"],
         activation=model_arch_dict["activation"],
         final_pred_activation=model_arch_dict["final_pred_activation"]).to(device)     
-    """
-    model = UNet(
-        input_shape=(config["dataset"]["expected_num_channels"], *input_shape),
-        ndims=config["model"]["ndims"],
-        conv_size=config["model"]["conv_size"],
-        pool_size=config["model"]["pool_size"],
-        refine_conv=config["model"]["refine_conv"],
-        nb_features=config["model"]["nb_features"],
-        nb_levels=config["model"]["nb_levels"],
-        nb_labels=len(config["dataset"]["expected_classes"]),
-        feat_mult=config["model"]["feat_mult"],
-        nb_conv_per_level=config["model"]["nb_conv_per_level"],
-        use_residuals=config["model"]["use_residuals"],
-        use_batchnorm=config["model"]["use_batchnorm"],
-        activation=config["model"]["activation"],
-        final_pred_activation=config["model"].get("final_pred_activation", "softmax")).to(device)
-    """
    
     # print Model Architecture
     # from torchinfo import summary
@@ -231,8 +213,7 @@ def train(input_generator, config, train_output_folder, label_mapping, ctab, inp
 
     # create the Training object
     trainer = Training(train_output_folder,
-                       np.array(config["dataset"]["expected_classes"]),
-                       label_mapping,
+                       config["dataset"]["expected_classes"],
                        input_generator,
                        model,
                        model_arch_dict=model_arch_dict,
@@ -254,7 +235,7 @@ def train(input_generator, config, train_output_folder, label_mapping, ctab, inp
                        
     # train dice epochs
     dice_loss_fn = DiceLoss(
-        num_classes=len(label_mapping),
+        num_classes=num_labels,
         input_type="prob",
         dice_type="soft"
     )                   
