@@ -97,7 +97,7 @@ def main():
     
     # create training/validation dataset with the desired augmentations specified
     train_dataset, validation_dataset, _ = load_datasets(
-        config, config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations")
+        config, config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"), device=device
     )
 
     # Create training DataLoader

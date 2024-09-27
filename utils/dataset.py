@@ -24,11 +24,14 @@ logging.basicConfig(
 
 
 class SegmentationDataset(Dataset):
-    def __init__(self, dataset_entries, config, transform=None):
+    def __init__(self, dataset_entries, config, transform=None, device=None):
         self.dataset_list = dataset_entries
         self.config = config
         self.augment_para = config["preprocessing"]
         self.transform = transform
+        self.device = device
+        if (self.device is None):
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.input_shape = None
         self.unique_classes = None
@@ -46,8 +49,8 @@ class SegmentationDataset(Dataset):
         label_path = data_item.get("label_filepath")
 
         # Load image and label using the load_volume function
-        image, image_tensor, _ = load_volume(image_path, orientation="RAS")
-        label, label_tensor, _ = load_volume(label_path, orientation="RAS")
+        image, image_tensor, _ = load_volume(image_path, orientation="RAS", device=self.device)
+        label, label_tensor, _ = load_volume(label_path, orientation="RAS", device=self.device)
 
         # where/whether to save preprocessed data
         save_volumes = os.path.basename(image_path)
@@ -69,6 +72,7 @@ class SegmentationDataset(Dataset):
                 left_right_corresponding=self.config["dataset"].get(
                     "left_right_corresponding", None
                 ),
+                device=self.device
             )
 
         return image_tensor, label_tensor
@@ -78,8 +82,8 @@ class SegmentationDataset(Dataset):
         self.unique_classes = set()
 
         for f_label, f_image in zip(self.label_files, self.image_files):
-            label, label_tensor, _ = load_volume(f_label)
-            image, image_tensor, _ = load_volume(f_image)
+            label, label_tensor, _ = load_volume(f_label, device=self.device)
+            image, image_tensor, _ = load_volume(f_image, device=self.device)
 
             if self.input_shape is None:
                 self.input_shape = image_tensor.shape
@@ -94,13 +98,13 @@ class SegmentationDataset(Dataset):
     def test_preprocessing(self, outdir, augmentations=None):
         for idx in range(len(self.image_files)):
             f_image = self.image_files[idx]
-            image, image_tensor, _ = load_volume(f_image, orientation="RAS")
+            image, image_tensor, _ = load_volume(f_image, orientation="RAS", device=self.device)
             prefix = os.path.basename(f_image)
             reoriented = os.path.join(outdir, prefix + "_reoriented_image.mgz")
             save_volume(image_tensor, image, reoriented)
 
             f_label = self.label_files[idx]
-            label, label_tensor, _ = load_volume(f_label, orientation="RAS")
+            label, label_tensor, _ = load_volume(f_label, orientation="RAS", device=self.device)
             prefix = os.path.basename(f_label)
             reoriented = os.path.join(outdir, prefix + "_reoriented_label.mgz")
             save_volume(label_tensor, label, reoriented)
@@ -122,6 +126,7 @@ class SegmentationDataset(Dataset):
                     left_right_corresponding=self.config["dataset"].get(
                         "left_right_corresponding", None
                     ),
+                    device=self.device
                 )
 
 
@@ -130,7 +135,11 @@ def load_datasets(
     train_augmentations=None,
     validation_augmentations=None,
     test_augmentations=None,
+    device=None
 ):
+    if (device is None):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     with open(config["dataset"]["dataset_list_file"], "r") as file:
         dataset_dict = yaml.safe_load(file)
 
@@ -141,6 +150,7 @@ def load_datasets(
             dataset,
             config,
             transform=train_augmentations,
+            device=device
         )
 
     dataset = dataset_dict.get("validation")
@@ -150,6 +160,7 @@ def load_datasets(
             dataset,
             config,
             transform=validation_augmentations,
+            device=device
         )
 
     dataset = dataset_dict.get("test")
@@ -159,6 +170,7 @@ def load_datasets(
             dataset,
             config,
             transform=test_augmentations,
+            device=device
         )
 
     return train_dataset, validation_dataset, test_dataset

@@ -48,11 +48,13 @@ def apply_spatial_transform(image, label, voxsize,
                             warp_integrations=7,
                             warp_smoothing_range=[10, 20],
                             warp_magnitude_range=[1, 2],
-                            shearing_bounds=0.015):
+                            shearing_bounds=0.015,
+                            device=None):
     """Applies a random spatial transformation to image and label volumes."""
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    image = image.to(device)
-    label = label.to(device)
+    if (device is None):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    #print(f"apply_spatial_transform() - image.get_device() = {image.get_device()}, label.get_device() = {label.get_device()}, device = {device}")
 
     trf = voxynth.transform.random_transform(
         shape=image.shape[1:],
@@ -235,9 +237,8 @@ def apply_blur_resample(image, voxsize,
                         resized_one_axis_probability=0,
                         resized_max_voxsize=2):
     """Applies blurring and resampling to the image volume."""
-    image_cpu = image.cpu()
     blur_resampled_image = voxynth.augment.image_augment(
-        image_cpu,
+        image,
         normalize=True,
         smoothing_probability=smoothing_probability,
         smoothing_max_sigma=smoothing_max_sigma,
@@ -396,7 +397,8 @@ def apply_augmentations(
     output_dir=None,
     save_volumes=None,
     augmentations_to_apply=None,
-    left_right_corresponding=None
+    left_right_corresponding=None,
+    device=None    
 ):
     """
     Apply data augmentations to the image and label tensors and optionally save intermediate results.
@@ -417,15 +419,6 @@ def apply_augmentations(
     Returns:
         tuple: Augmented image and label tensors.
     """
-
-    # if augmentations_to_apply is None:
-    #     augmentations_to_apply = [
-    #         "flipping",
-    #         "spatial_transform",
-    #         "cropping",
-    #         "blur_resample",
-    #         "bias_field",
-    #     ]
 
     crop_size = augment_para.get("crop_size", None)
             
@@ -459,6 +452,7 @@ def apply_augmentations(
             warp_smoothing_range=augment_para.get("warp_smoothing_range", [10, 20]),
             warp_magnitude_range=augment_para.get("warp_magnitude_range", [1, 2]),
             shearing_bounds=augment_para.get("shearing_bounds", 0.015),
+            device=device
         )
         if save_volumes is not None and output_dir is not None:
             save_volume(
