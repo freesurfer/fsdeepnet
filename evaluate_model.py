@@ -124,7 +124,7 @@ if (args.crop_size is not None):
 
 # ??? todo: remove load_datasets() dependency on config ???
 test_augmentations = ["cropping"]  # only cropping is needed, config["evaluation"].get("test_augmentations")
-_, _, test_dataset = load_datasets(config, test_augmentations=test_augmentations)
+_, _, test_dataset = load_datasets(config, test_augmentations=test_augmentations, device=device)
 
 # Create unique subfolder for this run
 model_name = os.path.basename(args.checkpoint).replace(".pth", "")
@@ -244,7 +244,7 @@ with torch.no_grad():
         original_predictions = remap_labels(predicted_segmentation, inverse_label_mapping)
 
         original_image_path = test_dataset.image_files[idx]
-        original_image, _, orig_orientation = load_volume(original_image_path, orientation='RAS')
+        original_image, _, orig_orientation = load_volume(original_image_path, orientation='RAS', device=device)
         base_filename = os.path.splitext(os.path.basename(original_image_path))[0]
 
         # Label remapping check

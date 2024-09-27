@@ -139,7 +139,7 @@ class Prediction:
         for i in range(len(path_images)):
             ### preprocessing ###
             # reorient to 'RAS'
-            sfimage, image_tensor, orig_orientation = load_volume(path_images[i], orientation="RAS")
+            sfimage, image_tensor, orig_orientation = load_volume(path_images[i], orientation="RAS", device=self._device)
             
             # add channel axes, crop the images
             image_tensor = image_tensor.unsqueeze(1)
@@ -211,7 +211,7 @@ class Prediction:
 
         for idx, (images, labels) in enumerate(test_loader):
             original_image_path = test_dataset.image_files[idx]
-            sfimage, _, orig_orientation = load_volume(original_image_path, orientation='RAS')
+            sfimage, _, orig_orientation = load_volume(original_image_path, orientation='RAS', device=self._device)
             base_filename = os.path.splitext(os.path.basename(original_image_path))[0]
 
             output_segmentation = os.path.join(unique_output_folder, f"{base_filename}_prediction.mgz")
