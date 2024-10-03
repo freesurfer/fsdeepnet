@@ -42,7 +42,7 @@ def save_volume(volume_tensor, original_volume, output_file, orientation=None, l
     """
     tensor_cpu = volume_tensor.cpu().squeeze(0)
     np_vol = tensor_cpu.detach().numpy().astype(original_volume.dtype)
-    surfa_vol = original_volume.new(np_vol)
+    surfa_vol = original_volume.new(np_vol).reshape(original_volume.shape)
     if (orientation is not None):
         surfa_vol = surfa_vol.reorient(orientation)
     if (labels is not None):
@@ -147,7 +147,34 @@ def bbox(image, labels):
     return lowerbound, upperbound
     
 
+def centroid(label):
+    """
+    calculate centroid for given label image
 
+    Args:
+        label (numpy.narray): input label image array
+
+    Returns:
+        tuple: Coordinates of the center point for given label image
+    """
+
+    # binarize the label image
+    mask = np.zeros(label.shape).astype(int)
+    mask[label > 0] = 1
+
+    # calculate bounding box coordinates
+    lowerbound = np.zeros(label.ndim).astype(int)
+    upperbound = np.zeros(label.ndim).astype(int)
+    if (np.any(mask == 1)):  # check if any of the labels exist
+        coords = np.where(mask == 1)
+        for dim, coord in enumerate(coords):
+            lowerbound[dim] = np.min(coord)
+            upperbound[dim] = np.max(coord)
+
+    centroid = lowerbound + (upperbound - lowerbound)/2
+    
+    return centroid.astype(int)    
+    #return tuple(centroid.astype(int))
 
     
 # ================================================================================================

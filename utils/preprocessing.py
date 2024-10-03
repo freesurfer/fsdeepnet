@@ -3,7 +3,7 @@ import numpy as np
 import math
 import torch
 from voxynth import voxynth
-from utils.data_utils import save_volume, get_ras_axes, bbox
+from utils.data_utils import save_volume, get_ras_axes, bbox, centroid
 
 
 def apply_flipping(image, label, aff, left_right_corresponding, flip_prob=0.5):
@@ -220,9 +220,24 @@ def apply_randomcrop(image, label, crop_size, mode='random', bbox_labels=None, d
     return cropped_image, cropped_label
 
 
-def apply_cropping(image, crop_size=None):
+def apply_centercrop(image, crop_size, center_point=None):
     """Applies center cropping to input volumes."""
-    cropped_image = voxynth.augment.apply_center_crop(image, crop_size)
+    if (center_point is not None):
+        if image.dim() == 5:
+            image_shape = image.shape[2:]  # Extract H, W, D dimensions for batched input
+        else:
+            image_shape = image.shape[1:]  # Extract H, W, D dimensions for non-batched input
+
+        # adjust the calculated center so that croppred image will have crop_size            
+        crop_half = (np.array(crop_size)/2).astype(int)
+        if (np.any(center_point < crop_half)):
+            distance = crop_half - center_point
+            center_point += np.maximum(0,  distance)    
+        if (np.any(center_point > (image_shape - crop_half))):
+            distance = center_point - (image_shape - crop_half)
+            center_point -= np.maximum(0,  distance)
+        
+    cropped_image = voxynth.augment.apply_center_crop(image, crop_size, center_point=center_point)
     return cropped_image
 
 
@@ -468,9 +483,14 @@ def apply_augmentations(
 
     # ??? we are now supporting cropping, randomcrop, randomcrop_center. check to allow only one type of cropping ???
     if "cropping" in augmentations_to_apply:
-        if crop_size is not None:
-            image_tensor = apply_cropping(image_tensor, crop_size)
-            label_tensor = apply_cropping(label_tensor, crop_size)
+        # check if the original image already has crop_size
+        if ((crop_size is not None) and
+            (np.any(np.array(original_image.shape) != np.array(crop_size)))):
+            # calculate the center point to crop the image/label around
+            center_point = centroid(label_tensor.cpu().squeeze(0).detach().numpy())
+            
+            image_tensor = apply_centercrop(image_tensor, crop_size, center_point=center_point)
+            label_tensor = apply_centercrop(label_tensor, crop_size, center_point=center_point)
             if save_volumes is not None and output_dir is not None:
                 save_volume(
                     image_tensor,

@@ -8,8 +8,8 @@ import surfa as sf
 
 from checkpoint import Checkpoint
 from models.model import UNet
-from utils.data_utils import load_volume, save_volume, remap_labels, onehot
-from utils.preprocessing import apply_cropping
+from utils.data_utils import load_volume, save_volume, remap_labels, onehot, centroid
+from utils.preprocessing import apply_centercrop
 
 class Prediction:
     """
@@ -51,7 +51,7 @@ class Prediction:
             path of the trained model
         """
         
-        assert os.path.isfile(model_checkpoint), "The provided model path does not exist."        
+        assert os.path.isfile(model_checkpoint), "The provided model path %s does not exist." % model_checkpoint
 
         # Load the Trained Model
         checkpoint = Checkpoint()
@@ -92,6 +92,7 @@ class Prediction:
                 path_images,
                 out_segmentations,
                 crop_size=None,
+                path_labels=None,
                 path_gt=None, # for hard-dice calculation
                 path_dice=None,
                 addctab=True,
@@ -110,7 +111,12 @@ class Prediction:
             
         # convert path to absolute paths
         path_images = os.path.abspath(path_images)
+        if (path_labels is not None):
+            path_labels = os.path.abspath(path_labels)
+            
         if (os.path.isdir(path_images)):
+            if (path_labels is not None):
+                assert os.path.isdir(path_labels), 'both %s and %s need to be directory' % (path_images, path_labels)
             if (not os.path.exists(out_segmentations)):
                 os.makedirs(out_segmentations)
             assert os.path.isdir(out_segmentations), 'both %s and %s need to be directory' % (path_images, out_segmentations)
@@ -120,6 +126,12 @@ class Prediction:
                                  glob.glob(os.path.join(path_images, '*.nii')) +
                                  glob.glob(os.path.join(path_images, '*.mgz')))
 
+            # get all labels in the directory
+            if (path_labels is not None):
+                path_labels = sorted(glob.glob(os.path.join(path_labels, '*.nii.gz')) +
+                                     glob.glob(os.path.join(path_labels, '*.nii')) +
+                                     glob.glob(os.path.join(path_labels, '*.mgz')))            
+
             # pre-generate all *_predict* filenames
             out_segmentations = [os.path.join(out_segmentations, os.path.basename(p)) for p in path_images]
             out_segmentations = [p.replace('.nii', '_%s.nii' % pred_suffix) for p in out_segmentations]
@@ -128,23 +140,36 @@ class Prediction:
             # single image
             assert os.path.isfile(path_images), 'file does not exist: %s \n' \
                                                 'please make sure the path and the extension are correct' % path_images
+            if (path_labels is not None):
+                assert os.path.isfile(path_labels), 'file does not exist: %s \n' \
+                                                    'please make sure the path and the extension are correct' % path_labels
+                path_labels = [path_labels]
+                
             path_images = [path_images]
             out_segmentations = [out_segmentations]
 
         if (write_posteriors):
             out_posteriors_dir = os.path.join(os.path.dirname(out_segmentations[0]), "posteriors")
             os.makedirs(out_posteriors_dir, exist_ok=True)
-            
+
         # perform segmentation
         for i in range(len(path_images)):
             ### preprocessing ###
             # reorient to 'RAS'
             sfimage, image_tensor, orig_orientation = load_volume(path_images[i], orientation="RAS", device=self._device)
-            
-            # add channel axes, crop the images
-            image_tensor = image_tensor.unsqueeze(1)
-            image_tensor_cropped = apply_cropping(image_tensor, self._crop_size)
-            image_tensor_cropped = image_tensor_cropped.to(self._device).float()
+            if (path_labels is not None):
+                _, label_tensor, _ = load_volume(path_labels[i], orientation="RAS", device=self._device)
+            # check if the input image already has crop_size
+            if (np.any(np.array(sfimage.shape) != np.array(self._crop_size))):
+                # calculate the cropping center point if label image is available
+                center_point = None
+                if (path_labels is not None):
+                    center_point = centroid(label_tensor.cpu().squeeze(0).detach().numpy())
+
+                    # add channel axes, crop the images
+                    image_tensor = image_tensor.unsqueeze(1)
+                    image_tensor_cropped = apply_centercrop(image_tensor, self._crop_size, center_point=center_point)
+                    image_tensor_cropped = image_tensor_cropped.to(self._device).float()
             
             # normalize
             # ??? todo ???
