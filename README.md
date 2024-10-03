@@ -71,39 +71,18 @@ fspython train.py
          [--cpu]
 ```
 
-## Evaluating the Model
-
-To evaluate the model on your dataset, follow these steps:
-
-7. Run the evaluation script:
-```bash
-fspython evaluate_model.py
-         --checkpoint <checkpoint>
-         --test_root_folder <test_root_folder>
-         --dataset_list_file <dataset_list_file>
-         [--run_name <run_name>]
-         [--batch_size <n>]
-         [--expected_num_channels <n>]
-         [--crop_size <W H D>]
-         [--config <config.yaml>]
-         [--label_mapping <label_mapping.json>]
-         [--write_posteriors]
-         [--cpu]
-
-       * config.yaml need to have the same network parameters as training.
-       * If config.yaml and label_mapping.json are not given,
-         the copies saved in the <checkpoint> parent directory are used.
-```
 
 ## Prediction and Evaluation
 
-8. Run the prediction script to segment any input images
+
+7. Run the prediction script to segment any input images
 ```bash
 fspython predict.py 
        	 --i <input_images>
       	 --o  <output_segmentations>
     	 --checkpoint <checkpoint>
     	 [--crop_size <W H D>]
+	 [--label <input_labels>]
        	 [--gt <ground_truth_dir>] 
        	 [--path_dice <path_dice>]
        	 [--noaddctab]
@@ -111,8 +90,7 @@ fspython predict.py
        	 [--cpu]
 ```
 
-
-9. Run the evaluation script to compute dice between ground truth and segmentation
+8. Run the evaluation script to compute dice between ground truth and segmentation
 ```bash
 fspython evaluate.py 
        	 --gt <ground_truth>
