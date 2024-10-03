@@ -158,6 +158,9 @@ class Prediction:
             # reorient to 'RAS'
             sfimage, image_tensor, orig_orientation = load_volume(path_images[i], orientation="RAS", device=self._device)
 
+            # add channel axes
+            image_tensor_cropped = image_tensor.unsqueeze(1)
+
             # check if the input image already has crop_size
             if (np.any(np.array(sfimage.shape) != np.array(self._crop_size))):
                 # calculate the cropping center point if label image is available
@@ -166,9 +169,8 @@ class Prediction:
                     _, label_tensor, _ = load_volume(path_labels[i], orientation="RAS", device=self._device)
                     center_point = centroid(label_tensor.cpu().squeeze(0).detach().numpy())
 
-                # add channel axes, crop the images
-                image_tensor = image_tensor.unsqueeze(1)
-                image_tensor_cropped = apply_centercrop(image_tensor, self._crop_size, center_point=center_point)
+                # crop the images                    
+                image_tensor_cropped = apply_centercrop(image_tensor_cropped, self._crop_size, center_point=center_point)
                 image_tensor_cropped = image_tensor_cropped.to(self._device).float()
             
             # normalize
