@@ -28,6 +28,9 @@ Usage: train.py
        [--perform_evaluation]
        [--best_model_metric <loss|dice>]
        [--cpu]
+       [--num_workers <num_workers>]
+       [--pin_memory]
+       [--persistent_workers]
 """
 
 # Configure logging settings
@@ -42,10 +45,11 @@ logging.basicConfig(
 
 def main():
     args = argument_parse()
-    
+
     if (args.cpu):
         os.environ["CUDA_VISIBLE_DEVICES"]=""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    preprocessing_device = device
 
     checkpoint = args.checkpoint
     ctab = args.ctab
@@ -76,6 +80,12 @@ def main():
         config["training"]["perform_evaluation"] = args.perform_evaluation
     if (args.best_model_metric is not None):
        config["training"]["best_model_metric"] = args.best_model_metric
+    if (args.num_workers is not None):
+        config["preprocessing"]["num_workers"] = args.num_workers
+    if (args.pin_memory is not None):
+        config["preprocessing"]["pin_memory"] = args.pin_memory
+    if (args.persistent_workers is not None):
+        config["preprocessing"]["persistent_workers"] = args.persistent_workers        
 
     """
     # yaml has nested structure, the update doesn't update value in nested structure
@@ -94,14 +104,24 @@ def main():
 
     # Access updated configuration values
     crop_size = config["preprocessing"]["crop_size"]
-    
+    num_workers = config["preprocessing"].get("num_workers", 0)
+    pin_memory = config["preprocessing"].get("pin_memory", False)
+    persistent_workers = config["preprocessing"].get("persistent_workers", False)
+
+    # force data preprocessing (augmentation) to run on CPU is pin_memory = True or num_worker > 0
+    if (pin_memory or num_workers > 0):
+        preprocessing_device = torch.device("cpu")
+        
     # create training/validation dataset with the desired augmentations specified
     train_dataset, validation_dataset, _ = load_datasets(
-        config, config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"), device=device
+        config, config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"), device=preprocessing_device
     )
 
     # Create training DataLoader
-    train_loader = DataLoader(train_dataset, batch_size=config["training"]["batch_size"], shuffle=True)
+    if (num_workers == 0):
+        persistent_workers = False
+    train_loader = DataLoader(train_dataset, batch_size=config["training"]["batch_size"], shuffle=True,
+                              pin_memory=pin_memory, num_workers=num_workers, persistent_workers=persistent_workers)
 
     # ??? todo: we probably can get rid of sample_input_shape too
     sample_input_shape, unique_classes = train_dataset.preload()
@@ -127,7 +147,18 @@ def main():
         best_model_metric = config["training"]["best_model_metric"]
         validation_loader = DataLoader(validation_dataset, batch_size=config["training"]["batch_size"], shuffle=False)
 
-    logging.info("Device: {}".format(device))
+    logging.info("Training Device: {}".format(device))
+    logging.info("Preprocessing Device: {}".format(preprocessing_device))
+    if (pin_memory):
+        logging.info("Preprocessing pin_memory: True")
+    else:
+        logging.info("Preprocessing pin_memory: False")
+    logging.info(f"Preprocessing num_workers: {num_workers}")
+    if (persistent_workers):
+        logging.info("Preprocessing persistent_workers: True")
+    else:
+        logging.info("Preprocessing persistent_workers: False")
+
     if (checkpoint is not None):
         logging.info(f"resume training from model: {checkpoint}")
     logging.info(f"train_root_folder: {train_root_folder}")
@@ -155,7 +186,7 @@ def main():
         "num_channels": sample_input_shape[0],        
     }
     
-    input_generator = dataGenerator(train_loader, device)
+    input_generator = dataGenerator(train_loader, preprocessing_device)
                        
     train(input_generator, config, output_folder, len(unique_classes), ctab, input_shape, checkpoint, validation_loader, device, train_dataset_dict)
                        
@@ -172,6 +203,9 @@ def argument_parse():
     parser.add_argument("--run_name", type=str, default=None, help="Descriptive name for the run (used for naming TensorBoard log directories)")
     parser.add_argument("--checkpoint", type=str, help="Path to a checkpoint file to resume training from")
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
+    parser.add_argument("--num_workers", type=int, help="Number of Dataloader workers")
+    parser.add_argument("--pin_memory", action='store_true', help="Store data in pinned memory")
+    parser.add_argument("--persistent_workers", action='store_true', help=" Keep the workers Dataset instances alive")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     #parser.add_argument("--expected_classes", nargs="+", type=int, help="Expected classes in the dataset")
     parser.add_argument("--write_tensorboard_summary", action='store_true', help="Write tensorboard summary")

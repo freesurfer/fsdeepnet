@@ -261,6 +261,9 @@ class Training:
         self._model.train()        
         for step in range(steps_per_epoch):
             (batch_idx, images, labels) = next(self._input_generator)
+            # training device and preprocessing device could be different
+            images, labels = images.to(self._device), labels.to(self._device)
+            
             labels = remap_labels(labels, self._label_mapping)
             labels = onehot(labels, num_classes=self._num_labels, device=self._device)
 

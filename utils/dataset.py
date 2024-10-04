@@ -169,7 +169,10 @@ def load_datasets(
     return train_dataset, validation_dataset, test_dataset
 
 
-def dataGenerator(dataloader, device):
+def dataGenerator(dataloader, device=None):
+    if (device is None):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     while (True):
         for idx, (images, labels) in enumerate(dataloader):
             images, labels = images.to(device).float(), labels.to(device)
