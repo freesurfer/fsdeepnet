@@ -447,11 +447,13 @@ def apply_augmentations(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_flipped_image.mgz"),
+                reshape=False,                
             )
             save_volume(
                 label_tensor,
                 original_label,
                 os.path.join(output_dir, save_volumes + "_flipped_label.mgz"),
+                reshape=False,                
             )
 
     # ??? spatial_transform always happens for hypothalamus
@@ -474,11 +476,13 @@ def apply_augmentations(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_transformed_image.mgz"),
+                reshape=False,                
             )
             save_volume(
                 label_tensor,
                 original_label,
                 os.path.join(output_dir, save_volumes + "_transformed_label.mgz"),
+                reshape=False,                
             )
 
     # ??? we are now supporting cropping, randomcrop, randomcrop_center. check to allow only one type of cropping ???
@@ -495,12 +499,14 @@ def apply_augmentations(
                 save_volume(
                     image_tensor,
                     original_image,
-                    os.path.join(output_dir, save_volumes + "_cropped_image.mgz"),
+                    os.path.join(output_dir, save_volumes + "_centercropped_image.mgz"),
+                    reshape=False,
                 )
                 save_volume(
                     label_tensor,
                     original_label,
-                    os.path.join(output_dir, save_volumes + "_cropped_label.mgz"),
+                    os.path.join(output_dir, save_volumes + "_centercropped_label.mgz"),
+                    reshape=False,
                 )
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
@@ -515,11 +521,13 @@ def apply_augmentations(
                     image_tensor,
                     original_image,
                     os.path.join(output_dir, save_volumes + "_randomcropped_image.mgz"),
+                    reshape=False,                    
                 )
                 save_volume(
                     label_tensor,
                     original_label,
                     os.path.join(output_dir, save_volumes + "_randomcropped_label.mgz"),
+                    reshape=False,                    
                 )
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
@@ -534,11 +542,13 @@ def apply_augmentations(
                     image_tensor,
                     original_image,
                     os.path.join(output_dir, save_volumes + "_randomcropped_center_image.mgz"),
+                    reshape=False,                    
                 )
                 save_volume(
                     label_tensor,
                     original_label,
                     os.path.join(output_dir, save_volumes + "_randomcropped_center_label.mgz"),
+                    reshape=False,                    
                 )
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
@@ -561,6 +571,7 @@ def apply_augmentations(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_blur_resampled_image.mgz"),
+                reshape=False,                
             )
 
     # ??? only allow one "bias_field" or "biasFieldCorruption" ???
@@ -587,6 +598,7 @@ def apply_augmentations(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_biasFieldCorruption_image.mgz"),
+                reshape=False,                
             )
             
     if "sampleConditionalGMM" in augmentations_to_apply:
@@ -598,6 +610,7 @@ def apply_augmentations(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_sampleConditionalGMM_image.mgz"),
+                reshape=False,                
             )
 
     if "intensityAugmentation" in augmentations_to_apply:
@@ -609,6 +622,7 @@ def apply_augmentations(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_intensityAugmentation_image.mgz"),
+                reshape=False,                
             )
 
 

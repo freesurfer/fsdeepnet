@@ -26,6 +26,10 @@ def main():
         os.environ["CUDA_VISIBLE_DEVICES"]=""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    debug = False
+    if (args.debug):
+        debug = True
+
     predict(args.i, args.o, args.checkpoint,
             crop_size=args.crop_size,
             path_labels=args.label,
@@ -33,7 +37,8 @@ def main():
             path_dice=args.path_dice,
             addctab=True if (not args.noaddctab) else False,
             write_posteriors=args.write_posteriors,
-            device=device)
+            device=device,
+            debug=debug)
     
 
 def argument_parse():
@@ -50,7 +55,8 @@ def argument_parse():
     parser.add_argument("--path_dice", type=str, help="Path to dice scores output.")
     parser.add_argument("--noaddctab", action="store_true", help="Do not embed colortable into seg output")
     parser.add_argument("--write_posteriors", action='store_true', help="Save the label posteriors.")
-    parser.add_argument("--cpu", action='store_true', help="Run on CPU.")    
+    parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
+    parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
 
     # parse commandline
     args = parser.parse_args()
@@ -59,7 +65,7 @@ def argument_parse():
 
 
 def predict(path_images, out_segmentations, checkpoint, crop_size=None, path_labels=None,
-            path_gt=None, path_dice=None, addctab=True, write_posteriors=None, device=None):
+            path_gt=None, path_dice=None, addctab=True, write_posteriors=None, device=None, debug=False):
     prediction = Prediction(device)
     prediction.load_model(checkpoint)
     prediction.predict(path_images, out_segmentations,
@@ -68,7 +74,8 @@ def predict(path_images, out_segmentations, checkpoint, crop_size=None, path_lab
                        path_gt=path_gt,
                        path_dice=path_dice,
                        addctab=addctab,
-                       write_posteriors=write_posteriors)
+                       write_posteriors=write_posteriors,
+                       debug=debug)
 
 
 # execute script

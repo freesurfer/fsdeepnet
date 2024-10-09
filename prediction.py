@@ -96,7 +96,8 @@ class Prediction:
                 path_gt=None, # for hard-dice calculation
                 path_dice=None,
                 addctab=True,
-                write_posteriors=None):
+                write_posteriors=None,
+                debug=False):
         
         # check inputs
         assert path_images is not None, 'please specify an input file/folder'
@@ -141,8 +142,7 @@ class Prediction:
             assert os.path.isfile(path_images), 'file does not exist: %s \n' \
                                                 'please make sure the path and the extension are correct' % path_images
             if (path_labels is not None):
-                assert os.path.isfile(path_labels), 'file does not exist: %s \n' \
-                                                    'please make sure the path and the extension are correct' % path_labels
+                assert os.path.isfile(path_labels), 'both %s and %s need to be file \n' % (path_images, path_labels)
                 path_labels = [path_labels]
                 
             path_images = [path_images]
@@ -166,13 +166,36 @@ class Prediction:
                 # calculate the cropping center point if label image is available
                 center_point = None
                 if (path_labels is not None):
-                    _, label_tensor, _ = load_volume(path_labels[i], orientation="RAS", device=self._device)
+                    sflabel, label_tensor, _ = load_volume(path_labels[i], orientation="RAS", device=self._device)
                     center_point = centroid(label_tensor.cpu().squeeze(0).detach().numpy())
 
                 # crop the images                    
                 image_tensor_cropped = apply_centercrop(image_tensor_cropped, self._crop_size, center_point=center_point)
                 image_tensor_cropped = image_tensor_cropped.to(self._device).float()
-            
+
+                if (debug):
+                    # debugging
+                    print("[DEBUG] output cropped image/label ...")
+                    if (path_labels is not None):
+                        # crop the labels
+                        label_tensor_cropped = label_tensor.unsqueeze(1)                    
+                        label_tensor_cropped = apply_centercrop(label_tensor_cropped, self._crop_size, center_point=center_point)
+                        label_tensor_cropped = label_tensor_cropped.to(self._device).float()
+
+                    crop = 'centercropped'
+                    if (center_point is not None):
+                        crop = 'centroidcropped'
+                    out_cropped_image = os.path.join(os.path.dirname(out_segmentations[i]), os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.RAS.mgz"
+                    save_volume(image_tensor_cropped.movedim(1, -1), sfimage, out_cropped_image, reshape=False)
+                    out_cropped_image = os.path.join(os.path.dirname(out_segmentations[i]), os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.mgz"
+                    save_volume(image_tensor_cropped.movedim(1, -1), sfimage, out_cropped_image, orientation=orig_orientation, reshape=False)                
+                    if (path_labels is not None):
+                        out_cropped_label = os.path.join(os.path.dirname(out_segmentations[i]), os.path.splitext(os.path.basename(path_labels[i]))[0])+f".label.{crop}.RAS.mgz"
+                        save_volume(label_tensor_cropped.movedim(1, -1), sflabel, out_cropped_label, reshape=False)
+                        out_cropped_label = os.path.join(os.path.dirname(out_segmentations[i]), os.path.splitext(os.path.basename(path_labels[i]))[0])+f".label.{crop}.mgz"
+                        save_volume(label_tensor_cropped.movedim(1, -1), sflabel, out_cropped_label, orientation=orig_orientation, reshape=False)
+                    # end of debugging
+                
             # normalize
             # ??? todo ???
             
@@ -189,6 +212,13 @@ class Prediction:
                         orientation=orig_orientation,
                         labels=self._label_lookup if (addctab) else None)
             print(f"output segmentation {out_segmentations[i]}")
+            if (debug):
+                print("[DEBUG] output cropped prediction ...")
+                seg_noreshape = os.path.join(os.path.dirname(out_segmentations[i]), os.path.splitext(os.path.basename(out_segmentations[i]))[0])+f".cropped.mgz"
+                save_volume(segmentation, sfimage, seg_noreshape,
+                            orientation=orig_orientation,
+                            labels=self._label_lookup if (addctab) else None,
+                            reshape=False)            
             if (write_posteriors):
                 basename = os.path.basename(out_segmentations[i])
                 out_posteriors = basename.replace(f"_{pred_suffix}.", f"_{posteriors_suffix}.")

@@ -31,7 +31,7 @@ def load_volume(file_path, orientation=None, device=None):
     
     return volume, volume_tensor, orig_orientation
 
-def save_volume(volume_tensor, original_volume, output_file, orientation=None, labels=None):
+def save_volume(volume_tensor, original_volume, output_file, orientation=None, labels=None, reshape=True):
     """
     Save the augmented volume to a file.
     
@@ -42,11 +42,15 @@ def save_volume(volume_tensor, original_volume, output_file, orientation=None, l
     """
     tensor_cpu = volume_tensor.cpu().squeeze(0)
     np_vol = tensor_cpu.detach().numpy().astype(original_volume.dtype)
-    surfa_vol = original_volume.new(np_vol).reshape(original_volume.shape)
+    surfa_vol = original_volume.new(np_vol)
+    
+    if (reshape):
+        surfa_vol = surfa_vol.reshape(original_volume.shape)
     if (orientation is not None):
         surfa_vol = surfa_vol.reorient(orientation)
     if (labels is not None):
         surfa_vol.labels = labels
+
     surfa_vol.save(output_file)
 
 def load_config(config_file):
