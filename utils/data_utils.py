@@ -15,6 +15,7 @@ def load_volume(file_path, orientation=None, device=None):
     
     Returns:
         tuple: A tuple containing the loaded volume and its PyTorch tensor representation.
+               tensor returned is non-batched [C, H, W (,D)]
     """
     if (device is None):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -23,8 +24,11 @@ def load_volume(file_path, orientation=None, device=None):
     orig_orientation = sf.transform.orientation.rotation_matrix_to_orientation(volume.geom.vox2world.matrix)
     if (orientation is not None):
         volume = volume.reorient(orientation)
-    
-    volume_data_native = volume.framed_data.astype(volume.dtype.newbyteorder('='))
+
+    # handle both 2D and 3D data
+    volume_data_native = volume.framed_data.squeeze().astype(volume.dtype.newbyteorder('='))
+    if (volume_data_native.ndim < 4):
+        volume_data_native = np.expand_dims(volume_data_native, axis=-1)
     #volume_data_writable = np.copy(volume_data_native)  # Create a writable copy of the array
     #volume_tensor = torch.from_numpy(volume_data_writable).movedim(-1, 0)
     volume_tensor = torch.from_numpy(volume_data_native).movedim(-1, 0).to(device)
@@ -36,11 +40,12 @@ def save_volume(volume_tensor, original_volume, output_file, orientation=None, l
     Save the augmented volume to a file.
     
     Args:
-        volume_tensor (torch.Tensor): Augmented volume tensor.
+        volume_tensor (torch.Tensor): Augmented volume tensor, non-batched [C, H, W (,D)]
         original_volume (surfa.Volume): Original loaded volume.
         output_file (str): Path to the output file.
     """
-    tensor_cpu = volume_tensor.cpu().squeeze(0)
+    # the input tensor is non-batched [C, H, W, (D)], move C to the last axis, C >= 1
+    tensor_cpu = volume_tensor.cpu().movedim(0, -1).squeeze()
     np_vol = tensor_cpu.detach().numpy().astype(original_volume.dtype)
     surfa_vol = original_volume.new(np_vol)
     
@@ -112,7 +117,12 @@ def onehot(labels, num_classes, device=None):
     if device is None:
         device = labels.device 
     onehot_labels = torch.eye(num_classes, device=device)[labels.long().squeeze(1)]
-    return onehot_labels.permute(0, 4, 1, 2, 3)
+    if (onehot_labels.ndim == 5):  # 3D
+        return onehot_labels.permute(0, 4, 1, 2, 3)
+    elif (onehot_labels.ndim == 4): # 2D
+        return onehot_labels.permute(0, 3, 1, 2)
+    else:
+        raise ValueError("Onehot encoded label is expected to be 4 or 5 dimensions")
 
 
 def bbox(image, labels):

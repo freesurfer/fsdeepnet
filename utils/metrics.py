@@ -75,13 +75,20 @@ class Dice(nn.Module):
         # print(f"[debug-metrics] outputs shape after maksing: {outputs.shape}")
         # print(f"[debug-metrics] targets shape after masking: {targets.shape}")
 
-        intersection = torch.sum(outputs * targets, dim=(2, 3, 4))  # Sum across spatial dimensions
+        if (outputs.ndim == 5):
+            ndims = (2, 3, 4)
+        elif (outputs.ndim == 4):
+            ndims = (2, 3)
+        else:
+            raise ValueError("Onehot encoded label is expected to be 4 or 5 dimensions")
+        
+        intersection = torch.sum(outputs * targets, dim=ndims)  # Sum across spatial dimensions
         # print(f"[debug-metrics] intersection shape: {intersection.shape}")
         if (True):
-            union = torch.sum(outputs, dim=(2, 3, 4)) + torch.sum(targets, dim=(2, 3, 4))
+            union = torch.sum(outputs, dim=ndims) + torch.sum(targets, dim=ndims)
         else:
             union = torch.square(outputs) + torch.square(targets)
-            union = torch.sum(union, dim=(2, 3, 4))
+            union = torch.sum(union, dim=ndims)
         # print(f"[debug-metrics] union shape: {union.shape}")
         dice_scores = (2.0 * intersection + self.smooth) / (union + self.smooth)  # Calculate Dice for each class
         # print(f"[debug-metrics] dice_scores shape: {dice_scores.shape}")

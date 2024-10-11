@@ -223,10 +223,8 @@ def apply_randomcrop(image, label, crop_size, mode='random', bbox_labels=None, d
 def apply_centercrop(image, crop_size, center_point=None):
     """Applies center cropping to input volumes."""
     if (center_point is not None):
-        if image.dim() == 5:
-            image_shape = image.shape[2:]  # Extract H, W, D dimensions for batched input
-        else:
-            image_shape = image.shape[1:]  # Extract H, W, D dimensions for non-batched input
+        # input image is non-batched tensor
+        image_shape = image.shape[1:]
 
         # adjust the calculated center so that croppred image will have crop_size            
         crop_half = (np.array(crop_size)/2).astype(int)
@@ -488,26 +486,28 @@ def apply_augmentations(
     # ??? we are now supporting cropping, randomcrop, randomcrop_center. check to allow only one type of cropping ???
     if "cropping" in augmentations_to_apply:
         # check if the original image already has crop_size
-        if ((crop_size is not None) and
-            (np.any(np.array(original_image.shape) != np.array(crop_size)))):
-            # calculate the center point to crop the image/label around
-            center_point = centroid(label_tensor.cpu().squeeze(0).detach().numpy())
+        if (crop_size is not None):
+            # image_tensor/label_tensor is non-batched
+            image_shape = image_tensor.shape[1:]
+            if (np.any(np.array(image_shape) > np.array(crop_size))):
+                # calculate the center point to crop the image/label around
+                center_point = centroid(label_tensor.cpu().squeeze(0).detach().numpy())
             
-            image_tensor = apply_centercrop(image_tensor, crop_size, center_point=center_point)
-            label_tensor = apply_centercrop(label_tensor, crop_size, center_point=center_point)
-            if save_volumes is not None and output_dir is not None:
-                save_volume(
-                    image_tensor,
-                    original_image,
-                    os.path.join(output_dir, save_volumes + "_centercropped_image.mgz"),
-                    reshape=False,
-                )
-                save_volume(
-                    label_tensor,
-                    original_label,
-                    os.path.join(output_dir, save_volumes + "_centercropped_label.mgz"),
-                    reshape=False,
-                )
+                image_tensor = apply_centercrop(image_tensor, crop_size, center_point=center_point)
+                label_tensor = apply_centercrop(label_tensor, crop_size, center_point=center_point)
+                if save_volumes is not None and output_dir is not None:
+                    save_volume(
+                        image_tensor,
+                        original_image,
+                        os.path.join(output_dir, save_volumes + "_centercropped_image.mgz"),
+                        reshape=False,
+                    )
+                    save_volume(
+                        label_tensor,
+                        original_label,
+                        os.path.join(output_dir, save_volumes + "_centercropped_label.mgz"),
+                        reshape=False,
+                    )
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
 

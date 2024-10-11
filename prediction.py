@@ -158,18 +158,20 @@ class Prediction:
             # reorient to 'RAS'
             sfimage, image_tensor, orig_orientation = load_volume(path_images[i], orientation="RAS", device=self._device)
 
-            # add channel axes
-            image_tensor_cropped = image_tensor.unsqueeze(1)
-
+            image_tensor_cropped = image_tensor
+            
             # check if the input image already has crop_size
-            if (np.any(np.array(sfimage.shape) != np.array(self._crop_size))):
+            # image_tensor returned from load_volume() is non-batched
+            image_shape = image_tensor.shape[1:]
+            if (np.any(np.array(image_shape) > np.array(self._crop_size))):
                 # calculate the cropping center point if label image is available
                 center_point = None
                 if (path_labels is not None):
                     sflabel, label_tensor, _ = load_volume(path_labels[i], orientation="RAS", device=self._device)
                     center_point = centroid(label_tensor.cpu().squeeze(0).detach().numpy())
 
-                # crop the images                    
+                # crop the images
+                # apply_centercrop() expects input image_tensor to be non-batched, output image_tensor_cropped is non-batched
                 image_tensor_cropped = apply_centercrop(image_tensor_cropped, self._crop_size, center_point=center_point)
                 image_tensor_cropped = image_tensor_cropped.to(self._device).float()
 
@@ -178,23 +180,25 @@ class Prediction:
                     print("[DEBUG] output cropped image/label ...")
                     if (path_labels is not None):
                         # crop the labels
-                        label_tensor_cropped = label_tensor.unsqueeze(1)                    
-                        label_tensor_cropped = apply_centercrop(label_tensor_cropped, self._crop_size, center_point=center_point)
+                        label_tensor_cropped = apply_centercrop(label_tensor, self._crop_size, center_point=center_point)
                         label_tensor_cropped = label_tensor_cropped.to(self._device).float()
 
                     crop = 'centercropped'
                     if (center_point is not None):
                         crop = 'centroidcropped'
                     out_cropped_image = os.path.join(os.path.dirname(out_segmentations[i]), os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.RAS.mgz"
-                    save_volume(image_tensor_cropped.movedim(1, -1), sfimage, out_cropped_image, reshape=False)
+                    save_volume(image_tensor_cropped, sfimage, out_cropped_image, reshape=False)
                     out_cropped_image = os.path.join(os.path.dirname(out_segmentations[i]), os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.mgz"
-                    save_volume(image_tensor_cropped.movedim(1, -1), sfimage, out_cropped_image, orientation=orig_orientation, reshape=False)                
+                    save_volume(image_tensor_cropped, sfimage, out_cropped_image, orientation=orig_orientation, reshape=False)                
                     if (path_labels is not None):
                         out_cropped_label = os.path.join(os.path.dirname(out_segmentations[i]), os.path.splitext(os.path.basename(path_labels[i]))[0])+f".label.{crop}.RAS.mgz"
-                        save_volume(label_tensor_cropped.movedim(1, -1), sflabel, out_cropped_label, reshape=False)
+                        save_volume(label_tensor_cropped, sflabel, out_cropped_label, reshape=False)
                         out_cropped_label = os.path.join(os.path.dirname(out_segmentations[i]), os.path.splitext(os.path.basename(path_labels[i]))[0])+f".label.{crop}.mgz"
-                        save_volume(label_tensor_cropped.movedim(1, -1), sflabel, out_cropped_label, orientation=orig_orientation, reshape=False)
+                        save_volume(label_tensor_cropped, sflabel, out_cropped_label, orientation=orig_orientation, reshape=False)
                     # end of debugging
+
+            # add batch axes
+            image_tensor_cropped = image_tensor_cropped.unsqueeze(0)
                 
             # normalize
             # ??? todo ???
@@ -221,9 +225,10 @@ class Prediction:
                             reshape=False)            
             if (write_posteriors):
                 basename = os.path.basename(out_segmentations[i])
-                out_posteriors = basename.replace(f"_{pred_suffix}.", f"_{posteriors_suffix}.")
+                out_posteriors = basename.replace(f"{pred_suffix}.", f"{posteriors_suffix}.")
                 out_posteriors = os.path.join(out_posteriors_dir, out_posteriors)
-                posteriors = outputs.movedim(1, -1)  # move channel to last axis
+                posteriors = outputs.squeeze(0)  # remove batch axis => non-batched tensor [C, H, W (,D)]
+                #posteriors = movedim(1, -1)  # move channel to last axis
                 save_volume(posteriors, sfimage, out_posteriors,
                             orientation=orig_orientation)
                 print(f"output posteriors {out_posteriors}")
@@ -288,11 +293,12 @@ class Prediction:
             save_volume(segmentation, sfimage, output_segmentation,
                         orientation=orig_orientation,
                         labels=self._label_lookup if (addctab) else None)
-            save_volume(torch.squeeze(labels), sfimage, output_gt,
+            save_volume(labels, sfimage, output_gt,
                         orientation=orig_orientation)
                 
             if (output_posteriors is not None):
-                posteriors = outputs.movedim(1, -1)
+                posteriors = outputs.squeeze(0)  # remove batch axis => non-batched tensor [C, H, W (,D)]
+                #posteriors = outputs.movedim(1, -1)
                 save_volume(posteriors, sfimage, output_posteriors,
                         orientation=orig_orientation)
 

@@ -64,7 +64,7 @@ fspython train.py
          [--train_root_folder <train_root_folder>]
          [--run_name <--run_name>]
          [--checkpoint <checkpoint>]
-         [--crop_size <W H D>]
+         [--crop_size <W H (D)>]
          [--write_tensorboard_summary]
          [--perform_evaluation]
          [--best_model_metric <loss|dice>]
@@ -79,11 +79,11 @@ fspython train.py
 ```bash
 fspython predict.py 
        	 --i <input_images>
-      	 --o  <output_segmentations>
+      	 --o <output_segmentations>
     	 --checkpoint <checkpoint>
-    	 [--crop_size <W H D>]
+    	 [--crop_size <W H (D)>]
 	 [--label <input_labels>]
-       	 [--gt <ground_truth_dir>] 
+       	 [--gt <ground_truth>] 
        	 [--path_dice <path_dice>]
        	 [--noaddctab]
        	 [--write_posteriors]
