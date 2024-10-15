@@ -25,9 +25,6 @@ class Prediction:
 
     predict
         Predict with the loaded model
-
-    evaluate_dataset
-        predict/evaluate given test dataset
     """
         
     def __init__(self, device=None):
@@ -162,6 +159,7 @@ class Prediction:
             # reorient to 'RAS'
             sfimage, image_tensor, orig_orientation = load_volume(path_images[i], orientation="RAS", device=self._device)
 
+            crop_idx = None
             image_tensor_cropped = image_tensor
             
             # check if the input image already has crop_size
@@ -176,7 +174,7 @@ class Prediction:
 
                 # crop the images
                 # apply_centercrop() expects input image_tensor to be non-batched, output image_tensor_cropped is non-batched
-                image_tensor_cropped = apply_centercrop(image_tensor_cropped, self._crop_size, center_point=center_point)
+                (image_tensor_cropped, crop_idx) = apply_centercrop(image_tensor_cropped, self._crop_size, center_point=center_point)
                 image_tensor_cropped = image_tensor_cropped.to(self._device).float()
 
                 if (debug):
@@ -191,14 +189,14 @@ class Prediction:
                     if (center_point is not None):
                         crop = 'centroidcropped'
                     out_cropped_image = os.path.join(os.path.dirname(out_segmentations[i]), os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.RAS.mgz"
-                    save_volume(image_tensor_cropped, sfimage, out_cropped_image, reshape=False)
+                    save_volume(image_tensor_cropped, sfimage, out_cropped_image)
                     out_cropped_image = os.path.join(os.path.dirname(out_segmentations[i]), os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.mgz"
-                    save_volume(image_tensor_cropped, sfimage, out_cropped_image, orientation=orig_orientation, reshape=False)                
+                    save_volume(image_tensor_cropped, sfimage, out_cropped_image, orientation=orig_orientation)                
                     if (path_labels is not None):
                         out_cropped_label = os.path.join(os.path.dirname(out_segmentations[i]), os.path.splitext(os.path.basename(path_labels[i]))[0])+f".label.{crop}.RAS.mgz"
-                        save_volume(label_tensor_cropped, sflabel, out_cropped_label, reshape=False)
+                        save_volume(label_tensor_cropped, sflabel, out_cropped_label)
                         out_cropped_label = os.path.join(os.path.dirname(out_segmentations[i]), os.path.splitext(os.path.basename(path_labels[i]))[0])+f".label.{crop}.mgz"
-                        save_volume(label_tensor_cropped, sflabel, out_cropped_label, orientation=orig_orientation, reshape=False)
+                        save_volume(label_tensor_cropped, sflabel, out_cropped_label, orientation=orig_orientation)
                     # end of debugging
 
             # add batch axes
@@ -209,11 +207,18 @@ class Prediction:
             
             ### prediction ###
             (outputs, _) = self._model(image_tensor_cropped)
-
-            ### postprocessing: align prediction back to original orientation, original image size
             predicted_segmentation = torch.argmax(outputs, dim=1)
             # map labels to original id
-            segmentation = remap_labels(predicted_segmentation, self._inverse_label_mapping)
+            segmentation_cropped = remap_labels(predicted_segmentation, self._inverse_label_mapping)
+
+            ### postprocessing: align prediction back to original orientation, original image size            
+            if (crop_idx is None):
+                segmentation = segmentation_cropped.detach().cpu().numpy()
+            else:
+                # re-position predicted segmentation back to the original image indices where the image was cropped out
+                segmentation = np.zeros(shape=image_tensor.shape, dtype='int32')
+                segmentation[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] = segmentation_cropped.detach().cpu().numpy()
+            segmentation = torch.from_numpy(segmentation).to(self._device)
             
             ### save results ###
             save_volume(segmentation, sfimage, out_segmentations[i],
@@ -223,11 +228,10 @@ class Prediction:
             if (debug):
                 print("[DEBUG] output cropped prediction ...")
                 seg_noreshape = os.path.join(os.path.dirname(out_segmentations[i]), os.path.splitext(os.path.basename(out_segmentations[i]))[0])+f".cropped.mgz"
-                save_volume(segmentation, sfimage, seg_noreshape,
+                save_volume(segmentation_cropped, sfimage, seg_noreshape,
                             orientation=orig_orientation,
-                            labels=self._label_lookup if (addctab) else None,
-                            reshape=False)            
-            if (write_posteriors):
+                            labels=self._label_lookup if (addctab) else None)
+            if (write_posteriors):  # ??? question: posteriors need to be re-positioned as well ???
                 basename = os.path.basename(out_segmentations[i])
                 out_posteriors = basename.replace(f"{pred_suffix}.", f"{posteriors_suffix}.")
                 out_posteriors = os.path.join(out_posteriors_dir, out_posteriors)
@@ -252,7 +256,8 @@ class Prediction:
             else:
                 eval.evaluate(path_gt, out_segmentations[0], path_dice=path_dice)
             
-    
+    """
+    # this method is not used as of 2024-10-15. it is not in-sync with other changes.
     def evaluate_dataset(self, test_dataset, unique_output_folder,
                          addctab=True, write_posteriors=None, output_gt=None):
 
@@ -336,6 +341,6 @@ class Prediction:
 
         # Output summary
         logging.info(f"Total evaluation time: {time() - start_time:.2f} seconds")
-
+    """
             
  

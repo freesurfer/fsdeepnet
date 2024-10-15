@@ -35,7 +35,7 @@ def load_volume(file_path, orientation=None, device=None):
     
     return volume, volume_tensor, orig_orientation
 
-def save_volume(volume_tensor, original_volume, output_file, orientation=None, labels=None, reshape=True):
+def save_volume(volume_tensor, original_volume, output_file, orientation=None, labels=None, reshape=False):
     """
     Save the augmented volume to a file.
     

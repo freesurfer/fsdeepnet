@@ -235,8 +235,8 @@ def apply_centercrop(image, crop_size, center_point=None):
             distance = center_point - (image_shape - crop_half)
             center_point -= np.maximum(0,  distance)
         
-    cropped_image = voxynth.augment.apply_center_crop(image, crop_size, center_point=center_point)
-    return cropped_image
+    cropped_image, crop_idx = voxynth.augment.apply_center_crop(image, crop_size, center_point=center_point)
+    return cropped_image, crop_idx
 
 
 def apply_blur_resample(image, voxsize,
@@ -445,13 +445,11 @@ def apply_augmentations(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_flipped_image.mgz"),
-                reshape=False,                
             )
             save_volume(
                 label_tensor,
                 original_label,
                 os.path.join(output_dir, save_volumes + "_flipped_label.mgz"),
-                reshape=False,                
             )
 
     # ??? spatial_transform always happens for hypothalamus
@@ -474,13 +472,11 @@ def apply_augmentations(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_transformed_image.mgz"),
-                reshape=False,                
             )
             save_volume(
                 label_tensor,
                 original_label,
                 os.path.join(output_dir, save_volumes + "_transformed_label.mgz"),
-                reshape=False,                
             )
 
     # ??? we are now supporting cropping, randomcrop, randomcrop_center. check to allow only one type of cropping ???
@@ -493,20 +489,18 @@ def apply_augmentations(
                 # calculate the center point to crop the image/label around
                 center_point = centroid(label_tensor.cpu().squeeze(0).detach().numpy())
             
-                image_tensor = apply_centercrop(image_tensor, crop_size, center_point=center_point)
-                label_tensor = apply_centercrop(label_tensor, crop_size, center_point=center_point)
+                image_tensor, _ = apply_centercrop(image_tensor, crop_size, center_point=center_point)
+                label_tensor, _ = apply_centercrop(label_tensor, crop_size, center_point=center_point)
                 if save_volumes is not None and output_dir is not None:
                     save_volume(
                         image_tensor,
                         original_image,
                         os.path.join(output_dir, save_volumes + "_centercropped_image.mgz"),
-                        reshape=False,
                     )
                     save_volume(
                         label_tensor,
                         original_label,
                         os.path.join(output_dir, save_volumes + "_centercropped_label.mgz"),
-                        reshape=False,
                     )
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
@@ -521,13 +515,11 @@ def apply_augmentations(
                     image_tensor,
                     original_image,
                     os.path.join(output_dir, save_volumes + "_randomcropped_image.mgz"),
-                    reshape=False,                    
                 )
                 save_volume(
                     label_tensor,
                     original_label,
                     os.path.join(output_dir, save_volumes + "_randomcropped_label.mgz"),
-                    reshape=False,                    
                 )
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
@@ -542,13 +534,11 @@ def apply_augmentations(
                     image_tensor,
                     original_image,
                     os.path.join(output_dir, save_volumes + "_randomcropped_center_image.mgz"),
-                    reshape=False,                    
                 )
                 save_volume(
                     label_tensor,
                     original_label,
                     os.path.join(output_dir, save_volumes + "_randomcropped_center_label.mgz"),
-                    reshape=False,                    
                 )
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
@@ -571,7 +561,6 @@ def apply_augmentations(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_blur_resampled_image.mgz"),
-                reshape=False,                
             )
 
     # ??? only allow one "bias_field" or "biasFieldCorruption" ???
@@ -598,7 +587,6 @@ def apply_augmentations(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_biasFieldCorruption_image.mgz"),
-                reshape=False,                
             )
             
     if "sampleConditionalGMM" in augmentations_to_apply:
@@ -610,7 +598,6 @@ def apply_augmentations(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_sampleConditionalGMM_image.mgz"),
-                reshape=False,                
             )
 
     if "intensityAugmentation" in augmentations_to_apply:
@@ -622,7 +609,6 @@ def apply_augmentations(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_intensityAugmentation_image.mgz"),
-                reshape=False,                
             )
 
 
