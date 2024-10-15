@@ -33,9 +33,10 @@ class Training:
                  model,
                  model_arch_dict=None,
                  train_dataset_dict=None,
-                 ctab=None,
-                 validation_loader=None,
+                 ctab=None,          # ascii color table
+                 label_lookup=None,  # surfa.core.labels.LabelLookup
                  model_checkpoint=None,
+                 validation_loader=None,                 
                  best_model_metric="dice",                 
                  write_tensorboard_summary=False,
                  device=None):
@@ -94,6 +95,8 @@ class Training:
         if (self._ctab is not None):
             import surfa as sf
             self._label_lookup = sf.load_label_lookup(self._ctab)
+        else:
+            self._label_lookup = label_lookup
 
         # create Checkpoint object
         self._checkpoint = Checkpoint(model_arch_dict=self._model_arch_dict, label_lookup=self._label_lookup, train_dataset_dict=self._train_dataset_dict)        

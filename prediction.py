@@ -27,7 +27,7 @@ class Prediction:
         Predict with the loaded model
     """
         
-    def __init__(self, device=None):
+    def __init__(self, device=None, ctab=None):
         """
         Prediction Constructor.
         """
@@ -36,6 +36,11 @@ class Prediction:
         self._device = device
         if (self._device is None):
             self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        self._label_lookup = None
+        if (ctab is not None):
+            import surfa as sf
+            self._label_lookup = sf.load_label_lookup(ctab)
 
 
     def load_model(self, model_checkpoint):
@@ -83,8 +88,9 @@ class Prediction:
         # compute self._label_mapping, self._inverse_label_mapping from self._labels_segmentation
         self._label_mapping = {label.item(): i for i, label in enumerate(self._labels_segmentation)}
         self._inverse_label_mapping = {v: k for k, v in self._label_mapping.items()}
-        
-        self._label_lookup = checkpoint.label_lookup
+
+        if (self._label_lookup is None):
+            self._label_lookup = checkpoint.label_lookup
         self._model.load_state_dict(checkpoint.model_state_dict)
         self._model.eval()
 
@@ -159,6 +165,9 @@ class Prediction:
             # reorient to 'RAS'
             sfimage, image_tensor, orig_orientation = load_volume(path_images[i], orientation="RAS", device=self._device)
 
+            label_lookup = self._label_lookup
+            if (label_lookup is None):
+                label_lookup = sfimage.labels
             crop_idx = None
             image_tensor_cropped = image_tensor
             
@@ -171,6 +180,8 @@ class Prediction:
                 if (path_labels is not None):
                     sflabel, label_tensor, _ = load_volume(path_labels[i], orientation="RAS", device=self._device)
                     center_point = centroid(label_tensor.cpu().squeeze(0).detach().numpy())
+                    if (label_lookup is None):
+                        label_lookup = sflabel.labels
 
                 # crop the images
                 # apply_centercrop() expects input image_tensor to be non-batched, output image_tensor_cropped is non-batched
@@ -223,14 +234,14 @@ class Prediction:
             ### save results ###
             save_volume(segmentation, sfimage, out_segmentations[i],
                         orientation=orig_orientation,
-                        labels=self._label_lookup if (addctab) else None)
+                        labels=label_lookup if (addctab) else None)
             print(f"output segmentation {out_segmentations[i]}")
             if (debug):
                 print("[DEBUG] output cropped prediction ...")
                 seg_noreshape = os.path.join(os.path.dirname(out_segmentations[i]), os.path.splitext(os.path.basename(out_segmentations[i]))[0])+f".cropped.mgz"
                 save_volume(segmentation_cropped, sfimage, seg_noreshape,
                             orientation=orig_orientation,
-                            labels=self._label_lookup if (addctab) else None)
+                            labels=label_lookup if (addctab) else None)
             if (write_posteriors):  # ??? question: posteriors need to be re-positioned as well ???
                 basename = os.path.basename(out_segmentations[i])
                 out_posteriors = basename.replace(f"{pred_suffix}.", f"{posteriors_suffix}.")
@@ -240,6 +251,7 @@ class Prediction:
                 save_volume(posteriors, sfimage, out_posteriors,
                             orientation=orig_orientation)
                 print(f"output posteriors {out_posteriors}")
+        # end of segmentation loop
 
         # evaluate
         if (path_gt is not None):

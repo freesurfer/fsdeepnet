@@ -11,6 +11,7 @@ Usage: predict.py
        --o  <output_segmentations>
        --checkpoint <checkpoint>
        [--crop_size <W H D>]
+       [--ctab <ctab>]
        [--label <input_labels>]
        [--gt <ground_truth_dir>] 
        [--path_dice <path_dice>]
@@ -32,6 +33,7 @@ def main():
 
     predict(args.i, args.o, args.checkpoint,
             crop_size=args.crop_size,
+            ctab=args.ctab,
             path_labels=args.label,
             path_gt=args.gt,
             path_dice=args.path_dice,
@@ -50,6 +52,7 @@ def argument_parse():
     parser.add_argument("--o", type=str, required=True, help="Segmentation output(s). Must be a folder if --i designates a folder.")
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to a checkpoint file to resume training from")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
+    parser.add_argument("--ctab", type=str, help="Path to the lookup table")
     parser.add_argument("--label", type=str, help="Label(s) for input image(s). Can be a path to a label or to a folder.")
     parser.add_argument("--gt", type=str, help="Path to ground truth folder for dice evaluation.")
     parser.add_argument("--path_dice", type=str, help="Path to dice scores output.")
@@ -64,9 +67,9 @@ def argument_parse():
     return args
 
 
-def predict(path_images, out_segmentations, checkpoint, crop_size=None, path_labels=None,
+def predict(path_images, out_segmentations, checkpoint, crop_size=None, ctab=None, path_labels=None,
             path_gt=None, path_dice=None, addctab=True, write_posteriors=None, device=None, debug=False):
-    prediction = Prediction(device)
+    prediction = Prediction(device, ctab=ctab)
     prediction.load_model(checkpoint)
     prediction.predict(path_images, out_segmentations,
                        crop_size=crop_size,

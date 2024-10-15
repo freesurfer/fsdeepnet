@@ -124,7 +124,7 @@ def main():
                               pin_memory=pin_memory, num_workers=num_workers, persistent_workers=persistent_workers)
 
     # ??? todo: we probably can get rid of sample_input_shape too
-    sample_input_shape, unique_classes = train_dataset.preload()
+    sample_input_shape, unique_classes, label_lookup = train_dataset.preload()
     input_shape = sample_input_shape[1:]
 
     expected_num_channels = config["dataset"]["expected_num_channels"]
@@ -188,7 +188,7 @@ def main():
     
     input_generator = dataGenerator(train_loader, preprocessing_device)
                        
-    train(input_generator, config, output_folder, len(unique_classes), ctab, input_shape, checkpoint, validation_loader, device, train_dataset_dict)
+    train(input_generator, config, output_folder, len(unique_classes), ctab, input_shape, label_lookup, checkpoint, validation_loader, device, train_dataset_dict)
                        
     
 def argument_parse():
@@ -218,7 +218,7 @@ def argument_parse():
     return args
 
 
-def train(input_generator, config, train_output_folder, num_labels, ctab, input_shape, checkpoint=None, validation_loader=None, device=None, train_dataset_dict=None):
+def train(input_generator, config, train_output_folder, num_labels, ctab, input_shape, label_lookup=None, checkpoint=None, validation_loader=None, device=None, train_dataset_dict=None):
     # create the model to train
     model_arch_dict = config["model"]
     model_arch_dict["name"] = "UNet"
@@ -253,6 +253,7 @@ def train(input_generator, config, train_output_folder, num_labels, ctab, input_
                        model_arch_dict=model_arch_dict,
                        train_dataset_dict=train_dataset_dict,
                        ctab=ctab,
+                       label_lookup=label_lookup,
                        model_checkpoint=checkpoint,
                        validation_loader=validation_loader,
                        best_model_metric=config["training"]["best_model_metric"],

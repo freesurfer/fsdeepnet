@@ -28,6 +28,7 @@ class SegmentationDataset(Dataset):
 
         self.input_shape = None
         self.unique_classes = None
+        self.label_lookup = None
 
         # Extract image and label file paths
         self.image_files = [item["image_filepath"] for item in self.dataset_list]
@@ -78,13 +79,16 @@ class SegmentationDataset(Dataset):
             label, label_tensor, _ = load_volume(f_label, device=self.device)
             image, image_tensor, _ = load_volume(f_image, device=self.device)
 
-            if self.input_shape is None:
+            if (self.input_shape is None):
                 self.input_shape = image_tensor.shape
+
+            if (self.label_lookup is None):
+                self.label_lookup = image.labels if (image.labels is not None) else label.labels
 
             unique_values = np.unique(label.data).tolist()
             self.unique_classes.update(unique_values)
 
-        return self.input_shape, self.unique_classes
+        return self.input_shape, self.unique_classes, self.label_lookup
 
 
     # test routines

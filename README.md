@@ -82,6 +82,7 @@ fspython predict.py
       	 --o <output_segmentations>
     	 --checkpoint <checkpoint>
     	 [--crop_size <W H (D)>]
+	 [--ctab <ctab>]
 	 [--label <input_labels>]
        	 [--gt <ground_truth>] 
        	 [--path_dice <path_dice>]
