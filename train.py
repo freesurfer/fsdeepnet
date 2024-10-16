@@ -12,7 +12,7 @@ from models.model import UNet
 from training import Training
 
 from utils.data_utils import load_config
-from utils.dataset import load_datasets, dataGenerator
+from utils.dataset import load_datasets
 from utils.metrics import WeightedL2Loss, DiceLoss, DiceScore
 
 """
@@ -29,6 +29,7 @@ Usage: train.py
        [--best_model_metric <loss|dice>]
        [--cpu]
        [--num_workers <num_workers>]
+       [--prefetch_factor <prefetch_factor>]
        [--pin_memory]
        [--persistent_workers]
 """
@@ -82,6 +83,8 @@ def main():
        config["training"]["best_model_metric"] = args.best_model_metric
     if (args.num_workers is not None):
         config["preprocessing"]["num_workers"] = args.num_workers
+    if (args.prefetch_factor is not None):
+        config["preprocessing"]["prefetch_factor"] = args.prefetch_factor        
     if (args.pin_memory is not None):
         config["preprocessing"]["pin_memory"] = args.pin_memory
     if (args.persistent_workers is not None):
@@ -107,6 +110,11 @@ def main():
     num_workers = config["preprocessing"].get("num_workers", 0)
     pin_memory = config["preprocessing"].get("pin_memory", False)
     persistent_workers = config["preprocessing"].get("persistent_workers", False)
+    if (num_workers == 0):
+        prefetch_factor = config["preprocessing"].get("prefetch_factor", None)
+        persistent_workers = False
+    else:
+        prefetch_factor = config["preprocessing"].get("prefetch_factor", 2)
 
     # force data preprocessing (augmentation) to run on CPU is pin_memory = True or num_worker > 0
     if (pin_memory or num_workers > 0):
@@ -118,10 +126,8 @@ def main():
     )
 
     # Create training DataLoader
-    if (num_workers == 0):
-        persistent_workers = False
     train_loader = DataLoader(train_dataset, batch_size=config["training"]["batch_size"], shuffle=True,
-                              pin_memory=pin_memory, num_workers=num_workers, persistent_workers=persistent_workers)
+                              pin_memory=pin_memory, num_workers=num_workers, persistent_workers=persistent_workers, prefetch_factor=prefetch_factor)
 
     # ??? todo: we probably can get rid of sample_input_shape too
     sample_input_shape, unique_classes, label_lookup = train_dataset.preload()
@@ -154,10 +160,8 @@ def main():
     else:
         logging.info("Preprocessing pin_memory: False")
     logging.info(f"Preprocessing num_workers: {num_workers}")
-    if (persistent_workers):
-        logging.info("Preprocessing persistent_workers: True")
-    else:
-        logging.info("Preprocessing persistent_workers: False")
+    logging.info(f"Preprocessing prefetch_factor: {prefetch_factor}")
+    logging.info(f"Preprocessing persistent_workers: {persistent_workers}")
 
     if (checkpoint is not None):
         logging.info(f"resume training from model: {checkpoint}")
@@ -186,9 +190,7 @@ def main():
         "num_channels": sample_input_shape[0],        
     }
     
-    input_generator = dataGenerator(train_loader, preprocessing_device)
-                       
-    train(input_generator, config, output_folder, len(unique_classes), ctab, input_shape, label_lookup, checkpoint, validation_loader, device, train_dataset_dict)
+    train(train_loader, config, output_folder, len(unique_classes), ctab, input_shape, label_lookup, checkpoint, validation_loader, device, preprocessing_device, train_dataset_dict)
                        
     
 def argument_parse():
@@ -204,6 +206,7 @@ def argument_parse():
     parser.add_argument("--checkpoint", type=str, help="Path to a checkpoint file to resume training from")
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
     parser.add_argument("--num_workers", type=int, help="Number of Dataloader workers")
+    parser.add_argument("--prefetch_factor", type=int, help="Number of batches loaded in advance by each worker")
     parser.add_argument("--pin_memory", action='store_true', help="Store data in pinned memory")
     parser.add_argument("--persistent_workers", action='store_true', help=" Keep the workers Dataset instances alive")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
@@ -218,7 +221,7 @@ def argument_parse():
     return args
 
 
-def train(input_generator, config, train_output_folder, num_labels, ctab, input_shape, label_lookup=None, checkpoint=None, validation_loader=None, device=None, train_dataset_dict=None):
+def train(train_loader, config, train_output_folder, num_labels, ctab, input_shape, label_lookup=None, checkpoint=None, validation_loader=None, device=None, preprocessing_device=None, train_dataset_dict=None):
     # create the model to train
     model_arch_dict = config["model"]
     model_arch_dict["name"] = "UNet"
@@ -248,7 +251,7 @@ def train(input_generator, config, train_output_folder, num_labels, ctab, input_
     # create the Training object
     trainer = Training(train_output_folder,
                        config["dataset"]["expected_classes"],
-                       input_generator,
+                       train_loader,
                        model,
                        model_arch_dict=model_arch_dict,
                        train_dataset_dict=train_dataset_dict,
@@ -258,7 +261,8 @@ def train(input_generator, config, train_output_folder, num_labels, ctab, input_
                        validation_loader=validation_loader,
                        best_model_metric=config["training"]["best_model_metric"],
                        write_tensorboard_summary=config["training"].get("write_tensorboard_summary", False),
-                       device=device)
+                       device=device,
+                       preprocessing_device=preprocessing_device)
                        
     # train wl2 epochs (??? todo: make this optional ???)
     wl2_loss_fn = WeightedL2Loss()

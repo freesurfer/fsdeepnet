@@ -29,7 +29,7 @@ class Training:
     def __init__(self,
                  train_output_folder,
                  labels_segmentation,
-                 input_generator,                 
+                 train_loader,  # torch.utils.data.DataLoader              
                  model,
                  model_arch_dict=None,
                  train_dataset_dict=None,
@@ -39,7 +39,8 @@ class Training:
                  validation_loader=None,                 
                  best_model_metric="dice",                 
                  write_tensorboard_summary=False,
-                 device=None):
+                 device=None,
+                 preprocessing_device=None):
         """
         Training Constructor.
 
@@ -50,8 +51,8 @@ class Training:
         labels_segmentation : 1d numpy array
             List of labels for which to compute Dice scores. 
             It should be the same list as the segmentation_labels used in training.
-        input_generator : input_generator
-            training data generator
+        train_loader : torch.utils.data.DataLoader
+            DataLoader to create the training data generator
         validation_loader : DataLoader
             (optional) validation DataLoader
         model_checkpoint : string
@@ -59,7 +60,6 @@ class Training:
 
         """
 
-        self._input_generator = input_generator
         self._model = model
         self._model_arch_dict = model_arch_dict
         self._train_dataset_dict = train_dataset_dict
@@ -75,8 +75,13 @@ class Training:
         self._label_mapping = {label.item(): i for i, label in enumerate(self._labels_segmentation)}
 
         self._device = device
+        self._preprocessing_device = preprocessing_device
         if (self._device is None):
             self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if (self._preprocessing_device is None):
+            self._preprocessing_device = self._device
+
+        self._input_generator = dataGenerator(train_loader, self._label_mapping, self._preprocessing_device)        
 
         self._summary_writer = None
         if (write_tensorboard_summary):
@@ -150,7 +155,7 @@ class Training:
 
         # training loop
         for epoch in range(start_epoch, epochs):
-            logging.info(f"Epoch {epoch+1}/{epochs}")
+            logging.info(f"Epoch {epoch+1:3d}/{epochs:<3d}")
             (train_loss, train_dices)  = self._train_one_epoch(optimizer, loss_fn, epoch, steps_per_epoch,
                                                                metric_type=metric_type)
             
@@ -263,12 +268,9 @@ class Training:
 
         self._model.train()        
         for step in range(steps_per_epoch):
-            (batch_idx, images, labels) = next(self._input_generator)
+            (batch_idx, images, labels, dataset_idx) = next(self._input_generator)
             # training device and preprocessing device could be different
             images, labels = images.to(self._device), labels.to(self._device)
-            
-            labels = remap_labels(labels, self._label_mapping)
-            labels = onehot(labels, num_classes=self._num_labels, device=self._device)
 
             # Zero your gradients for every batch
             optimizer.zero_grad()
@@ -293,7 +295,7 @@ class Training:
             # Calculate hard Dice
             batch_hard_dice = self._dice_metric_hard(outputs, labels)
             train_dices[:, step] = batch_hard_dice.detach().cpu().numpy()
-            logging.info(f"  {step+1}/{steps_per_epoch} loss: {loss.item():.4f}, dice avg: {np.mean(train_dices[:, step]):.4f}")
+            logging.info(f"  {step+1:4d}/{steps_per_epoch:<4d} loss: {loss.item():.4f}, dice avg: {np.mean(train_dices[:, step]):.4f}")
 
             if (self._summary_writer is not None):
                 # Write to TensorBoard every batch
@@ -355,10 +357,8 @@ class Training:
         self._model.eval()        
         
         with torch.no_grad():
-            for batch_idx, (images, labels) in enumerate(self._validation_loader):
+            for batch_idx, (images, labels, dataset_idx) in enumerate(self._validation_loader):
                 images, labels = images.to(self._device).float(), labels.to(self._device)
-                labels = remap_labels(labels, self._label_mapping)
-                labels = onehot(labels, num_classes=self._num_labels, device=self._device)
 
                 (outputs, penultimate) = self._model(images)
 
@@ -421,3 +421,20 @@ class Training:
 
         return validation_loss, validation_dices
 
+
+def dataGenerator(dataloader, label_mapping, device=None):
+    if (device is None):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    while (True):
+        for n_batch, (dataset_idx, images, labels) in enumerate(dataloader):
+            images, labels = images.to(device).float(), labels.to(device)
+
+            num_labels = len(label_mapping)
+            labels = remap_labels(labels, label_mapping)
+            labels = onehot(labels, num_classes=num_labels, device=device)
+            
+            # extracts the single value from the dataset_idx tensor
+            # returns it as a Python scalar
+            yield n_batch, images, labels, dataset_idx.item()
+    
