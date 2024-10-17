@@ -11,6 +11,7 @@ from torchvision.utils import make_grid
 from checkpoint import Checkpoint
 from utils.metrics import DiceScore
 from utils.data_utils import remap_labels, onehot
+from utils.dataset import dataGenerator
 
 
 class Training:
@@ -81,7 +82,7 @@ class Training:
         if (self._preprocessing_device is None):
             self._preprocessing_device = self._device
 
-        self._input_generator = dataGenerator(train_loader, self._label_mapping, self._preprocessing_device)        
+        self._input_generator = dataGenerator(train_loader, self._preprocessing_device)        
 
         self._summary_writer = None
         if (write_tensorboard_summary):
@@ -271,6 +272,9 @@ class Training:
             (batch_idx, images, labels, dataset_idx) = next(self._input_generator)
             # training device and preprocessing device could be different
             images, labels = images.to(self._device), labels.to(self._device)
+            
+            labels = remap_labels(labels, self._label_mapping)
+            labels = onehot(labels, num_classes=self._num_labels, device=self._device)
 
             # Zero your gradients for every batch
             optimizer.zero_grad()
@@ -360,6 +364,9 @@ class Training:
             for batch_idx, (images, labels, dataset_idx) in enumerate(self._validation_loader):
                 images, labels = images.to(self._device).float(), labels.to(self._device)
 
+                labels = remap_labels(labels, self._label_mapping)
+                labels = onehot(labels, num_classes=self._num_labels, device=self._device)                
+
                 (outputs, penultimate) = self._model(images)
 
                 if (metric_type == 'wl2'):
@@ -420,21 +427,4 @@ class Training:
         # End of validation loop
 
         return validation_loss, validation_dices
-
-
-def dataGenerator(dataloader, label_mapping, device=None):
-    if (device is None):
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    while (True):
-        for n_batch, (dataset_idx, images, labels) in enumerate(dataloader):
-            images, labels = images.to(device).float(), labels.to(device)
-
-            num_labels = len(label_mapping)
-            labels = remap_labels(labels, label_mapping)
-            labels = onehot(labels, num_classes=num_labels, device=device)
-            
-            # extracts the single value from the dataset_idx tensor
-            # returns it as a Python scalar
-            yield n_batch, images, labels, dataset_idx.item()
     
