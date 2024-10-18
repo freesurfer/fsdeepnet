@@ -228,21 +228,7 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, input_sha
     model_arch_dict["input_shape"] = (config["dataset"]["expected_num_channels"], *input_shape)
     model_arch_dict["nb_labels"] = len(config["dataset"]["expected_classes"])
     model_arch_dict["final_pred_activation"] = config["model"].get("final_pred_activation", "softmax")
-    model = UNet(
-        input_shape=model_arch_dict["input_shape"],
-        ndims=model_arch_dict["ndims"],
-        conv_size=model_arch_dict["conv_size"],
-        pool_size=model_arch_dict["pool_size"],
-        refine_conv=model_arch_dict["refine_conv"],
-        nb_features=model_arch_dict["nb_features"],
-        nb_levels=model_arch_dict["nb_levels"],
-        nb_labels=model_arch_dict["nb_labels"],
-        feat_mult=model_arch_dict["feat_mult"],
-        nb_conv_per_level=model_arch_dict["nb_conv_per_level"],
-        use_residuals=model_arch_dict["use_residuals"],
-        use_batchnorm=model_arch_dict["use_batchnorm"],
-        activation=model_arch_dict["activation"],
-        final_pred_activation=model_arch_dict["final_pred_activation"]).to(device)     
+    model = UNet(model_arch_dict).to(device)
    
     # print Model Architecture
     # from torchinfo import summary

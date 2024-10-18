@@ -93,24 +93,24 @@ class ConvBlock(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(
-        self,
-        # in_channels,
-        input_shape,
-        ndims,
-        nb_features,
-        nb_levels,
-        nb_labels,
-        feat_mult=1,
-        conv_size=3,
-        pool_size=2,
-        nb_conv_per_level=1,
-        use_residuals=False,
-        use_batchnorm=True,
-        activation="elu",
-        refine_conv=False,
-        final_pred_activation="softmax",
-    ):
+    def __init__(self, model_arch_dict):
+
+
+        input_shape = model_arch_dict["input_shape"]
+        ndims = model_arch_dict["ndims"]
+        nb_features = model_arch_dict["nb_features"]
+        nb_levels = model_arch_dict["nb_levels"]
+        nb_labels = model_arch_dict["nb_labels"]
+        feat_mult = model_arch_dict.get("feat_mult", 1)
+        conv_size = model_arch_dict.get("conv_size", 3)
+        pool_size = model_arch_dict.get("pool_size", 2)
+        nb_conv_per_level = model_arch_dict.get("nb_conv_per_level", 1)
+        use_residuals = model_arch_dict.get("use_residuals", False)
+        use_batchnorm = model_arch_dict.get("use_batchnorm", True)
+        activation = model_arch_dict.get("activation", "elu")
+        refine_conv = model_arch_dict.get("refine_conv", False)
+        final_pred_activation = model_arch_dict.get("final_pred_activation", "softmax")
+
         super().__init__()
         self.input_shape = input_shape
         self.nb_features = nb_features
@@ -121,7 +121,7 @@ class UNet(nn.Module):
         self.activation = activation
         self.refine_conv = refine_conv
         self.final_pred_activation = final_pred_activation
-                
+
         convL = getattr(nn, "Conv%dd" % ndims)
         self.pool = getattr(nn, "MaxPool%dd" % ndims)(kernel_size=pool_size, stride=pool_size)
 

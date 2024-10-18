@@ -11,7 +11,7 @@ from torchvision.utils import make_grid
 from checkpoint import Checkpoint
 from utils.metrics import DiceScore
 from utils.data_utils import remap_labels, onehot
-from utils.dataset import dataGenerator
+from utils.dataset import DataGenerator
 
 
 class Training:
@@ -82,7 +82,7 @@ class Training:
         if (self._preprocessing_device is None):
             self._preprocessing_device = self._device
 
-        self._input_generator = dataGenerator(train_loader, self._preprocessing_device)        
+        self._input_generator = DataGenerator(train_loader, self._preprocessing_device)        
 
         self._summary_writer = None
         if (write_tensorboard_summary):

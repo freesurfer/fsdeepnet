@@ -61,23 +61,7 @@ class Prediction:
         assert checkpoint.model_arch_dict is not None, "Model architecture information not available."
         assert checkpoint.train_dataset_dict is not None, "Training dataset information not available."
 
-        model_creation_string = checkpoint.model_arch_dict["name"] + \
-            "(" + \
-            f"input_shape={checkpoint.model_arch_dict['input_shape']}," + \
-            f"ndims={checkpoint.model_arch_dict['ndims']}," + \
-            f"conv_size={checkpoint.model_arch_dict['conv_size']}," + \
-            f"pool_size={checkpoint.model_arch_dict['pool_size']}," + \
-            f"refine_conv={checkpoint.model_arch_dict['refine_conv']}," + \
-            f"nb_features={checkpoint.model_arch_dict['nb_features']}," + \
-            f"nb_levels={checkpoint.model_arch_dict['nb_levels']}," + \
-            f"nb_labels={checkpoint.model_arch_dict['nb_labels']}," + \
-            f"feat_mult={checkpoint.model_arch_dict['feat_mult']}," + \
-            f"nb_conv_per_level={checkpoint.model_arch_dict['nb_conv_per_level']}," + \
-            f"use_residuals={checkpoint.model_arch_dict['use_residuals']}," + \
-            f"use_batchnorm={checkpoint.model_arch_dict['use_batchnorm']}," + \
-            f"activation='{checkpoint.model_arch_dict['activation']}'," + \
-            f"final_pred_activation='{checkpoint.model_arch_dict['final_pred_activation']}'" + \
-            ")"
+        model_creation_string = checkpoint.model_arch_dict["name"] + "(checkpoint.model_arch_dict)"
         self._model = eval(model_creation_string)
         self._model = self._model.to(self._device)
 

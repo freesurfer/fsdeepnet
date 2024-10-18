@@ -172,7 +172,7 @@ def load_datasets(
     return train_dataset, validation_dataset, test_dataset
 
 
-def dataGenerator(dataloader, device=None):
+def DataGenerator(dataloader, device=None):
     if (device is None):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
