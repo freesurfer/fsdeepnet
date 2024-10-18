@@ -7,7 +7,7 @@ import torch
 import surfa as sf
 
 from checkpoint import Checkpoint
-from models.model import UNet
+from models.unet import UNet
 from utils.data_utils import load_volume, save_volume, remap_labels, onehot, centroid
 from utils.preprocessing import apply_centercrop
 

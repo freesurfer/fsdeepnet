@@ -8,7 +8,7 @@ import numpy as np
 import shutil
 
 from torch.utils.data import DataLoader
-from models.model import UNet
+from models.unet import UNet
 from training import Training
 
 from utils.data_utils import load_config
