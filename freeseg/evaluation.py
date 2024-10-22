@@ -106,15 +106,15 @@ class Evaluation:
             dice_coefs[:n_labels, idx]   = np.transpose(dice_coefs_seg)
             
         # write results
-        """
-        path_dice = os.path.join(eval_folder, 'dice.npy')
+        if (path_dice is None):
+            path_dice = os.path.join(eval_folder, 'evaluation_dices.npy')
+
         os.makedirs(os.path.dirname(path_dice), exist_ok=True)
-        """
-        if (path_dice is not None):
-            np.save(path_dice, dice_coefs)
-            path_dicedat = os.path.join(os.path.dirname(path_dice),os.path.splitext(os.path.basename(path_dice))[0])+'.dat'
-            np.savetxt(path_dicedat, dice_coefs)
-            print(f"\noutput evaluation dices as {path_dice} and {path_dicedat}")
+        np.save(path_dice, dice_coefs)
+        path_dicedat = os.path.join(os.path.dirname(path_dice),os.path.splitext(os.path.basename(path_dice))[0])+'.dat'
+        np.savetxt(path_dicedat, dice_coefs)
+        print(f"\noutput evaluation dices as {path_dice} and {path_dicedat}")
+
 
     # evaluate single segmentation and its ground truth
     def evaluate_oneseg(self, path_gt, path_seg, evaluation_labels=None):

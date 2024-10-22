@@ -1,8 +1,10 @@
+#!/usr/bin/env python
+
 import sys
 import numpy as np
 import argparse
 
-from evaluation import Evaluation
+from freeseg.evaluation import Evaluation
 
 """
 Usage: evaluate.py 

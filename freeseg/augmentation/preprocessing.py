@@ -2,8 +2,8 @@ import os
 import numpy as np
 import math
 import torch
-from voxynth import voxynth
-from utils.data_utils import save_volume, get_ras_axes, bbox, centroid
+from freeseg import voxynth
+from freeseg.utils import save_volume, get_ras_axes, bbox, centroid
 
 
 def apply_flipping(image, label, aff, left_right_corresponding, flip_prob=0.5):

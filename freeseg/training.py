@@ -8,10 +8,9 @@ import torch.optim as optim
 import torch.nn as nn
 from torchvision.utils import make_grid
 
-from checkpoint import Checkpoint
-from utils.metrics import DiceScore
-from utils.data_utils import remap_labels, onehot
-from utils.dataset import DataGenerator
+from freeseg.checkpoint import Checkpoint
+from freeseg.metrics import DiceScore
+from freeseg.utils import remap_labels, onehot, DataGenerator
 
 
 class Training:

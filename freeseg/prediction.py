@@ -6,10 +6,10 @@ import numpy as np
 import torch
 import surfa as sf
 
-from checkpoint import Checkpoint
-from models.unet import UNet
-from utils.data_utils import load_volume, save_volume, remap_labels, onehot, centroid
-from utils.preprocessing import apply_centercrop
+from freeseg.checkpoint import Checkpoint
+from freeseg.models import UNet
+from freeseg.utils import load_volume, save_volume, remap_labels, onehot, centroid
+from freeseg.augmentation import apply_centercrop
 
 class Prediction:
     """
@@ -240,7 +240,7 @@ class Prediction:
         # evaluate
         if (path_gt is not None):
             # calculate hard-dice between saved segmentations and their ground truth
-            from evaluation import Evaluation
+            from freeseg.evaluation import Evaluation
 
             if (path_dice is None):
                 path_dice = os.path.join(os.path.dirname(out_segmentations[0]), 'dices.npy')

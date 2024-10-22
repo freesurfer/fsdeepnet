@@ -9,21 +9,20 @@ A generic deep-learning pipeline to accompany freesurfer adjacent models.
 git clone <freeseg-repo>
 ```
 
-2. Source the environment
+2. Install freeseg package
 ```bash
-export FREESURFER_HOME=/space/metropolis/1/users/yh887/dev.copy.2024-07-01
-source $FREESURFER_HOME/SetUpFreeSurfer.sh dev.copy.2024-07-01
-```
-Note: This is a copy of nightly dev environment from 2024-07-01 with torchvision manually installed. Source it like any other Freesurfer environments.
+a. Build and install your Freesurfer with cmake options '-DDISTRIBUTE_FSPYTHON=ON -DFSPYTHON_INSTALL_CUDA=ON'
+b. Source your Freesurfer environment
+c. Install freeseg package
+   cd <freeseg-repo>
+   fspython -m pip install .
 
-3. Copy voxynth library code into the freeseg directory
-```bash
-cp -rp /autofs/space/curv_001/users/avnish/freeseg/voxynth/ <freeseg-repo>
+   * For editable install:  fspython -m pip install --editable .
 ```
 
-4. Setup the train/validation/test dataset
+3. Setup the train/validation/test dataset
 ```bash
-fspython create_data_list.py -d data/pgland_cropped/ -o "pgland_cropped_dataset_list.yaml"
+fspython scripts/freeseg_create_data_list.py -d data/pgland_cropped/ -o "pgland_cropped_dataset_list.yaml"
 ```
 Note: this is a simple script to help create your ```dataset_list.yaml``` file. It may not cover your specific use-case. But as long as your ```dataset_list.yaml``` file looks like the following, you should be good to go:
 ```yaml
@@ -46,18 +45,17 @@ validation:
   label_filepath: path/to/validation_segmentation2
 ...
 ```
-5. Edit your config.yaml file as per your dataset and model requirements etc.
+
+4. Edit your config.yaml file as per your dataset and model requirements etc.
    Use configs/config/yaml as an example.
 
 
 ## Training the Model
 
-To train the model on your dataset, follow these steps:
 
-
-6. Run the training script:
+5. Run the training script:
 ```bash
-fspython train.py
+fspython scripts/freeseg_train.py
          --config <config.yaml>
          [--dataset_list_file <dataset_list_file>]
          [--ctab <ctab>]
@@ -75,9 +73,9 @@ fspython train.py
 ## Prediction and Evaluation
 
 
-7. Run the prediction script to segment any input images
+6. Run the prediction script to segment any input images
 ```bash
-fspython predict.py 
+fspython scripts/freeseg_predict.py 
        	 --i <input_images>
       	 --o <output_segmentations>
     	 --checkpoint <checkpoint>
@@ -91,9 +89,9 @@ fspython predict.py
        	 [--cpu]
 ```
 
-8. Run the evaluation script to compute dice between ground truth and segmentation
+7. Run the evaluation script to compute dice between ground truth and segmentation
 ```bash
-fspython evaluate.py 
+fspython scripts/freeseg_evaluate.py 
        	 --gt <ground_truth>
        	 --seg <segmentation>
          [--segmentation_labels <segmentation_labels.npy>]

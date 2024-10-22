@@ -1,9 +1,7 @@
-import os
 import numpy as np
 import surfa as sf
 import torch
 import yaml
-import json
 
 def load_volume(file_path, orientation=None, device=None):
     """
@@ -63,43 +61,12 @@ def load_config(config_file):
         config = yaml.safe_load(file)
     return config
 
-def save_label_mapping(labels, output_folder, filename="label_mapping.json"):
-    """Create a label mapping and save it to a JSON file."""
-    unique_labels = torch.unique(labels)
-    mapping = {label.item(): i for i, label in enumerate(unique_labels)}
-
-    # Create output directory if it doesn't exist
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-
-    filepath = os.path.join(output_folder, filename)
-    print(f"Saving label mapping to {filepath}")
-    with open(filepath, 'w') as f:
-        json.dump(mapping, f, indent=4) 
-
-    return mapping
-
 def remap_labels(labels, mapping):
     remapped_labels = torch.zeros_like(labels)
     for old_label, new_label in mapping.items():
         if (old_label != new_label):
             remapped_labels[labels == old_label] = new_label
     return remapped_labels
-
-def load_labels_color_table(file_path):
-    labels_color_table = {}
-    with open(file_path, 'r') as file:
-        for line in file:
-            label, color = line.strip().split(':')
-            labels_color_table[int(label)] = tuple(map(int, color.split(',')))
-    return labels_color_table
-
-def embed_colors(predicted_labels, labels_color_table):
-    colored_labels = np.zeros(predicted_labels.shape + (3,), dtype=np.uint8)
-    for label, color in labels_color_table.items():
-        mask = predicted_labels == label
-        colored_labels[mask] = color
-    return colored_labels
 
 def onehot(labels, num_classes, device=None):
     """
@@ -190,7 +157,20 @@ def centroid(label):
     return centroid.astype(int)    
     #return tuple(centroid.astype(int))
 
-    
+
+def DataGenerator(dataloader, device=None):
+    if (device is None):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    while (True):
+        for n_batch, (dataset_idx, images, labels) in enumerate(dataloader):
+            images, labels = images.to(device).float(), labels.to(device)
+            
+            # extracts the single value from the dataset_idx tensor
+            # returns it as a Python scalar
+            yield n_batch, images, labels, dataset_idx.item()
+
+
 # ================================================================================================
 #                                        Lab2Im Utilities
 # ================================================================================================

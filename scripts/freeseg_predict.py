@@ -1,8 +1,10 @@
+#!/usr/bin/env python
+
 import os
 import torch
 import argparse
 
-from prediction import Prediction
+from freeseg.prediction import Prediction
 
 
 """

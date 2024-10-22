@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import os
 import torch
 import torch.optim as optim
@@ -8,12 +10,12 @@ import numpy as np
 import shutil
 
 from torch.utils.data import DataLoader
-from models.unet import UNet
-from training import Training
 
-from utils.data_utils import load_config
-from utils.dataset import load_datasets
-from utils.metrics import WeightedL2Loss, DiceLoss, DiceScore
+from freeseg.models import UNet
+from freeseg.training import Training
+from freeseg.utils import load_config
+from freeseg.datasets import load_datasets
+from freeseg.metrics import WeightedL2Loss, DiceLoss, DiceScore
 
 """
 Usage: train.py 

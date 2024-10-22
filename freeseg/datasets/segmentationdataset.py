@@ -3,18 +3,8 @@ import numpy as np
 import torch
 import yaml
 from torch.utils.data import Dataset
-from utils.preprocessing import apply_augmentations
-from utils.data_utils import load_volume, save_volume, remap_labels, onehot
-
-import logging
-logging.basicConfig(
-    level=logging.INFO,  # Set the log level (e.g., DEBUG, INFO, WARNING, ERROR)
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(),  # Print log messages to the console
-    ],
-)
-
+from freeseg.augmentation import apply_augmentations
+from freeseg.utils import load_volume, save_volume
 
 class SegmentationDataset(Dataset):
     def __init__(self, dataset_entries, config, transform=None, device=None):
@@ -170,16 +160,3 @@ def load_datasets(
         )
 
     return train_dataset, validation_dataset, test_dataset
-
-
-def DataGenerator(dataloader, device=None):
-    if (device is None):
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    while (True):
-        for n_batch, (dataset_idx, images, labels) in enumerate(dataloader):
-            images, labels = images.to(device).float(), labels.to(device)
-            
-            # extracts the single value from the dataset_idx tensor
-            # returns it as a Python scalar
-            yield n_batch, images, labels, dataset_idx.item()

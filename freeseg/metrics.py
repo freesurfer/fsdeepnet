@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import List, Union
-from utils.data_utils import onehot
+from freeseg.utils import onehot
 
 
 class Dice(nn.Module):
