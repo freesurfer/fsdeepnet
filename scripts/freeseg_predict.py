@@ -70,7 +70,7 @@ def argument_parse():
 
 
 def predict(path_images, out_segmentations, checkpoint, crop_size=None, ctab=None, path_labels=None,
-            path_gt=None, path_dice=None, addctab=True, write_posteriors=None, device=None, debug=False):
+            path_gt=None, path_dice=None, addctab=True, write_posteriors=False, device=None, debug=False):
     prediction = Prediction(device, ctab=ctab)
     prediction.load_model(checkpoint)
     prediction.predict(path_images, out_segmentations,

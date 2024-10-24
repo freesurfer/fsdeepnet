@@ -221,22 +221,44 @@ def apply_randomcrop(image, label, crop_size, mode='random', bbox_labels=None, d
 
 
 def apply_centercrop(image, crop_size, center_point=None):
-    """Applies center cropping to input volumes."""
-    if (center_point is not None):
-        # input image is non-batched tensor
-        image_shape = image.shape[1:]
+    """Applies a crop centered around a specified point or the image center.
 
-        # adjust the calculated center so that croppred image will have crop_size            
-        crop_half = (np.array(crop_size)/2).astype(int)
+    Args:
+        image (torch.Tensor): The 3D image to crop (C, H, W, D), it is non-batched.
+        crop_size (tuple): The desired crop size, e.g., (160, 160, 160).
+        center_point (tuple, optional): Coordinates of the center point for the crop 
+            (x, y, z). If None, the image center is used. 
+
+    Returns:
+        torch.Tensor: The cropped image.
+        numpy array:  The indices where the image is cropped.
+    """    
+
+    # input image is non-batched tensor
+    image_shape = image.shape[1:]
+
+    crop_half = (np.array(crop_size)/2).astype(int)
+
+    if (center_point is None):
+        center_point = tuple(dim // 2 for dim in image_shape)
+    else:
+        # adjust the calculated center so that croppred image will have crop_size
         if (np.any(center_point < crop_half)):
             distance = crop_half - center_point
             center_point += np.maximum(0,  distance)    
         if (np.any(center_point > (image_shape - crop_half))):
             distance = center_point - (image_shape - crop_half)
             center_point -= np.maximum(0,  distance)
-        
-    cropped_image, crop_idx = voxynth.augment.apply_center_crop(image, crop_size, center_point=center_point)
-    return cropped_image, crop_idx
+
+    # Calculate the starting and ending indices for the crop region
+    start_coords = tuple(max(0, center - half) for center, half in zip(center_point, crop_half))
+    end_coords = tuple(min(center + half, dim) for center, half, dim in zip(center_point, crop_half, image_shape))
+    crop_idx = np.concatenate([np.array(start_coords), np.array(end_coords)])
+ 
+    # Create slicing expression for efficient cropping
+    slicing = [slice(None)] + [slice(start, end) for start, end in zip(start_coords, end_coords)]
+
+    return image[slicing], crop_idx
 
 
 def apply_blur_resample(image, voxsize,
