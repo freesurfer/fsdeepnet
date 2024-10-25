@@ -91,12 +91,12 @@ def main():
     logging.info("Training Device: {}".format(device))
     logging.info("Preprocessing Device: {}".format(preprocessing_device))
     logging.info(f"crop_size: {crop_size}")
+    
     if (args.augment):
         logging.info(f"Augmentation Output: {output_folder}")
         logging.info(f"training config: saved as {output_folder}/config.yaml")
         logging.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
 
-    if (args.augment):
         logging.info("Perform data augmentation ...")
         for niter in range(args.num_iters):
             for idx in range(len(train_dataset)):
