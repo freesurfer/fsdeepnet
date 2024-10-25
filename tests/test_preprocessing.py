@@ -59,7 +59,6 @@ def main():
     crop_size = config["preprocessing"]["crop_size"]
 
     output_folder = config["preprocessing"].get("augmentation_dir", None)
-    
     if (not os.path.exists(output_folder)):
         os.makedirs(output_folder)    
 
@@ -81,18 +80,9 @@ def main():
     sample_input_shape, unique_classes, label_lookup = train_dataset.preload()
     input_shape = sample_input_shape[1:]
 
-    expected_num_channels = config["dataset"]["expected_num_channels"]
-    expected_classes = config["dataset"]["expected_classes"]
-    assert (
-        sorted(unique_classes) == expected_classes
-    ), f"Expected classes {expected_classes}, but got {sorted(unique_classes)}"
-    assert (
-        sample_input_shape[0] == expected_num_channels
-    ), f"Expected {expected_num_channels} channels, but got {sample_input_shape[0]}"
-
     # output segmentation_labels.npy in training directory
     f_segmentation_labels = os.path.join(output_folder, "segmentation_labels.npy")
-    np.save(f_segmentation_labels, np.array(expected_classes))
+    np.save(f_segmentation_labels, np.array(sorted(unique_classes)).astype(int))
     
     logging.info("Training Device: {}".format(device))
     logging.info("Preprocessing Device: {}".format(preprocessing_device))

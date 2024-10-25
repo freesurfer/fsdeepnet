@@ -21,8 +21,6 @@ class SegmentationDataset(Dataset):
 
         assert ((dataset_dict is not None) or (image is not None and label is not None)), \
             "Must provide input image/label using 'dataset_dict' or 'image/label'"
-        if (dataset_dict is None):
-            assert (len(image) == len(label)), "image and label need to be the same length"
 
         self.num_entries = len(dataset_dict) if (dataset_dict is not None) else len(image)
         self.config = config
@@ -43,6 +41,8 @@ class SegmentationDataset(Dataset):
         elif (image is not None and label is not None):
             self.image_files = image
             self.label_files = label
+
+        assert (len(self.image_files) == len(self.label_files)), "image and label need to be the same length"
 
 
     def __len__(self):
@@ -85,8 +85,8 @@ class SegmentationDataset(Dataset):
 
     def preload(self):
         """preprocesses all label maps, retrieve input tensor shape and unique classes."""
-        self.unique_classes = set()
 
+        self.unique_classes = set()
         for f_label, f_image in zip(self.label_files, self.image_files):
             label, label_tensor, _ = load_volume(f_label, device=self.device)
             image, image_tensor, _ = load_volume(f_image, device=self.device)
@@ -97,8 +97,15 @@ class SegmentationDataset(Dataset):
             if (self.label_lookup is None):
                 self.label_lookup = image.labels if (image.labels is not None) else label.labels
 
-            unique_values = np.unique(label.data).tolist()
+            unique_values = np.unique(label.data).astype(int).tolist()
             self.unique_classes.update(unique_values)
+
+        expected_num_channels =self.config["dataset"]["expected_num_channels"]
+        expected_classes = self.config["dataset"]["expected_classes"]
+        assert (sorted(self.unique_classes) == expected_classes), \
+            f"Expected classes {expected_classes}, but got {sorted(self.unique_classes)}"
+        assert (self.input_shape[0] == expected_num_channels), \
+            f"Expected {expected_num_channels} channels, but got {self.input_shape[0]}"
 
         return self.input_shape, self.unique_classes, self.label_lookup
 

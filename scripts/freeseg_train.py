@@ -101,7 +101,7 @@ def main():
     output_folder = os.path.join(train_root_folder, run_name)    # Output folder for current run
     if (not os.path.exists(output_folder)):
         os.makedirs(output_folder)
-        
+
     # save config and dataset_list_file
     shutil.copyfile(args.config, os.path.join(output_folder, "config.yaml"))
     shutil.copyfile(config["dataset"]["dataset_list_file"], os.path.join(output_folder, "dataset_list.yaml"))
@@ -134,18 +134,9 @@ def main():
     sample_input_shape, unique_classes, label_lookup = train_dataset.preload()
     input_shape = sample_input_shape[1:]
 
-    expected_num_channels = config["dataset"]["expected_num_channels"]
-    expected_classes = config["dataset"]["expected_classes"]
-    assert (
-        sorted(unique_classes) == expected_classes
-    ), f"Expected classes {expected_classes}, but got {sorted(unique_classes)}"
-    assert (
-        sample_input_shape[0] == expected_num_channels
-    ), f"Expected {expected_num_channels} channels, but got {sample_input_shape[0]}"
-
     # output segmentation_labels.npy in training directory
     f_segmentation_labels = os.path.join(output_folder, "segmentation_labels.npy")
-    np.save(f_segmentation_labels, np.array(expected_classes))
+    np.save(f_segmentation_labels, np.array(sorted(unique_classes)).astype(int))
     
     # create validation DataLoader
     validation_loader = None
