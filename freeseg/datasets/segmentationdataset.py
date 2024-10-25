@@ -1,8 +1,10 @@
 import os
+import logging
 import numpy as np
 import torch
 import yaml
 from torch.utils.data import Dataset
+
 from freeseg.augmentation import apply_augmentations
 from freeseg.utils import load_volume, save_volume
 
@@ -86,6 +88,8 @@ class SegmentationDataset(Dataset):
     def preload(self):
         """preprocesses all label maps, retrieve input tensor shape and unique classes."""
 
+        logging.info("Perform dataset checking ...")
+    
         self.unique_classes = set()
         for f_label, f_image in zip(self.label_files, self.image_files):
             label, label_tensor, _ = load_volume(f_label, device=self.device)
@@ -107,6 +111,13 @@ class SegmentationDataset(Dataset):
         assert (self.input_shape[0] == expected_num_channels), \
             f"Expected {expected_num_channels} channels, but got {self.input_shape[0]}"
 
+        logging.info("Dataset Information:")
+        logging.info(f"  Number of samples: {self.num_entries}")
+        logging.info(f"  Number of unique classes: {len(self.unique_classes)}")
+        logging.info(f"  Unique class values: {sorted(self.unique_classes)}")
+        logging.info(f"  Input shape: {self.input_shape[1:]}")
+        logging.info(f"  Number of channels: {self.input_shape[0]}")
+    
         return self.input_shape, self.unique_classes, self.label_lookup
 
 

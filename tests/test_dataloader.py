@@ -10,29 +10,24 @@ import shutil
 
 from torch.utils.data import DataLoader
 
-from freeseg.models import UNet
-from freeseg.training import Training
-from freeseg.utils import load_config
+from freeseg.utils import load_config, DataGenerator
 from freeseg.datasets import load_datasets
-from freeseg.metrics import WeightedL2Loss, DiceLoss, DiceScore
+
 
 """
-Usage: train.py 
+Usage: test_dataloader.py 
        --config <config.yaml>
        [--dataset_list_file <dataset_list_file>]
-       [--ctab <ctab>]
        [--train_root_folder <train_root_folder>]
        [--run_name <--run_name>]
-       [--checkpoint <checkpoint>]
        [--crop_size <W H D>]
-       [--write_tensorboard_summary]
-       [--perform_evaluation]
-       [--best_model_metric <loss|dice>]
        [--cpu]
        [--num_workers <num_workers>]
        [--prefetch_factor <prefetch_factor>]
        [--pin_memory]
        [--persistent_workers]
+
+    * The input image/label is taken from '--dataset_list_file <dataset_list_file>' or config.yaml entry ["dataset"]["dataset_list_file"]
 """
 
 # Configure logging settings
@@ -53,9 +48,6 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     preprocessing_device = device
 
-    checkpoint = args.checkpoint
-    ctab = args.ctab
-    
     # Load config file
     config = load_config(args.config)
 
@@ -76,12 +68,6 @@ def main():
         config["dataset"]["dataset_list_file"] = args.dataset_list_file    
     if (args.crop_size is not None):
         config["preprocessing"]["crop_size"] = args.crop_size
-    if (args.write_tensorboard_summary):
-        config["training"]["write_tensorboard_summary"] = args.write_tensorboard_summary
-    if (args.perform_evaluation):
-        config["training"]["perform_evaluation"] = args.perform_evaluation
-    if (args.best_model_metric is not None):
-       config["training"]["best_model_metric"] = args.best_model_metric
     if (args.num_workers is not None):
         config["preprocessing"]["num_workers"] = args.num_workers
     if (args.prefetch_factor is not None):
@@ -90,13 +76,6 @@ def main():
         config["preprocessing"]["pin_memory"] = args.pin_memory
     if (args.persistent_workers is not None):
         config["preprocessing"]["persistent_workers"] = args.persistent_workers        
-
-    """
-    # yaml has nested structure, the update doesn't update value in nested structure
-    # Update configuration with command-line arguments
-    config_updates = {k: v for k, v in vars(args).items() if v is not None}
-    config.update(config_updates)
-    """
 
     output_folder = os.path.join(train_root_folder, run_name)    # Output folder for current run
     if (not os.path.exists(output_folder)):
@@ -121,8 +100,9 @@ def main():
     if (pin_memory or num_workers > 0):
         preprocessing_device = torch.device("cpu")
         
-    # create training/validation dataset with the desired augmentations specified
-    train_dataset, validation_dataset, _ = load_datasets(
+    # create training dataset with the desired augmentations specified
+    logging.info("Loading dataset: load_dataset(...)")
+    train_dataset, _, _ = load_datasets(
         config, config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"), device=preprocessing_device
     )
 
@@ -138,13 +118,6 @@ def main():
     f_segmentation_labels = os.path.join(output_folder, "segmentation_labels.npy")
     np.save(f_segmentation_labels, np.array(sorted(unique_classes)).astype(int))
     
-    # create validation DataLoader
-    validation_loader = None
-    perform_evaluation = config["training"].get("perform_evaluation", False)
-    if (perform_evaluation):
-        best_model_metric = config["training"]["best_model_metric"]
-        validation_loader = DataLoader(validation_dataset, batch_size=config["training"]["batch_size"], shuffle=False)
-
     logging.info("Training Device: {}".format(device))
     logging.info("Preprocessing Device: {}".format(preprocessing_device))
     logging.info(f"Preprocessing pin_memory: {pin_memory}")
@@ -152,14 +125,9 @@ def main():
     logging.info(f"Preprocessing prefetch_factor: {prefetch_factor}")
     logging.info(f"Preprocessing persistent_workers: {persistent_workers}")
 
-    if (checkpoint is not None):
-        logging.info(f"resume training from model: {checkpoint}")
     logging.info(f"train_root_folder: {train_root_folder}")
     logging.info(f"run_name: {run_name}")
     logging.info(f"crop_size: {crop_size}")
-    logging.info(f"color table: {ctab}")
-    if (perform_evaluation):
-        logging.info(f"best_model_metric: {best_model_metric}")
     logging.info(f"training config: saved as {output_folder}/config.yaml")
     logging.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
 
@@ -172,7 +140,21 @@ def main():
         "num_channels": sample_input_shape[0],        
     }
     
-    train(train_loader, config, output_folder, len(unique_classes), ctab, input_shape, label_lookup, checkpoint, validation_loader, device, preprocessing_device, train_dataset_dict)
+    labels_segmentation = np.array(sorted(unique_classes)).astype(int)
+    num_labels = len(labels_segmentation)
+    label_mapping = {label.item(): i for i, label in enumerate(labels_segmentation)}
+        
+    start_epoch = 0
+    epochs = config["training"]["dice_epochs"]
+    input_generator = DataGenerator(train_loader, preprocessing_device)
+    steps_per_epoch = config["training"]["steps_per_epoch"]    
+    for epoch in range(start_epoch, epochs):
+        logging.info(f"Epoch {epoch+1:3d}/{epochs:<3d}")
+        for step in range(steps_per_epoch):
+            (batch_idx, images, labels, dataset_idx) = next(input_generator)
+            logging.info(f"  {step+1:4d}/{steps_per_epoch:<4d} preprocessed batch #{batch_idx:<2d}, (training set index #{dataset_idx:<2d})")
+            #torch.cuda._sleep(500)
+
                        
     
 def argument_parse():
@@ -182,75 +164,19 @@ def argument_parse():
     # input/outputs
     parser.add_argument("--config", type=str, required=True, help="Path to the configuration file")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
-    parser.add_argument("--ctab", type=str, help="Path to the lookup table")
     parser.add_argument("--train_root_folder", type=str, default=None, help="Base folder for saving training outputs")    
     parser.add_argument("--run_name", type=str, default=None, help="Descriptive name for the run (used for naming TensorBoard log directories)")
-    parser.add_argument("--checkpoint", type=str, help="Path to a checkpoint file to resume training from")
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
     parser.add_argument("--num_workers", type=int, help="Number of Dataloader workers")
     parser.add_argument("--prefetch_factor", type=int, help="Number of batches loaded in advance by each worker")
     parser.add_argument("--pin_memory", action='store_true', help="Store data in pinned memory")
     parser.add_argument("--persistent_workers", action='store_true', help=" Keep the workers Dataset instances alive")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
-    #parser.add_argument("--expected_classes", nargs="+", type=int, help="Expected classes in the dataset")
-    parser.add_argument("--write_tensorboard_summary", action='store_true', help="Write tensorboard summary")
-    parser.add_argument("--perform_evaluation", action='store_true', help="Perform evaluation after each epoch")
-    parser.add_argument("--best_model_metric", type=str, default=None, choices=["loss", "dice"], help="Metric for saving the best model (loss or dice)")
 
     # parse commandline
     args = parser.parse_args()
 
     return args
-
-
-def train(train_loader, config, train_output_folder, num_labels, ctab, input_shape, label_lookup=None, checkpoint=None, validation_loader=None, device=None, preprocessing_device=None, train_dataset_dict=None):
-    # create the model to train
-    model_arch_dict = config["model"]
-    model_arch_dict["name"] = "UNet"
-    model_arch_dict["input_shape"] = (config["dataset"]["expected_num_channels"], *input_shape)
-    model_arch_dict["nb_labels"] = len(config["dataset"]["expected_classes"])
-    model_arch_dict["final_pred_activation"] = config["model"].get("final_pred_activation", "softmax")
-    model = UNet(model_arch_dict).to(device)
-   
-    # print Model Architecture
-    # from torchinfo import summary
-    # summary(model, input_size=input_shape)
-
-    # create the Training object
-    trainer = Training(train_output_folder,
-                       config["dataset"]["expected_classes"],
-                       train_loader,
-                       model,
-                       model_arch_dict=model_arch_dict,
-                       train_dataset_dict=train_dataset_dict,
-                       ctab=ctab,
-                       label_lookup=label_lookup,
-                       model_checkpoint=checkpoint,
-                       validation_loader=validation_loader,
-                       best_model_metric=config["training"]["best_model_metric"],
-                       write_tensorboard_summary=config["training"].get("write_tensorboard_summary", False),
-                       device=device,
-                       preprocessing_device=preprocessing_device)
-                       
-    # train wl2 epochs (??? todo: make this optional ???)
-    wl2_loss_fn = WeightedL2Loss()
-    trainer.train_model(lr=config["training"]["pre_train_learning_rate"],
-                        epochs=config["training"]["wl2_epochs"],
-                        steps_per_epoch=config["training"]["steps_per_epoch"],
-                        metric_type='wl2',
-                        loss_fn=wl2_loss_fn)
-                       
-    # train dice epochs
-    dice_loss_fn = DiceLoss(
-        num_classes=num_labels,
-        input_type="prob",
-        dice_type="soft"
-    )                   
-    trainer.train_model(lr=config["training"]["pre_train_learning_rate"],
-                        epochs=config["training"]["dice_epochs"],
-                        steps_per_epoch=config["training"]["steps_per_epoch"],
-                        metric_type='dice',
-                        loss_fn=dice_loss_fn)                   
 
 
 # execute script
