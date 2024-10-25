@@ -7,8 +7,24 @@ from freeseg.augmentation import apply_augmentations
 from freeseg.utils import load_volume, save_volume
 
 class SegmentationDataset(Dataset):
-    def __init__(self, dataset_entries, config, transform=None, device=None):
-        self.num_entries = len(dataset_entries)
+    def __init__(self, config, dataset_dict=None, image=None, label=None, transform=None, device=None):
+        """
+        SegmentationDataset Constructor
+
+        dataset_dict : dict (optional)
+          Input dataset dict containing input image volumes and label maps
+        image : list (optional)
+          Input image volume(s)
+        label : list (optional)
+          Input label map(s)
+        """
+
+        assert ((dataset_dict is not None) or (image is not None and label is not None)), \
+            "Must provide input image/label using 'dataset_dict' or 'image/label'"
+        if (dataset_dict is None):
+            assert (len(image) == len(label)), "image and label need to be the same length"
+
+        self.num_entries = len(dataset_dict) if (dataset_dict is not None) else len(image)
         self.config = config
         self.augment_para = config["preprocessing"]
         self.transform = transform
@@ -21,8 +37,13 @@ class SegmentationDataset(Dataset):
         self.label_lookup = None
 
         # Extract image and label file paths
-        self.image_files = [item["image_filepath"] for item in dataset_entries]
-        self.label_files = [item["label_filepath"] for item in dataset_entries]
+        if (dataset_dict is not None):
+            self.image_files = [item["image_filepath"] for item in dataset_dict]
+            self.label_files = [item["label_filepath"] for item in dataset_dict]
+        elif (image is not None and label is not None):
+            self.image_files = image
+            self.label_files = label
+
 
     def __len__(self):
         return self.num_entries
@@ -38,6 +59,8 @@ class SegmentationDataset(Dataset):
         # where/whether to save preprocessed data
         save_volumes = os.path.basename(image_path)
         output_dir = self.augment_para.get("augmentation_dir", None)
+        if ((output_dir is not None) and (not os.path.exists(output_dir))):
+            os.makedirs(output_dir)            
 
         # Apply data augmentation if transform is specified
         if self.transform:
@@ -80,42 +103,6 @@ class SegmentationDataset(Dataset):
         return self.input_shape, self.unique_classes, self.label_lookup
 
 
-    # test routines
-    def test_preprocessing(self, outdir, augmentations=None):
-        for idx in range(len(self.image_files)):
-            f_image = self.image_files[idx]
-            image, image_tensor, _ = load_volume(f_image, orientation="RAS", device=self.device)
-            prefix = os.path.basename(f_image)
-            reoriented = os.path.join(outdir, prefix + "_reoriented_image.mgz")
-            save_volume(image_tensor, image, reoriented)
-
-            f_label = self.label_files[idx]
-            label, label_tensor, _ = load_volume(f_label, orientation="RAS", device=self.device)
-            prefix = os.path.basename(f_label)
-            reoriented = os.path.join(outdir, prefix + "_reoriented_label.mgz")
-            save_volume(label_tensor, label, reoriented)
-
-            if augmentations is not None:
-                print(f"Augmentations to apply: {augmentations}")
-                prefix = os.path.basename(f_image)
-                image_tensor, label_tensor = apply_augmentations(
-                    image_tensor,
-                    label_tensor,
-                    image,
-                    label,
-                    self.config["dataset"].get("expected_classes"),
-                    self.augment_para,
-                    voxsize=image.geom.voxsize,
-                    output_dir=outdir,
-                    save_volumes=prefix,
-                    augmentations_to_apply=augmentations,
-                    left_right_corresponding=self.config["dataset"].get(
-                        "left_right_corresponding", None
-                    ),
-                    device=self.device
-                )
-
-
 def load_datasets(
     config,
     train_augmentations=None,
@@ -133,8 +120,8 @@ def load_datasets(
     train_dataset = None
     if (dataset is not None):
         train_dataset = SegmentationDataset(
-            dataset,
             config,
+            dataset_dict=dataset,            
             transform=train_augmentations,
             device=device
         )
@@ -143,8 +130,8 @@ def load_datasets(
     validation_dataset = None
     if (dataset is not None):
         validation_dataset = SegmentationDataset(
-            dataset,
             config,
+            dataset_dict=dataset,            
             transform=validation_augmentations,
             device=device
         )
@@ -153,8 +140,8 @@ def load_datasets(
     test_dataset = None
     if (dataset is not None):
         test_dataset = SegmentationDataset(
-            dataset,
             config,
+            dataset_dict=dataset,            
             transform=test_augmentations,
             device=device
         )

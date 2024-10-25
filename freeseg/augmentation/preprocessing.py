@@ -455,6 +455,18 @@ def apply_augmentations(
         tuple: Augmented image and label tensors.
     """
 
+    if save_volumes is not None and output_dir is not None:
+        save_volume(
+            image_tensor,
+            original_image,
+            os.path.join(output_dir, save_volumes + "_reoriented_image.mgz"),
+        )
+        save_volume(
+            label_tensor,
+            original_label,
+            os.path.join(output_dir, save_volumes + "_reoriented_label.mgz"),
+        )
+            
     crop_size = augment_para.get("crop_size", None)
             
     if "flipping" in augmentations_to_apply:

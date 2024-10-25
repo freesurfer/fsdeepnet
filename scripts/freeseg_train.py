@@ -2,7 +2,6 @@
 
 import os
 import torch
-import torch.optim as optim
 import logging
 import argparse
 import datetime
