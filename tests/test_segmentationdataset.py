@@ -21,10 +21,11 @@ Usage: test_preprocessing.py
        [--num_iters <n>]
        [--cpu]
 
-    * The input image/label is taken from
-      1. '--image <im1 im2 ...> --label <lb1 lb2 ...>'
-      2. '--dataset_list_file <dataset_list_file>' or 
-         config.yaml entry ["dataset"]["dataset_list_file"]
+    * - The input image/label is taken from
+        1. '--image <im1 im2 ...> --label <lb1 lb2 ...>'
+        2. '--dataset_list_file <dataset_list_file>' or 
+           config.yaml entry ["dataset"]["dataset_list_file"]
+      - If augment = False (default), perform dataset checking only, no data augmentation.
 """
 
 # Configure logging settings
@@ -93,11 +94,11 @@ def main():
     logging.info(f"crop_size: {crop_size}")
     
     if (args.augment):
+        logging.info("Perform data augmentation ...")        
         logging.info(f"Augmentation Output: {output_folder}")
         logging.info(f"training config: saved as {output_folder}/config.yaml")
         logging.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
 
-        logging.info("Perform data augmentation ...")
         for niter in range(args.num_iters):
             for idx in range(len(train_dataset)):
                 index, image_tensor, label_tensor = train_dataset[idx]
