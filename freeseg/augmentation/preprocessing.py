@@ -220,7 +220,7 @@ def apply_randomcrop(image, label, crop_size, mode='random', bbox_labels=None, d
     return cropped_image, cropped_label
 
 
-def apply_centercrop(image, crop_size, center_point=None):
+def apply_centercrop(image, crop_size, center_point=None, debug=False):
     """Applies a crop centered around a specified point or the image center.
 
     Args:
@@ -254,6 +254,8 @@ def apply_centercrop(image, crop_size, center_point=None):
     start_coords = tuple(max(0, center - half) for center, half in zip(center_point, crop_half))
     end_coords = tuple(min(center + half, dim) for center, half, dim in zip(center_point, crop_half, image_shape))
     crop_idx = np.concatenate([np.array(start_coords), np.array(end_coords)])
+    if (debug):
+        print(f"adjusted crop center: {center_point}, crop indices: {crop_idx}")
  
     # Create slicing expression for efficient cropping
     slicing = [slice(None)] + [slice(start, end) for start, end in zip(start_coords, end_coords)]
@@ -455,6 +457,7 @@ def apply_augmentations(
         tuple: Augmented image and label tensors.
     """
 
+    debug = True if augment_para.get("debug") else False
     if save_volumes is not None and output_dir is not None:
         save_volume(
             image_tensor,
@@ -521,10 +524,10 @@ def apply_augmentations(
             image_shape = image_tensor.shape[1:]
             if (np.any(np.array(image_shape) > np.array(crop_size))):
                 # calculate the center point to crop the image/label around
-                center_point = centroid(label_tensor.cpu().squeeze(0).detach().numpy())
+                center_point = centroid(label_tensor.cpu().squeeze(0).detach().numpy(), debug=debug)
             
-                image_tensor, _ = apply_centercrop(image_tensor, crop_size, center_point=center_point)
-                label_tensor, _ = apply_centercrop(label_tensor, crop_size, center_point=center_point)
+                image_tensor, _ = apply_centercrop(image_tensor, crop_size, center_point=center_point, debug=debug)
+                label_tensor, _ = apply_centercrop(label_tensor, crop_size, center_point=center_point, debug=debug)
                 if save_volumes is not None and output_dir is not None:
                     save_volume(
                         image_tensor,
@@ -542,7 +545,6 @@ def apply_augmentations(
     if "randomcrop" in augmentations_to_apply:
         if crop_size is not None:
             bbox_labels = augment_para.get("bbox_labels", None)
-            debug = True if augment_para.get("debug") else False
             image_tensor, label_tensor = apply_randomcrop(image_tensor, label_tensor, crop_size, mode='random', bbox_labels=bbox_labels, debug=debug)
             if save_volumes is not None and output_dir is not None:
                 save_volume(
@@ -561,7 +563,6 @@ def apply_augmentations(
     if "randomcrop_center" in augmentations_to_apply:
         if crop_size is not None:
             bbox_labels = augment_para.get("bbox_labels", None)
-            debug = True if augment_para.get("debug") else False
             image_tensor, label_tensor = apply_randomcrop(image_tensor, label_tensor, crop_size, mode='center', bbox_labels=bbox_labels, debug=debug)
             if save_volumes is not None and output_dir is not None:
                 save_volume(

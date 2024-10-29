@@ -151,6 +151,10 @@ class Prediction:
             ### preprocessing ###
             # reorient to 'RAS'
             sfimage, image_tensor, orig_orientation = load_volume(path_images[i], orientation="RAS", device=self._device)
+            if (debug):
+                print("[DEBUG] output re-oriented image ...")
+                out_reoriented_image = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.reoriented.RAS.mgz"
+                save_volume(image_tensor, sfimage, out_reoriented_image)            
 
             label_lookup = self._label_lookup
             if (label_lookup is None):
@@ -214,7 +218,7 @@ class Prediction:
                 segmentation = segmentation_cropped.detach().cpu().numpy()
             else:
                 # re-position predicted segmentation back to the original image indices where the image was cropped out
-                segmentation = np.zeros(shape=image_tensor.shape, dtype='int32')
+                segmentation = np.zeros(shape=(segmentation_cropped.shape[0], *image_shape), dtype='int32')
                 segmentation[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] = segmentation_cropped.detach().cpu().numpy()
             segmentation = torch.from_numpy(segmentation).to(self._device)
             

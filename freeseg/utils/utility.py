@@ -128,7 +128,7 @@ def bbox(image, labels):
     return lowerbound, upperbound
     
 
-def centroid(label):
+def centroid(label, debug=False):
     """
     calculate centroid for given label image
 
@@ -153,6 +153,8 @@ def centroid(label):
             upperbound[dim] = np.max(coord)
 
     centroid = lowerbound + (upperbound - lowerbound)/2
+    if (debug):
+        print(f"label bbox: {lowerbound} - {upperbound}, centroid: {centroid}")    
     
     return centroid.astype(int)    
     #return tuple(centroid.astype(int))

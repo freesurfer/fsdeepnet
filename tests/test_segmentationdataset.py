@@ -20,6 +20,7 @@ Usage: test_preprocessing.py
        [--crop_size <W H D>]
        [--num_iters <n>]
        [--cpu]
+       [--debug]
 
     * - The input image/label is taken from
         1. '--image <im1 im2 ...> --label <lb1 lb2 ...>'
@@ -56,6 +57,8 @@ def main():
         config["preprocessing"]["crop_size"] = args.crop_size
     if (args.outdir is not None):
         config["preprocessing"]["augmentation_dir"] = args.outdir
+    if (args.debug):
+        config["preprocessing"]["debug"] = args.debug
         
     # Access updated configuration values
     crop_size = config["preprocessing"]["crop_size"]
@@ -118,6 +121,7 @@ def argument_parse():
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     parser.add_argument("--num_iters", type=int, default=1, help="How many augmentation iterations")
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
+    parser.add_argument("--debug", action='store_true', help="Output debug information/volume")
 
     # parse commandline
     args = parser.parse_args()
