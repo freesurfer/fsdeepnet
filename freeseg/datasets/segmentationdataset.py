@@ -6,7 +6,7 @@ import yaml
 from torch.utils.data import Dataset
 
 from freeseg.augmentation import apply_augmentations
-from freeseg.utils import load_volume, save_volume
+from freeseg.utils import load_framedimage, save_framedimage
 
 class SegmentationDataset(Dataset):
     def __init__(self, config, dataset_dict=None, image=None, label=None, transform=None, device=None):
@@ -25,12 +25,15 @@ class SegmentationDataset(Dataset):
             "Must provide input image/label using 'dataset_dict' or 'image/label'"
 
         self.num_entries = len(dataset_dict) if (dataset_dict is not None) else len(image)
+        self.ndims = config["model"]["ndims"]
         self.config = config
         self.augment_para = config["preprocessing"]
         self.transform = transform
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        assert (self.ndims == 3 or self.ndims == 2), "Model supports 3D or 2D"
 
         self.input_shape = None
         self.unique_classes = None
@@ -54,9 +57,9 @@ class SegmentationDataset(Dataset):
         image_path = self.image_files[index]
         label_path = self.label_files[index]
 
-        # Load image and label using the load_volume function
-        image, image_tensor, _ = load_volume(image_path, orientation="RAS", device=self.device)
-        label, label_tensor, _ = load_volume(label_path, orientation="RAS", device=self.device)
+        # Load image and label using the load_framedimage function
+        image, image_tensor, _ = load_framedimage(image_path, orientation="RAS", device=self.device, ndims=self.ndims)
+        label, label_tensor, _ = load_framedimage(label_path, orientation="RAS", device=self.device, ndims=self.ndims)
 
         # where/whether to save preprocessed data
         save_volumes = os.path.basename(image_path)
@@ -66,6 +69,10 @@ class SegmentationDataset(Dataset):
 
         # Apply data augmentation if transform is specified
         if self.transform:
+            # image.geom.voxsize returned from surfa.load_slice() is (3, 1), bug???
+            # extract only image.basedim voxsize
+            # make it writeable or voxynth.augment.image_augment() will complain non-writable numpy array
+            voxsize = np.copy(image.geom.voxsize[:image.basedim])
             image_tensor, label_tensor = apply_augmentations(
                 image_tensor,
                 label_tensor,
@@ -73,7 +80,7 @@ class SegmentationDataset(Dataset):
                 label,
                 self.config["dataset"].get("expected_classes"),
                 self.augment_para,
-                voxsize=image.geom.voxsize,
+                voxsize=voxsize,
                 output_dir=output_dir,
                 save_volumes=save_volumes,
                 augmentations_to_apply=self.transform,
@@ -92,8 +99,8 @@ class SegmentationDataset(Dataset):
     
         self.unique_classes = set()
         for f_label, f_image in zip(self.label_files, self.image_files):
-            label, label_tensor, _ = load_volume(f_label, device=self.device)
-            image, image_tensor, _ = load_volume(f_image, device=self.device)
+            label, label_tensor, _ = load_framedimage(f_label, device=self.device, ndims=self.ndims)
+            image, image_tensor, _ = load_framedimage(f_image, device=self.device, ndims=self.ndims)
 
             if (self.input_shape is None):
                 self.input_shape = image_tensor.shape

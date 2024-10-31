@@ -1,5 +1,5 @@
-from .utility import load_volume
-from .utility import save_volume
+from .utility import load_framedimage
+from .utility import save_framedimage
 from .utility import load_config
 from .utility import remap_labels
 from .utility import onehot

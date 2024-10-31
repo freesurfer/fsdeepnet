@@ -3,58 +3,69 @@ import surfa as sf
 import torch
 import yaml
 
-def load_volume(file_path, orientation=None, device=None):
+def load_framedimage(file_path, orientation=None, device=None, ndims=3):
     """
-    Load a volume from a file and convert it to a PyTorch tensor.
-    The loaded volume data is re-oriented to conform to a specific slice orientation.
+    Load a framedimage from a file and convert it to a PyTorch tensor.
+    The loaded framedimage 3D data is re-oriented to conform to a specific slice orientation.
+    surfa.image.framed.reorient() is not yet implemented for 2D data.
     
     Args:
-        file_path (str): Path to the volume file.
+        file_path (str): Path to the framedimage file.
     
     Returns:
-        tuple: A tuple containing the loaded volume and its PyTorch tensor representation.
+        tuple: A tuple containing the loaded framedimage (surfa.Volume or surfa.Slice)
+               and its PyTorch tensor representation.
+
                tensor returned is non-batched [C, H, W (,D)]
     """
+    assert (ndims == 3 or ndims == 2), "data needs to be either 3D or 2D"
+
     if (device is None):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    volume = sf.load_volume(file_path)
-    orig_orientation = sf.transform.orientation.rotation_matrix_to_orientation(volume.geom.vox2world.matrix)
-    if (orientation is not None):
-        volume = volume.reorient(orientation)
+    if (ndims == 3):
+        framedimage = sf.load_volume(file_path)
+    else:
+        framedimage = sf.load_slice(file_path)
 
-    # handle both 2D and 3D data
-    volume_data_native = volume.framed_data.squeeze().astype(volume.dtype.newbyteorder('='))
-    if (volume_data_native.ndim < 4):
-        volume_data_native = np.expand_dims(volume_data_native, axis=-1)
-    #volume_data_writable = np.copy(volume_data_native)  # Create a writable copy of the array
-    #volume_tensor = torch.from_numpy(volume_data_writable).movedim(-1, 0)
-    volume_tensor = torch.from_numpy(volume_data_native).movedim(-1, 0).to(device)
+    orig_orientation = sf.transform.orientation.rotation_matrix_to_orientation(framedimage.geom.vox2world.matrix)
+    # surfa.image.framed.reorient() is not yet implemented for 2D data
+    if (ndims == 3 and orientation is not None):
+        framedimage = framedimage.reorient(orientation)
+
+    # framedimage.framed_data has shape [H, W, (D,) C]
+    framedimage_data_native = framedimage.framed_data.astype(framedimage.dtype.newbyteorder('='))
+    framedimage_tensor = torch.from_numpy(framedimage_data_native).movedim(-1, 0).to(device)
     
-    return volume, volume_tensor, orig_orientation
+    return framedimage, framedimage_tensor, orig_orientation
 
-def save_volume(volume_tensor, original_volume, output_file, orientation=None, labels=None, reshape=False):
+
+def save_framedimage(framedimage_tensor, original_framedimage, output_file, orientation=None, labels=None, reshape=False):
     """
-    Save the augmented volume to a file.
+    Save the augmented framedimage to a file.
     
     Args:
-        volume_tensor (torch.Tensor): Augmented volume tensor, non-batched [C, H, W (,D)]
-        original_volume (surfa.Volume): Original loaded volume.
+        framedimage_tensor (torch.Tensor): Augmented framedimage tensor, non-batched [C, H, W, (D)]
+        original_framedimage: Original loaded framedimage (surfa.Volume or surfa.Slice).
         output_file (str): Path to the output file.
     """
-    # the input tensor is non-batched [C, H, W, (D)], move C to the last axis, C >= 1
-    tensor_cpu = volume_tensor.cpu().movedim(0, -1).squeeze()
-    np_vol = tensor_cpu.detach().numpy().astype(original_volume.dtype)
-    surfa_vol = original_volume.new(np_vol)
+    ndims = original_framedimage.basedim
+    
+    # the input tensor is non-batched [C, H, W(, D)], move C to the last axis, C >= 1
+    tensor_cpu = framedimage_tensor.cpu().movedim(0, -1).squeeze()
+    np_image = tensor_cpu.detach().numpy().astype(original_framedimage.dtype)
+    surfa_image = original_framedimage.new(np_image)
     
     if (reshape):
-        surfa_vol = surfa_vol.reshape(original_volume.shape)
-    if (orientation is not None):
-        surfa_vol = surfa_vol.reorient(orientation)
+        surfa_image = surfa_image.reshape(original_framedimage.shape)
+    # surfa.image.framed.reorient() is not yet implemented for 2D data
+    if (ndims == 3 and orientation is not None):
+        surfa_image = surfa_image.reorient(orientation)
     if (labels is not None):
-        surfa_vol.labels = labels
+        surfa_image.labels = labels
 
-    surfa_vol.save(output_file)
+    surfa_image.save(output_file)
+
 
 def load_config(config_file):
     with open(config_file, 'r') as file:

@@ -8,7 +8,7 @@ import surfa as sf
 
 from freeseg.checkpoint import Checkpoint
 from freeseg.models import UNet
-from freeseg.utils import load_volume, save_volume, remap_labels, onehot, centroid
+from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot, centroid
 from freeseg.augmentation import apply_centercrop
 
 class Prediction:
@@ -65,6 +65,9 @@ class Prediction:
         self._model = eval(model_creation_string)
         self._model = self._model.to(self._device)
 
+        self._ndims = checkpoint.model_arch_dict["ndims"]
+        assert (self._ndims == 3 or self._ndims == 2), "Model supports 3D or 2D"
+        
         self._crop_size = checkpoint.train_dataset_dict["crop_size"]
         self._labels_segmentation, self._unique_idx = np.unique(checkpoint.train_dataset_dict["segmentation_labels"], return_index=True)
         self._num_labels = len(self._labels_segmentation)
@@ -150,11 +153,11 @@ class Prediction:
         for i in range(len(path_images)):
             ### preprocessing ###
             # reorient to 'RAS'
-            sfimage, image_tensor, orig_orientation = load_volume(path_images[i], orientation="RAS", device=self._device)
+            sfimage, image_tensor, orig_orientation = load_framedimage(path_images[i], orientation="RAS", device=self._device, ndims=self._ndims)
             if (debug):
                 print("[DEBUG] output re-oriented image ...")
                 out_reoriented_image = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.reoriented.RAS.mgz"
-                save_volume(image_tensor, sfimage, out_reoriented_image)            
+                save_framedimage(image_tensor, sfimage, out_reoriented_image)            
 
             label_lookup = self._label_lookup
             if (label_lookup is None):
@@ -163,13 +166,13 @@ class Prediction:
             image_tensor_cropped = image_tensor
             
             # check if the input image already has crop_size
-            # image_tensor returned from load_volume() is non-batched
+            # image_tensor returned from load_framedimage() is non-batched
             image_shape = image_tensor.shape[1:]
             if (np.any(np.array(image_shape) > np.array(self._crop_size))):
                 # calculate the cropping center point if label image is available
                 center_point = None
                 if (path_labels is not None):
-                    sflabel, label_tensor, _ = load_volume(path_labels[i], orientation="RAS", device=self._device)
+                    sflabel, label_tensor, _ = load_framedimage(path_labels[i], orientation="RAS", device=self._device, ndims=self._ndims)
                     center_point = centroid(label_tensor.cpu().squeeze(0).detach().numpy())
                     if (label_lookup is None):
                         label_lookup = sflabel.labels
@@ -191,14 +194,14 @@ class Prediction:
                     if (center_point is not None):
                         crop = 'centroidcropped'
                     out_cropped_image = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.RAS.mgz"
-                    save_volume(image_tensor_cropped, sfimage, out_cropped_image)
+                    save_framedimage(image_tensor_cropped, sfimage, out_cropped_image)
                     out_cropped_image = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.mgz"
-                    save_volume(image_tensor_cropped, sfimage, out_cropped_image, orientation=orig_orientation)                
+                    save_framedimage(image_tensor_cropped, sfimage, out_cropped_image, orientation=orig_orientation)                
                     if (path_labels is not None):
                         out_cropped_label = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_labels[i]))[0])+f".label.{crop}.RAS.mgz"
-                        save_volume(label_tensor_cropped, sflabel, out_cropped_label)
+                        save_framedimage(label_tensor_cropped, sflabel, out_cropped_label)
                         out_cropped_label = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_labels[i]))[0])+f".label.{crop}.mgz"
-                        save_volume(label_tensor_cropped, sflabel, out_cropped_label, orientation=orig_orientation)
+                        save_framedimage(label_tensor_cropped, sflabel, out_cropped_label, orientation=orig_orientation)
                     # end of debugging
 
             # add batch axes
@@ -219,18 +222,21 @@ class Prediction:
             else:
                 # re-position predicted segmentation back to the original image indices where the image was cropped out
                 segmentation = np.zeros(shape=(segmentation_cropped.shape[0], *image_shape), dtype='int32')
-                segmentation[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] = segmentation_cropped.detach().cpu().numpy()
+                if (self._ndims == 3):
+                    segmentation[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] = segmentation_cropped.detach().cpu().numpy()
+                else:
+                    segmentation[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] = segmentation_cropped.detach().cpu().numpy()
             segmentation = torch.from_numpy(segmentation).to(self._device)
             
             ### save results ###
-            save_volume(segmentation, sfimage, out_segmentations[i],
+            save_framedimage(segmentation, sfimage, out_segmentations[i],
                         orientation=orig_orientation,
                         labels=label_lookup if (addctab) else None)
             print(f"output segmentation {out_segmentations[i]}")
             if (debug):
                 print("[DEBUG] output cropped prediction ...")
                 seg_noreshape = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(out_segmentations[i]))[0])+f".cropped.mgz"
-                save_volume(segmentation_cropped, sfimage, seg_noreshape,
+                save_framedimage(segmentation_cropped, sfimage, seg_noreshape,
                             orientation=orig_orientation,
                             labels=label_lookup if (addctab) else None)
             if (write_posteriors):  # ??? question: posteriors need to be re-positioned as well ???
@@ -239,7 +245,7 @@ class Prediction:
                 out_posteriors = os.path.join(out_posteriors_dir, out_posteriors)
                 posteriors = outputs.squeeze(0)  # remove batch axis => non-batched tensor [C, H, W (,D)]
                 #posteriors = movedim(1, -1)  # move channel to last axis
-                save_volume(posteriors, sfimage, out_posteriors,
+                save_framedimage(posteriors, sfimage, out_posteriors,
                             orientation=orig_orientation)
                 print(f"output posteriors {out_posteriors}")
         # end of segmentation loop

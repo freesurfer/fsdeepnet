@@ -3,7 +3,7 @@ import numpy as np
 import math
 import torch
 from freeseg import voxynth
-from freeseg.utils import save_volume, get_ras_axes, bbox, centroid
+from freeseg.utils import save_framedimage, get_ras_axes, bbox, centroid
 
 
 def apply_flipping(image, label, aff, left_right_corresponding, flip_prob=0.5):
@@ -459,12 +459,12 @@ def apply_augmentations(
 
     debug = True if augment_para.get("debug") else False
     if save_volumes is not None and output_dir is not None:
-        save_volume(
+        save_framedimage(
             image_tensor,
             original_image,
             os.path.join(output_dir, save_volumes + "_reoriented_image.mgz"),
         )
-        save_volume(
+        save_framedimage(
             label_tensor,
             original_label,
             os.path.join(output_dir, save_volumes + "_reoriented_label.mgz"),
@@ -478,12 +478,12 @@ def apply_augmentations(
 
         image_tensor, label_tensor = apply_flipping(image_tensor, label_tensor, aff, left_right_corresponding, flip_prob)
         if save_volumes is not None and output_dir is not None:
-            save_volume(
+            save_framedimage(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_flipped_image.mgz"),
             )
-            save_volume(
+            save_framedimage(
                 label_tensor,
                 original_label,
                 os.path.join(output_dir, save_volumes + "_flipped_label.mgz"),
@@ -505,12 +505,12 @@ def apply_augmentations(
             device=device
         )
         if save_volumes is not None and output_dir is not None:
-            save_volume(
+            save_framedimage(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_transformed_image.mgz"),
             )
-            save_volume(
+            save_framedimage(
                 label_tensor,
                 original_label,
                 os.path.join(output_dir, save_volumes + "_transformed_label.mgz"),
@@ -529,12 +529,12 @@ def apply_augmentations(
                 image_tensor, _ = apply_centercrop(image_tensor, crop_size, center_point=center_point, debug=debug)
                 label_tensor, _ = apply_centercrop(label_tensor, crop_size, center_point=center_point, debug=debug)
                 if save_volumes is not None and output_dir is not None:
-                    save_volume(
+                    save_framedimage(
                         image_tensor,
                         original_image,
                         os.path.join(output_dir, save_volumes + "_centercropped_image.mgz"),
                     )
-                    save_volume(
+                    save_framedimage(
                         label_tensor,
                         original_label,
                         os.path.join(output_dir, save_volumes + "_centercropped_label.mgz"),
@@ -547,12 +547,12 @@ def apply_augmentations(
             bbox_labels = augment_para.get("bbox_labels", None)
             image_tensor, label_tensor = apply_randomcrop(image_tensor, label_tensor, crop_size, mode='random', bbox_labels=bbox_labels, debug=debug)
             if save_volumes is not None and output_dir is not None:
-                save_volume(
+                save_framedimage(
                     image_tensor,
                     original_image,
                     os.path.join(output_dir, save_volumes + "_randomcropped_image.mgz"),
                 )
-                save_volume(
+                save_framedimage(
                     label_tensor,
                     original_label,
                     os.path.join(output_dir, save_volumes + "_randomcropped_label.mgz"),
@@ -565,12 +565,12 @@ def apply_augmentations(
             bbox_labels = augment_para.get("bbox_labels", None)
             image_tensor, label_tensor = apply_randomcrop(image_tensor, label_tensor, crop_size, mode='center', bbox_labels=bbox_labels, debug=debug)
             if save_volumes is not None and output_dir is not None:
-                save_volume(
+                save_framedimage(
                     image_tensor,
                     original_image,
                     os.path.join(output_dir, save_volumes + "_randomcropped_center_image.mgz"),
                 )
-                save_volume(
+                save_framedimage(
                     label_tensor,
                     original_label,
                     os.path.join(output_dir, save_volumes + "_randomcropped_center_label.mgz"),
@@ -592,7 +592,7 @@ def apply_augmentations(
             resized_max_voxsize=augment_para.get("resized_max_voxsize", 2)
         )
         if save_volumes is not None and output_dir is not None:
-            save_volume(
+            save_framedimage(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_blur_resampled_image.mgz"),
@@ -607,7 +607,7 @@ def apply_augmentations(
             bias_field_smoothing_range=augment_para.get("bias_field_smoothing_range", [1, 2])
         )
         if save_volumes is not None and output_dir is not None:
-            save_volume(
+            save_framedimage(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_bias_field_augmented_image.mgz"),
@@ -618,7 +618,7 @@ def apply_augmentations(
             image_tensor
         )
         if save_volumes is not None and output_dir is not None:
-            save_volume(
+            save_framedimage(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_biasFieldCorruption_image.mgz"),
@@ -629,7 +629,7 @@ def apply_augmentations(
             label_tensor, expected_classes
         )
         if save_volumes is not None and output_dir is not None:
-            save_volume(
+            save_framedimage(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_sampleConditionalGMM_image.mgz"),
@@ -640,7 +640,7 @@ def apply_augmentations(
             image_tensor,
         )
         if save_volumes is not None and output_dir is not None:
-            save_volume(
+            save_framedimage(
                 image_tensor,
                 original_image,
                 os.path.join(output_dir, save_volumes + "_intensityAugmentation_image.mgz"),
