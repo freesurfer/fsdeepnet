@@ -129,8 +129,8 @@ class Prediction:
 
             # pre-generate all *_predict* filenames
             out_segmentations = [os.path.join(out_segmentations, os.path.basename(p)) for p in path_images]
-            out_segmentations = [p.replace('.nii', '_%s.nii' % pred_suffix) for p in out_segmentations]
-            out_segmentations = [p.replace('.mgz', '_%s.mgz' % pred_suffix) for p in out_segmentations]
+            out_segmentations = [p.replace('.nii', '.%s.nii' % pred_suffix) for p in out_segmentations]
+            out_segmentations = [p.replace('.mgz', '.%s.mgz' % pred_suffix) for p in out_segmentations]
         else:
             # single image
             assert os.path.isfile(path_images), 'file does not exist: %s \n' \

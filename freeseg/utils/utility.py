@@ -50,21 +50,23 @@ def save_framedimage(framedimage_tensor, output_file, original_framedimage=None,
         output_file (str): Path to the output file.
     """
     # the input tensor is non-batched [C, H, W(, D)], move C to the last axis, C >= 1
-    tensor_cpu = framedimage_tensor.cpu().movedim(0, -1).squeeze()
+    tensor_cpu = framedimage_tensor.cpu().movedim(0, -1)
     if (original_framedimage is not None):
         np_image = tensor_cpu.detach().numpy().astype(original_framedimage.dtype)        
-        surfa_image = original_framedimage.new(np_image)
+        surfa_image = original_framedimage.new(np_image.squeeze())
         # surfa.image.framed.reorient() is not yet implemented for 2D data
-        if (original_framedimage.basedim == 3 and orientation is not None):
+        ndims = original_framedimage.basedim
+        if (ndims == 3 and orientation is not None):
             surfa_image = surfa_image.reorient(orientation)
         if (labels is not None):
             surfa_image.labels = labels        
     else:
-        np_image = tensor_cpu.detach().numpy()
-        if (np_image.ndim == 3):
-            surfa_image = sf.Volume(np_image, labels=labels)
+        np_image = tensor_cpu.detach().numpy()  # [H, W, (D,) C]
+        ndims = np_image.ndim - 1  # get the surfa.FramedArray.basedim
+        if (ndims == 3):
+            surfa_image = sf.Volume(np_image.squeeze(), labels=labels)
         else:
-            surfa_image = sf.Slice(np_image, labels=labels)
+            surfa_image = sf.Slice(np_image.squeeze(), labels=labels)
     
     surfa_image.save(output_file)
 
