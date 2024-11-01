@@ -18,7 +18,6 @@ Usage: test_preprocessing.py
        [--image <im1 im2 ...> --label <lb1 lb2 ...>]
        [--dataset_list_file <dataset_list_file>]
        [--crop_size <W H D>]
-       [--num_iters <n>]
        [--cpu]
        [--debug]
 
@@ -102,9 +101,8 @@ def main():
         logging.info(f"training config: saved as {output_folder}/config.yaml")
         logging.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
 
-        for niter in range(args.num_iters):
-            for idx in range(len(train_dataset)):
-                index, image_tensor, label_tensor = train_dataset[idx]
+        for idx in range(len(train_dataset)):
+            index, image_tensor, label_tensor = train_dataset[idx]
 
     
 def argument_parse():
@@ -119,7 +117,6 @@ def argument_parse():
     parser.add_argument("--label", nargs="+", type=str, help="Input label map(s)")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
-    parser.add_argument("--num_iters", type=int, default=1, help="How many augmentation iterations")
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
     parser.add_argument("--debug", action='store_true', help="Output debug information/volume")
 
