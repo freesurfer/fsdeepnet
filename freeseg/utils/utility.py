@@ -40,7 +40,7 @@ def load_framedimage(file_path, orientation=None, device=None, ndims=3):
     return framedimage, framedimage_tensor, orig_orientation
 
 
-def save_framedimage(framedimage_tensor, original_framedimage, output_file, orientation=None, labels=None, reshape=False):
+def save_framedimage(framedimage_tensor, output_file, original_framedimage=None, orientation=None, labels=None):
     """
     Save the augmented framedimage to a file.
     
@@ -49,21 +49,23 @@ def save_framedimage(framedimage_tensor, original_framedimage, output_file, orie
         original_framedimage: Original loaded framedimage (surfa.Volume or surfa.Slice).
         output_file (str): Path to the output file.
     """
-    ndims = original_framedimage.basedim
-    
     # the input tensor is non-batched [C, H, W(, D)], move C to the last axis, C >= 1
     tensor_cpu = framedimage_tensor.cpu().movedim(0, -1).squeeze()
-    np_image = tensor_cpu.detach().numpy().astype(original_framedimage.dtype)
-    surfa_image = original_framedimage.new(np_image)
+    if (original_framedimage is not None):
+        np_image = tensor_cpu.detach().numpy().astype(original_framedimage.dtype)        
+        surfa_image = original_framedimage.new(np_image)
+        # surfa.image.framed.reorient() is not yet implemented for 2D data
+        if (original_framedimage.basedim == 3 and orientation is not None):
+            surfa_image = surfa_image.reorient(orientation)
+        if (labels is not None):
+            surfa_image.labels = labels        
+    else:
+        np_image = tensor_cpu.detach().numpy()
+        if (np_image.ndim == 3):
+            surfa_image = sf.Volume(np_image, labels=labels)
+        else:
+            surfa_image = sf.Slice(np_image, labels=labels)
     
-    if (reshape):
-        surfa_image = surfa_image.reshape(original_framedimage.shape)
-    # surfa.image.framed.reorient() is not yet implemented for 2D data
-    if (ndims == 3 and orientation is not None):
-        surfa_image = surfa_image.reorient(orientation)
-    if (labels is not None):
-        surfa_image.labels = labels
-
     surfa_image.save(output_file)
 
 

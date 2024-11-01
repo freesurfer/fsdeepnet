@@ -10,7 +10,7 @@ from torchvision.utils import make_grid
 
 from freeseg.checkpoint import Checkpoint
 from freeseg.metrics import DiceScore
-from freeseg.utils import remap_labels, onehot, DataGenerator
+from freeseg.utils import remap_labels, onehot, DataGenerator, save_framedimage
 
 
 class Training:
@@ -40,7 +40,8 @@ class Training:
                  best_model_metric="dice",                 
                  write_tensorboard_summary=False,
                  device=None,
-                 preprocessing_device=None):
+                 preprocessing_device=None,
+                 debug=False):
         """
         Training Constructor.
 
@@ -60,6 +61,7 @@ class Training:
 
         """
 
+        self._debug = debug
         self._model = model
         self._model_arch_dict = model_arch_dict
         self._train_dataset_dict = train_dataset_dict
@@ -73,6 +75,7 @@ class Training:
         self._labels_segmentation, self._unique_idx = np.unique(labels_segmentation, return_index=True)
         self._num_labels = len(self._labels_segmentation)
         self._label_mapping = {label.item(): i for i, label in enumerate(self._labels_segmentation)}
+        self._inverse_label_mapping = {v: k for k, v in self._label_mapping.items()}
 
         self._device = device
         self._preprocessing_device = preprocessing_device
@@ -115,6 +118,10 @@ class Training:
         os.makedirs(self._best_model_dir, exist_ok=True)
         os.makedirs(self._checkpoint_dir, exist_ok=True)
         os.makedirs(self._dice_dir, exist_ok=True)
+
+        if (self._debug):
+            self._debug_dir = os.path.join(train_output_folder, "debug")
+            os.makedirs(self._debug_dir, exist_ok=True)
 
 
     def train_model(self, lr, epochs, steps_per_epoch, metric_type, loss_fn):
@@ -271,9 +278,21 @@ class Training:
             (batch_idx, images, labels, dataset_idx) = next(self._input_generator)
             # training device and preprocessing device could be different
             images, labels = images.to(self._device), labels.to(self._device)
+            if (self._debug and step == steps_per_epoch-1):
+                # debugging
+                out_image = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_augmented_image.mgz")
+                out_label = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_augmented_label.mgz")
+                print(f"[DEBUG] output augmented image/label {out_image} and {out_label} ...")                
+                save_framedimage(images.squeeze(0), out_image)
+                save_framedimage(labels.squeeze(0), out_label)
             
             labels = remap_labels(labels, self._label_mapping)
             labels = onehot(labels, num_classes=self._num_labels, device=self._device)
+            if (self._debug and step == steps_per_epoch-1):
+                # debugging
+                out_label_onehot = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_augmented_label_onehot.mgz")
+                print(f"[DEBUG] output augmented label onehot encoded {out_label_onehot} ...")                
+                save_framedimage(labels.squeeze(0), out_label_onehot)            
 
             # Zero your gradients for every batch
             optimizer.zero_grad()
@@ -299,6 +318,20 @@ class Training:
             batch_hard_dice = self._dice_metric_hard(outputs, labels)
             train_dices[:, step] = batch_hard_dice.detach().cpu().numpy()
             logging.info(f"  {step+1:4d}/{steps_per_epoch:<4d} loss: {loss.item():.4f}, dice avg: {np.mean(train_dices[:, step]):.4f}")
+            if (self._debug and step == steps_per_epoch-1):
+                # debugging
+                out_segmentation = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_prediction_loss{loss.item():.4f}_dice{np.mean(train_dices[:, step]):.4f}.mgz")
+                print(f"[DEBUG] output prediciton {out_segmentation} ...")
+                predicted_segmentation = torch.argmax(outputs, dim=1)
+                # map labels to original id
+                segmentation = remap_labels(predicted_segmentation, self._inverse_label_mapping)
+                save_framedimage(segmentation, out_segmentation)
+
+                out_posteriors = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_posteriors_loss{loss.item():.4f}_dice{np.mean(train_dices[:, step]):.4f}.mgz")
+                print(f"[DEBUG] output posteriors {out_posteriors} ...")               
+                posteriors = outputs.squeeze(0)  # remove batch axis => non-batched tensor [C, H, W (,D)]
+                save_framedimage(posteriors, out_posteriors)
+                # end of debugging            
 
             if (self._summary_writer is not None):
                 # Write to TensorBoard every batch

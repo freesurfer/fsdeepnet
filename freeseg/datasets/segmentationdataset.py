@@ -6,7 +6,7 @@ import yaml
 from torch.utils.data import Dataset
 
 from freeseg.augmentation import apply_augmentations
-from freeseg.utils import load_framedimage, save_framedimage
+from freeseg.utils import load_framedimage
 
 class SegmentationDataset(Dataset):
     def __init__(self, config, dataset_dict=None, image=None, label=None, transform=None, device=None):

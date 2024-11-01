@@ -20,6 +20,7 @@ Usage: predict.py
        [--noaddctab]
        [--write_posteriors]
        [--cpu]
+       [--debug]
 """
 
 def main():

@@ -461,13 +461,13 @@ def apply_augmentations(
     if save_volumes is not None and output_dir is not None:
         save_framedimage(
             image_tensor,
-            original_image,
             os.path.join(output_dir, save_volumes + "_reoriented_image.mgz"),
+            original_framedimage=original_image,            
         )
         save_framedimage(
             label_tensor,
-            original_label,
             os.path.join(output_dir, save_volumes + "_reoriented_label.mgz"),
+            original_framedimage=original_label,            
         )
             
     crop_size = augment_para.get("crop_size", None)
@@ -480,13 +480,13 @@ def apply_augmentations(
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
                 image_tensor,
-                original_image,
                 os.path.join(output_dir, save_volumes + "_flipped_image.mgz"),
+                original_framedimage=original_image,                
             )
             save_framedimage(
                 label_tensor,
-                original_label,
                 os.path.join(output_dir, save_volumes + "_flipped_label.mgz"),
+                original_framedimage=original_label,                
             )
 
     # ??? spatial_transform always happens for hypothalamus
@@ -507,13 +507,13 @@ def apply_augmentations(
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
                 image_tensor,
-                original_image,
                 os.path.join(output_dir, save_volumes + "_transformed_image.mgz"),
+                original_framedimage=original_image,                
             )
             save_framedimage(
                 label_tensor,
-                original_label,
                 os.path.join(output_dir, save_volumes + "_transformed_label.mgz"),
+                original_framedimage=original_label,                
             )
 
     # ??? we are now supporting cropping, randomcrop, randomcrop_center. check to allow only one type of cropping ???
@@ -531,13 +531,13 @@ def apply_augmentations(
                 if save_volumes is not None and output_dir is not None:
                     save_framedimage(
                         image_tensor,
-                        original_image,
                         os.path.join(output_dir, save_volumes + "_centercropped_image.mgz"),
+                        original_framedimage=original_image,                        
                     )
                     save_framedimage(
                         label_tensor,
-                        original_label,
                         os.path.join(output_dir, save_volumes + "_centercropped_label.mgz"),
+                        original_framedimage=original_label,                        
                     )
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
@@ -549,13 +549,13 @@ def apply_augmentations(
             if save_volumes is not None and output_dir is not None:
                 save_framedimage(
                     image_tensor,
-                    original_image,
                     os.path.join(output_dir, save_volumes + "_randomcropped_image.mgz"),
+                    original_framedimage=original_image,                    
                 )
                 save_framedimage(
                     label_tensor,
-                    original_label,
                     os.path.join(output_dir, save_volumes + "_randomcropped_label.mgz"),
+                    original_framedimage=original_label,                    
                 )
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
@@ -567,13 +567,13 @@ def apply_augmentations(
             if save_volumes is not None and output_dir is not None:
                 save_framedimage(
                     image_tensor,
-                    original_image,
                     os.path.join(output_dir, save_volumes + "_randomcropped_center_image.mgz"),
+                    original_framedimage=original_image,                    
                 )
                 save_framedimage(
                     label_tensor,
-                    original_label,
                     os.path.join(output_dir, save_volumes + "_randomcropped_center_label.mgz"),
+                    original_framedimage=original_label,                    
                 )
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
@@ -594,8 +594,8 @@ def apply_augmentations(
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
                 image_tensor,
-                original_image,
                 os.path.join(output_dir, save_volumes + "_blur_resampled_image.mgz"),
+                original_framedimage=original_image,                
             )
 
     # ??? only allow one "bias_field" or "biasFieldCorruption" ???
@@ -609,8 +609,8 @@ def apply_augmentations(
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
                 image_tensor,
-                original_image,
                 os.path.join(output_dir, save_volumes + "_bias_field_augmented_image.mgz"),
+                original_framedimage=original_image,                
             )
 
     if "biasFieldCorruption" in augmentations_to_apply:
@@ -620,8 +620,8 @@ def apply_augmentations(
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
                 image_tensor,
-                original_image,
                 os.path.join(output_dir, save_volumes + "_biasFieldCorruption_image.mgz"),
+                original_framedimage=original_image,                
             )
             
     if "sampleConditionalGMM" in augmentations_to_apply:
@@ -631,8 +631,8 @@ def apply_augmentations(
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
                 image_tensor,
-                original_image,
                 os.path.join(output_dir, save_volumes + "_sampleConditionalGMM_image.mgz"),
+                original_framedimage=original_image,                
             )
 
     if "intensityAugmentation" in augmentations_to_apply:
@@ -642,8 +642,8 @@ def apply_augmentations(
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
                 image_tensor,
-                original_image,
                 os.path.join(output_dir, save_volumes + "_intensityAugmentation_image.mgz"),
+                original_framedimage=original_image,                
             )
 
 

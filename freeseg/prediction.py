@@ -157,7 +157,7 @@ class Prediction:
             if (debug):
                 print("[DEBUG] output re-oriented image ...")
                 out_reoriented_image = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.reoriented.RAS.mgz"
-                save_framedimage(image_tensor, sfimage, out_reoriented_image)            
+                save_framedimage(image_tensor, out_reoriented_image, original_framedimage=sfimage)            
 
             label_lookup = self._label_lookup
             if (label_lookup is None):
@@ -194,14 +194,14 @@ class Prediction:
                     if (center_point is not None):
                         crop = 'centroidcropped'
                     out_cropped_image = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.RAS.mgz"
-                    save_framedimage(image_tensor_cropped, sfimage, out_cropped_image)
+                    save_framedimage(image_tensor_cropped, out_cropped_image, original_framedimage=sfimage)
                     out_cropped_image = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.mgz"
-                    save_framedimage(image_tensor_cropped, sfimage, out_cropped_image, orientation=orig_orientation)                
+                    save_framedimage(image_tensor_cropped, out_cropped_image, original_framedimage=sfimage, orientation=orig_orientation)                
                     if (path_labels is not None):
                         out_cropped_label = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_labels[i]))[0])+f".label.{crop}.RAS.mgz"
-                        save_framedimage(label_tensor_cropped, sflabel, out_cropped_label)
+                        save_framedimage(label_tensor_cropped, out_cropped_label, original_framedimage=sflabel)
                         out_cropped_label = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_labels[i]))[0])+f".label.{crop}.mgz"
-                        save_framedimage(label_tensor_cropped, sflabel, out_cropped_label, orientation=orig_orientation)
+                        save_framedimage(label_tensor_cropped, out_cropped_label, original_framedimage=sflabel, orientation=orig_orientation)
                     # end of debugging
 
             # add batch axes
@@ -229,14 +229,16 @@ class Prediction:
             segmentation = torch.from_numpy(segmentation).to(self._device)
             
             ### save results ###
-            save_framedimage(segmentation, sfimage, out_segmentations[i],
+            save_framedimage(segmentation, out_segmentations[i],
+                        original_framedimage=sfimage,
                         orientation=orig_orientation,
                         labels=label_lookup if (addctab) else None)
             print(f"output segmentation {out_segmentations[i]}")
             if (debug):
                 print("[DEBUG] output cropped prediction ...")
                 seg_noreshape = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(out_segmentations[i]))[0])+f".cropped.mgz"
-                save_framedimage(segmentation_cropped, sfimage, seg_noreshape,
+                save_framedimage(segmentation_cropped, seg_noreshape,
+                            original_framedimage=sfimage, 
                             orientation=orig_orientation,
                             labels=label_lookup if (addctab) else None)
             if (write_posteriors):  # ??? question: posteriors need to be re-positioned as well ???
@@ -245,7 +247,7 @@ class Prediction:
                 out_posteriors = os.path.join(out_posteriors_dir, out_posteriors)
                 posteriors = outputs.squeeze(0)  # remove batch axis => non-batched tensor [C, H, W (,D)]
                 #posteriors = movedim(1, -1)  # move channel to last axis
-                save_framedimage(posteriors, sfimage, out_posteriors,
+                save_framedimage(posteriors, out_posteriors, original_framedimage=sfimage, 
                             orientation=orig_orientation)
                 print(f"output posteriors {out_posteriors}")
         # end of segmentation loop

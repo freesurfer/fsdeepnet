@@ -33,6 +33,7 @@ Usage: train.py
        [--prefetch_factor <prefetch_factor>]
        [--pin_memory]
        [--persistent_workers]
+       [--debug]
 """
 
 # Configure logging settings
@@ -171,8 +172,11 @@ def main():
         "input_shape": input_shape,
         "num_channels": sample_input_shape[0],        
     }
-    
-    train(train_loader, config, output_folder, len(unique_classes), ctab, input_shape, label_lookup, checkpoint, validation_loader, device, preprocessing_device, train_dataset_dict)
+
+    debug = False
+    if (args.debug):
+        debug = True    
+    train(train_loader, config, output_folder, len(unique_classes), ctab, input_shape, label_lookup, checkpoint, validation_loader, device, preprocessing_device, train_dataset_dict, debug=debug)
                        
     
 def argument_parse():
@@ -196,6 +200,7 @@ def argument_parse():
     parser.add_argument("--write_tensorboard_summary", action='store_true', help="Write tensorboard summary")
     parser.add_argument("--perform_evaluation", action='store_true', help="Perform evaluation after each epoch")
     parser.add_argument("--best_model_metric", type=str, default=None, choices=["loss", "dice"], help="Metric for saving the best model (loss or dice)")
+    parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
 
     # parse commandline
     args = parser.parse_args()
@@ -203,7 +208,8 @@ def argument_parse():
     return args
 
 
-def train(train_loader, config, train_output_folder, num_labels, ctab, input_shape, label_lookup=None, checkpoint=None, validation_loader=None, device=None, preprocessing_device=None, train_dataset_dict=None):
+def train(train_loader, config, train_output_folder, num_labels, ctab, input_shape, label_lookup=None, checkpoint=None,
+          validation_loader=None, device=None, preprocessing_device=None, train_dataset_dict=None, debug=False):
     # create the model to train
     model_arch_dict = config["model"]
     model_arch_dict["name"] = "UNet"
@@ -230,7 +236,8 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, input_sha
                        best_model_metric=config["training"]["best_model_metric"],
                        write_tensorboard_summary=config["training"].get("write_tensorboard_summary", False),
                        device=device,
-                       preprocessing_device=preprocessing_device)
+                       preprocessing_device=preprocessing_device,
+                       debug=debug)
                        
     # train wl2 epochs (??? todo: make this optional ???)
     wl2_loss_fn = WeightedL2Loss()
