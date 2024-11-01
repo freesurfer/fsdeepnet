@@ -77,8 +77,7 @@ def load_config(config_file):
 def remap_labels(labels, mapping):
     remapped_labels = torch.zeros_like(labels)
     for old_label, new_label in mapping.items():
-        if (old_label != new_label):
-            remapped_labels[labels == old_label] = new_label
+        remapped_labels[labels == old_label] = new_label
     return remapped_labels
 
 def onehot(labels, num_classes, device=None):
