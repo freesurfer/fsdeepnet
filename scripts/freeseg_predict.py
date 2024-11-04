@@ -30,10 +30,6 @@ def main():
         os.environ["CUDA_VISIBLE_DEVICES"]=""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    debug = False
-    if (args.debug):
-        debug = True
-
     predict(args.i, args.o, args.checkpoint,
             crop_size=args.crop_size,
             ctab=args.ctab,
@@ -43,7 +39,7 @@ def main():
             addctab=True if (not args.noaddctab) else False,
             write_posteriors=args.write_posteriors,
             device=device,
-            debug=debug)
+            debug=args.debug)
     
 
 def argument_parse():

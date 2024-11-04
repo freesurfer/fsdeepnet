@@ -73,6 +73,8 @@ def main():
         run_name = config.get("training", {}).get("run_name", f"run_{timestamp}")
     config["training"]["run_name"] = run_name
 
+    if (args.debug):
+        config["preprocessing"]["debug"] = args.debug
     if (args.dataset_list_file is not None):
         config["dataset"]["dataset_list_file"] = args.dataset_list_file    
     if (args.crop_size is not None):
@@ -92,6 +94,10 @@ def main():
     if (args.persistent_workers is not None):
         config["preprocessing"]["persistent_workers"] = args.persistent_workers        
 
+    crop_size = config["preprocessing"]["crop_size"]
+    ndims = config["model"]["ndims"]
+    assert (ndims == len(crop_size)), f"crop_size {crop_size} is not for {ndims}D"
+
     """
     # yaml has nested structure, the update doesn't update value in nested structure
     # Update configuration with command-line arguments
@@ -108,7 +114,6 @@ def main():
     shutil.copyfile(config["dataset"]["dataset_list_file"], os.path.join(output_folder, "dataset_list.yaml"))
 
     # Access updated configuration values
-    crop_size = config["preprocessing"]["crop_size"]
     num_workers = config["preprocessing"].get("num_workers", 0)
     pin_memory = config["preprocessing"].get("pin_memory", False)
     persistent_workers = config["preprocessing"].get("persistent_workers", False)
@@ -173,10 +178,7 @@ def main():
         "num_channels": sample_input_shape[0],        
     }
 
-    debug = False
-    if (args.debug):
-        debug = True    
-    train(train_loader, config, output_folder, len(unique_classes), ctab, input_shape, label_lookup, checkpoint, validation_loader, device, preprocessing_device, train_dataset_dict, debug=debug)
+    train(train_loader, config, output_folder, len(unique_classes), ctab, input_shape, label_lookup, checkpoint, validation_loader, device, preprocessing_device, train_dataset_dict, debug=args.debug)
                        
     
 def argument_parse():

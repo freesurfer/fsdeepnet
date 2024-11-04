@@ -149,11 +149,17 @@ class Prediction:
             out_debug_dir = os.path.join(os.path.dirname(out_segmentations[0]), "debug")
             os.makedirs(out_debug_dir, exist_ok=True)
 
+        list_predictions = None
+        if (path_gt is not None):
+            list_predictions = list()  # make an empty list
+
         # perform segmentation
         for i in range(len(path_images)):
             ### preprocessing ###
             # reorient to 'RAS'
             sfimage, image_tensor, orig_orientation = load_framedimage(path_images[i], orientation="RAS", device=self._device, ndims=self._ndims)
+            if (list_predictions is not None):
+                list_predictions.append(os.path.splitext(os.path.basename(path_images[i]))[0])  # strip file extension
             if (debug):
                 print("[DEBUG] output re-oriented image ...")
                 out_reoriented_image = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.reoriented.RAS.mgz"
@@ -266,6 +272,14 @@ class Prediction:
                 eval.evaluate(path_gt, os.path.dirname(out_segmentations[0]), path_dice=path_dice)
             else:
                 eval.evaluate(path_gt, out_segmentations[0], path_dice=path_dice)
+
+            # output predictions in the order they are performed
+            if (list_predictions is not None):
+                f_list_predictions = open(os.path.join(os.path.dirname(path_dice), 'predictions.lst'), "w")
+                for idx, predict in enumerate(list_predictions):
+                    f_list_predictions.write(f"{idx+1}:{predict}\n")
+                f_list_predictions.close()
+            
             
     """
     # this method is not used as of 2024-10-15. it is not in-sync with other changes.

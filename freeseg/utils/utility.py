@@ -8,12 +8,15 @@ def load_framedimage(file_path, orientation=None, device=None, ndims=3):
     Load a framedimage from a file and convert it to a PyTorch tensor.
     The loaded framedimage 3D data is re-oriented to conform to a specific slice orientation.
     surfa.image.framed.reorient() is not yet implemented for 2D data.
+
+    use surfa.load_volume() to load both 3D and 2D images so we can handle 2D multi-channel data
+    non-batched tensor is returned [C, H, W (,D)] (ndims = tensor.ndim - 1)
     
     Args:
         file_path (str): Path to the framedimage file.
     
     Returns:
-        tuple: A tuple containing the loaded framedimage (surfa.Volume or surfa.Slice)
+        tuple: A tuple containing the loaded framedimage (surfa.Volume)
                and its PyTorch tensor representation.
 
                tensor returned is non-batched [C, H, W (,D)]
@@ -23,18 +26,18 @@ def load_framedimage(file_path, orientation=None, device=None, ndims=3):
     if (device is None):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    if (ndims == 3):
-        framedimage = sf.load_volume(file_path)
-    else:
-        framedimage = sf.load_slice(file_path)
+    framedimage = sf.load_volume(file_path)
 
     orig_orientation = sf.transform.orientation.rotation_matrix_to_orientation(framedimage.geom.vox2world.matrix)
     # surfa.image.framed.reorient() is not yet implemented for 2D data
     if (ndims == 3 and orientation is not None):
         framedimage = framedimage.reorient(orientation)
 
-    # framedimage.framed_data has shape [H, W, (D,) C]
+    # framedimage.framed_data has shape [H, W, D, C] (3D) or [H, W, C, 1] (2D)
     framedimage_data_native = framedimage.framed_data.astype(framedimage.dtype.newbyteorder('='))
+    if (ndims == 2):
+        # remove last axis, so ndims = tensor.ndim - 1
+        framedimage_data_native = framedimage_data_native.squeeze(-1)
     framedimage_tensor = torch.from_numpy(framedimage_data_native).movedim(-1, 0).to(device)
     
     return framedimage, framedimage_tensor, orig_orientation
@@ -43,26 +46,31 @@ def load_framedimage(file_path, orientation=None, device=None, ndims=3):
 def save_framedimage(framedimage_tensor, output_file, original_framedimage=None, orientation=None, labels=None):
     """
     Save the augmented framedimage to a file.
+    input tensor is non-batched [C, H, W (,D)] (ndims = tensor.ndim - 1)
+    3D data is saved as surfa.Volume, 2D data is saved as surfa.Slice
+    posteriors and label onehot encoded output as 4D volume [H, W, D, nlabels]
     
     Args:
-        framedimage_tensor (torch.Tensor): Augmented framedimage tensor, non-batched [C, H, W, (D)]
-        original_framedimage: Original loaded framedimage (surfa.Volume or surfa.Slice).
+        framedimage_tensor (torch.Tensor): Augmented framedimage tensor, non-batched [C, H, W(, D)]
+        original_framedimage: Original loaded framedimage (surfa.Volume).
         output_file (str): Path to the output file.
     """
     # the input tensor is non-batched [C, H, W(, D)], move C to the last axis, C >= 1
     tensor_cpu = framedimage_tensor.cpu().movedim(0, -1)
     if (original_framedimage is not None):
         np_image = tensor_cpu.detach().numpy().astype(original_framedimage.dtype)        
-        surfa_image = original_framedimage.new(np_image.squeeze())
         # surfa.image.framed.reorient() is not yet implemented for 2D data
-        ndims = original_framedimage.basedim
-        if (ndims == 3 and orientation is not None):
-            surfa_image = surfa_image.reorient(orientation)
-        if (labels is not None):
-            surfa_image.labels = labels        
+        ndims = framedimage_tensor.ndim - 1
+        if (ndims == 3):
+            surfa_image = sf.Volume(np_image.squeeze(), geometry=original_framedimage.geom, labels=labels, metadata=original_framedimage.metadata)
+            if (orientation is not None):
+                surfa_image = surfa_image.reorient(orientation)
+        else:
+            surfa_image = sf.Slice(np_image.squeeze(), geometry=original_framedimage.geom, labels=labels, metadata=original_framedimage.metadata)
+     
     else:
         np_image = tensor_cpu.detach().numpy()  # [H, W, (D,) C]
-        ndims = np_image.ndim - 1  # get the surfa.FramedArray.basedim
+        ndims = framedimage_tensor.ndim - 1  # get the surfa.FramedArray.basedim
         if (ndims == 3):
             surfa_image = sf.Volume(np_image.squeeze(), labels=labels)
         else:
@@ -158,8 +166,8 @@ def centroid(label, debug=False):
     mask[label > 0] = 1
 
     # calculate bounding box coordinates
-    lowerbound = np.zeros(label.ndim).astype(int)
-    upperbound = np.zeros(label.ndim).astype(int)
+    lowerbound = np.zeros(mask.ndim).astype(int)
+    upperbound = np.zeros(mask.ndim).astype(int)
     if (np.any(mask == 1)):  # check if any of the labels exist
         coords = np.where(mask == 1)
         for dim, coord in enumerate(coords):

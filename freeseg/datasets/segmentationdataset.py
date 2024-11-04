@@ -69,10 +69,10 @@ class SegmentationDataset(Dataset):
 
         # Apply data augmentation if transform is specified
         if self.transform:
-            # image.geom.voxsize returned from surfa.load_slice() is (3, 1), bug???
-            # extract only image.basedim voxsize
+            # image.geom.voxsize returned from surfa.load_volume() is (3, 1)
+            # extract voxsizes to match {image_tensor.ndim-1}D data
             # make it writeable or voxynth.augment.image_augment() will complain non-writable numpy array
-            voxsize = np.copy(image.geom.voxsize[:image.basedim])
+            voxsize = np.copy(image.geom.voxsize[:image_tensor.ndim-1])
             image_tensor, label_tensor = apply_augmentations(
                 image_tensor,
                 label_tensor,
@@ -96,27 +96,31 @@ class SegmentationDataset(Dataset):
         """preprocesses all label maps, retrieve input tensor shape and unique classes."""
 
         logging.info("Perform dataset checking ...")
-    
+
+        expected_num_channels =self.config["dataset"]["expected_num_channels"]
+
         self.unique_classes = set()
         for f_label, f_image in zip(self.label_files, self.image_files):
             label, label_tensor, _ = load_framedimage(f_label, device=self.device, ndims=self.ndims)
             image, image_tensor, _ = load_framedimage(f_image, device=self.device, ndims=self.ndims)
 
-            if (self.input_shape is None):
-                self.input_shape = image_tensor.shape
+            # label_tensor and image_tensor are non-batched [C, H, W (,D)]
+            assert (self.ndims == label_tensor.ndim - 1), f"Expected {self.ndims}D label, but got {label_tensor.ndim - 1}D"            
+            assert (self.ndims == image_tensor.ndim - 1), f"Expected {self.ndims}D image, but got {image_tensor.ndim - 1}D"
 
+            self.input_shape = image_tensor.shape
+            assert (self.input_shape[0] == expected_num_channels), \
+                f"Expected {expected_num_channels} channels, but got {self.input_shape[0]}"
+            
             if (self.label_lookup is None):
                 self.label_lookup = image.labels if (image.labels is not None) else label.labels
 
             unique_values = np.unique(label.data).astype(int).tolist()
             self.unique_classes.update(unique_values)
 
-        expected_num_channels =self.config["dataset"]["expected_num_channels"]
         expected_classes = self.config["dataset"]["expected_classes"]
         assert (sorted(self.unique_classes) == expected_classes), \
             f"Expected classes {expected_classes}, but got {sorted(self.unique_classes)}"
-        assert (self.input_shape[0] == expected_num_channels), \
-            f"Expected {expected_num_channels} channels, but got {self.input_shape[0]}"
 
         logging.info("Dataset Information:")
         logging.info(f"  Number of samples: {self.num_entries}")
