@@ -65,6 +65,7 @@ class Prediction:
         self._model = eval(model_creation_string)
         self._model = self._model.to(self._device)
 
+        self._nb_levels = checkpoint.model_arch_dict["nb_levels"]
         self._ndims = checkpoint.model_arch_dict["ndims"]
         assert (self._ndims == 3 or self._ndims == 2), "Model supports 3D or 2D"
         
@@ -100,6 +101,8 @@ class Prediction:
         if (crop_size is not None):
             self._crop_size = crop_size
         assert self._crop_size is not None, 'please specify cropping size'
+        assert (np.all(np.array(self._crop_size) % (2**(self._nb_levels-1)) == 0)), \
+            f"crop_size {self._crop_size} needs to be divisible by 2^{self._nb_levels-1}"
 
         pred_suffix = 'prediction'
         posteriors_suffix = 'posteriors'
