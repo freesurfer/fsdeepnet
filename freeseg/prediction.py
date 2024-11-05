@@ -254,7 +254,7 @@ class Prediction:
                 posteriors = outputs.squeeze(0)  # remove batch axis => non-batched tensor [C, H, W (,D)]
                 #posteriors = movedim(1, -1)  # move channel to last axis
                 save_framedimage(posteriors, out_posteriors, original_framedimage=sfimage, 
-                            orientation=orig_orientation)
+                                 orientation=orig_orientation, onehotencoded=True)
                 print(f"output posteriors {out_posteriors}")
         # end of segmentation loop
 

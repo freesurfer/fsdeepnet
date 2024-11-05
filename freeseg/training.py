@@ -292,7 +292,7 @@ class Training:
                 # debugging
                 out_label_onehot = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_augmented_label_onehot.mgz")
                 print(f"[DEBUG] output augmented label onehot encoded {out_label_onehot} ...")                
-                save_framedimage(labels.squeeze(0), out_label_onehot)            
+                save_framedimage(labels.squeeze(0), out_label_onehot, onehotencoded=True)            
 
             # Zero your gradients for every batch
             optimizer.zero_grad()
@@ -330,7 +330,7 @@ class Training:
                 out_posteriors = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_posteriors_loss{loss.item():.4f}_dice{np.mean(train_dices[:, step]):.4f}.mgz")
                 print(f"[DEBUG] output posteriors {out_posteriors} ...")               
                 posteriors = outputs.squeeze(0)  # remove batch axis => non-batched tensor [C, H, W (,D)]
-                save_framedimage(posteriors, out_posteriors)
+                save_framedimage(posteriors, out_posteriors, onehotencoded=True)
                 # end of debugging            
 
             if (self._summary_writer is not None):

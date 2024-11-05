@@ -43,12 +43,10 @@ def load_framedimage(file_path, orientation=None, device=None, ndims=3):
     return framedimage, framedimage_tensor, orig_orientation
 
 
-def save_framedimage(framedimage_tensor, output_file, original_framedimage=None, orientation=None, labels=None):
+def save_framedimage(framedimage_tensor, output_file, original_framedimage=None, orientation=None, labels=None, onehotencoded=False):
     """
     Save the augmented framedimage to a file.
     input tensor is non-batched [C, H, W (,D)] (ndims = tensor.ndim - 1)
-    3D data is saved as surfa.Volume, 2D data is saved as surfa.Slice
-    posteriors and label onehot encoded output as 4D volume [H, W, D, nlabels]
     
     Args:
         framedimage_tensor (torch.Tensor): Augmented framedimage tensor, non-batched [C, H, W(, D)]
@@ -57,24 +55,29 @@ def save_framedimage(framedimage_tensor, output_file, original_framedimage=None,
     """
     # the input tensor is non-batched [C, H, W(, D)], move C to the last axis, C >= 1
     tensor_cpu = framedimage_tensor.cpu().movedim(0, -1)
+    ndims = framedimage_tensor.ndim - 1  # get the surfa.FramedArray.basedim
+    np_image = tensor_cpu.detach().numpy()  # [H, W, (D,) C]
+
+    """
+    output input tensor as surfa.Slice only if ndim=2 and onehotencoded=True
+    this will output posteriors and onehot encoded label as 4D volume [H, W, D, nlabels], D=1 for 2D
+    other image/label is output as [H, W, (D,) C]
+    """
     if (original_framedimage is not None):
-        np_image = tensor_cpu.detach().numpy().astype(original_framedimage.dtype)        
-        # surfa.image.framed.reorient() is not yet implemented for 2D data
-        ndims = framedimage_tensor.ndim - 1
-        if (ndims == 3):
-            surfa_image = sf.Volume(np_image.squeeze(), geometry=original_framedimage.geom, labels=labels, metadata=original_framedimage.metadata)
-            if (orientation is not None):
-                surfa_image = surfa_image.reorient(orientation)
-        else:
+        np_image = np_image.astype(original_framedimage.dtype)        
+        if (ndims == 2 and onehotencoded):
             surfa_image = sf.Slice(np_image.squeeze(), geometry=original_framedimage.geom, labels=labels, metadata=original_framedimage.metadata)
-     
-    else:
-        np_image = tensor_cpu.detach().numpy()  # [H, W, (D,) C]
-        ndims = framedimage_tensor.ndim - 1  # get the surfa.FramedArray.basedim
-        if (ndims == 3):
-            surfa_image = sf.Volume(np_image.squeeze(), labels=labels)
         else:
+            surfa_image = sf.Volume(np_image.squeeze(), geometry=original_framedimage.geom, labels=labels, metadata=original_framedimage.metadata)
+
+        # surfa.image.framed.reorient() is not yet implemented for 2D data            
+        if (ndims == 3 and orientation is not None):
+            surfa_image = surfa_image.reorient(orientation)
+    else:
+        if (ndims == 2 and onehotencoded):
             surfa_image = sf.Slice(np_image.squeeze(), labels=labels)
+        else:
+            surfa_image = sf.Volume(np_image.squeeze(), labels=labels)            
     
     surfa_image.save(output_file)
 
