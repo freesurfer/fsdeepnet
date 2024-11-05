@@ -95,8 +95,12 @@ class ConvBlock(nn.Module):
 class UNet(nn.Module):
     def __init__(self, model_arch_dict):
 
-
-        input_shape = model_arch_dict["input_shape"]
+        num_channels = model_arch_dict.get("num_channels", None)
+        if (num_channels is None):
+            # backward compatible - read older models with model_arch_dict["input_shape"] saved instead
+            print(f"this is an older model file w/ 'input_shape' saved insted of 'num_channels'")
+            input_shape = model_arch_dict["input_shape"]
+            num_channels = input_shape[0]
         ndims = model_arch_dict["ndims"]
         nb_features = model_arch_dict["nb_features"]
         nb_levels = model_arch_dict["nb_levels"]
@@ -112,7 +116,7 @@ class UNet(nn.Module):
         final_pred_activation = model_arch_dict.get("final_pred_activation", "softmax")
 
         super().__init__()
-        self.input_shape = input_shape
+        self.num_channels = num_channels
         self.nb_features = nb_features
         self.nb_levels = nb_levels
         self.feat_mult = feat_mult
@@ -127,7 +131,7 @@ class UNet(nn.Module):
 
         # Encoding path
         self.encoder = nn.ModuleList()
-        in_channels = self.input_shape[0]
+        in_channels = self.num_channels
         for level in range(self.nb_levels):
             nb_lvl_feats = int(self.nb_features * (self.feat_mult**level))
             self.encoder.append(

@@ -136,9 +136,7 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=config["training"]["batch_size"], shuffle=True,
                               pin_memory=pin_memory, num_workers=num_workers, persistent_workers=persistent_workers, prefetch_factor=prefetch_factor)
 
-    # ??? todo: we probably can get rid of sample_input_shape too
-    sample_input_shape, unique_classes, label_lookup = train_dataset.preload()
-    input_shape = sample_input_shape[1:]
+    input_shape, unique_classes, label_lookup = train_dataset.preload()
 
     # output segmentation_labels.npy in training directory
     f_segmentation_labels = os.path.join(output_folder, "segmentation_labels.npy")
@@ -174,11 +172,11 @@ def main():
         "segmentation_labels": sorted(unique_classes),
         "crop_size": crop_size,
         "num_samples": len(train_dataset),
-        "input_shape": input_shape,
-        "num_channels": sample_input_shape[0],        
+        "input_shape": input_shape[1:],
+        "num_channels": input_shape[0],        
     }
 
-    train(train_loader, config, output_folder, len(unique_classes), ctab, input_shape, label_lookup, checkpoint, validation_loader, device, preprocessing_device, train_dataset_dict, debug=args.debug)
+    train(train_loader, config, output_folder, len(unique_classes), ctab, label_lookup, checkpoint, validation_loader, device, preprocessing_device, train_dataset_dict, debug=args.debug)
                        
     
 def argument_parse():
@@ -210,18 +208,19 @@ def argument_parse():
     return args
 
 
-def train(train_loader, config, train_output_folder, num_labels, ctab, input_shape, label_lookup=None, checkpoint=None,
+def train(train_loader, config, train_output_folder, num_labels, ctab, label_lookup=None, checkpoint=None,
           validation_loader=None, device=None, preprocessing_device=None, train_dataset_dict=None, debug=False):
     # create the model to train
     model_arch_dict = config["model"]
     model_arch_dict["name"] = "UNet"
-    model_arch_dict["input_shape"] = (config["dataset"]["expected_num_channels"], *input_shape)
+    model_arch_dict["num_channels"] = config["dataset"]["expected_num_channels"]
     model_arch_dict["nb_labels"] = len(config["dataset"]["expected_classes"])
     model_arch_dict["final_pred_activation"] = config["model"].get("final_pred_activation", "softmax")
     model = UNet(model_arch_dict).to(device)
    
     # print Model Architecture
     # from torchinfo import summary
+    # input_shape = train_dataset_dict["input_shape"]
     # summary(model, input_size=input_shape)
 
     # create the Training object
