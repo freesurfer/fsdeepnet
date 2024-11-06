@@ -1,6 +1,5 @@
 import os
 import glob
-import logging
 from time import time
 import numpy as np
 import torch
@@ -73,9 +72,17 @@ class Prediction:
         self._labels_segmentation, self._unique_idx = np.unique(checkpoint.train_dataset_dict["segmentation_labels"], return_index=True)
         self._num_labels = len(self._labels_segmentation)
         
-        # compute self._label_mapping, self._inverse_label_mapping from self._labels_segmentation
-        self._label_mapping = {label.item(): i for i, label in enumerate(self._labels_segmentation)}
-        self._inverse_label_mapping = {v: k for k, v in self._label_mapping.items()}
+        # retrieve self._label_mapping, self._inverse_label_mapping from checkpoint.train_dataset_dict
+        # or compute them from self._labels_segmentation for backward compatibility
+        self._label_mapping = checkpoint.train_dataset_dict.get("label_mapping", None)
+        self._inverse_label_mapping = checkpoint.train_dataset_dict.get("inverse_label_mapping", None)
+        if (self._label_mapping is None):
+            print(f"compute label_mapping ...")
+            self._label_mapping = {label:i for i, label in enumerate(self._labels_segmentation)}
+        if (self._inverse_label_mapping is None):
+            print(f"compute inverse_label_mapping ...")
+            self._inverse_label_mapping = {v: k for k, v in self._label_mapping.items()}
+        
 
         if (self._label_lookup is None):
             self._label_lookup = checkpoint.label_lookup
@@ -197,7 +204,7 @@ class Prediction:
                     if (path_labels is not None):
                         # crop the labels
                         label_tensor_cropped, _ = apply_centercrop(label_tensor, self._crop_size, center_point=center_point)
-                        label_tensor_cropped = label_tensor_cropped.to(self._device).float()
+                        label_tensor_cropped = label_tensor_cropped.to(self._device)
 
                     crop = 'centercropped'
                     if (center_point is not None):

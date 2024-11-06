@@ -15,6 +15,7 @@ Usage: test_preprocessing.py
        --config <config.yaml>
        [--augment]
        [--outdir <augmentation_output_dir>]
+       [--check_augment]
        [--image <im1 im2 ...> --label <lb1 lb2 ...>]
        [--dataset_list_file <dataset_list_file>]
        [--crop_size <W H D>]
@@ -75,11 +76,12 @@ def main():
     # create training dataset with the desired augmentations specified
     if (args.image is not None and args.label is not None):
         logging.info("Loading dataset: SegmentationDataset(...)")
-        train_dataset = SegmentationDataset(config, image=args.image, label=args.label, transform=config["preprocessing"].get("train_augmentations"), device=preprocessing_device)
+        train_dataset = SegmentationDataset(config, image=args.image, label=args.label,
+                                            transform=config["preprocessing"].get("train_augmentations"), device=preprocessing_device, check_augment=args.check_augment)
     else:
         logging.info("Loading dataset: load_dataset(...)")
         train_dataset, _, _ = load_datasets(
-            config, config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"), device=preprocessing_device
+            config, config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"), device=preprocessing_device, check_augment=args.check_augment
         )    
 
     # ??? todo: we probably can get rid of sample_input_shape too
@@ -113,6 +115,7 @@ def argument_parse():
     parser.add_argument("--config", type=str, required=True, help="Path to the configuration file")
     parser.add_argument("--augment", action='store_true', help="Perform augmentation on input image/label.")        
     parser.add_argument("--outdir", type=str, help="Path to augmentation output (needed for augmenting)")
+    parser.add_argument("--check_augment", action='store_true', help="Reject augmentations not having all the labels")
     parser.add_argument("--image", nargs="+", type=str, help="Input image volume(s)")
     parser.add_argument("--label", nargs="+", type=str, help="Input label map(s)")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")

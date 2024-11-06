@@ -8,7 +8,7 @@ class Checkpoint:
     def __init__(self, model_arch_dict=None, label_lookup=None, train_dataset_dict=None):
         self._dict = {
             "model_arch_dict" : model_arch_dict,
-            "train_dataset_dict" : train_dataset_dict,  # batch_size, segmentation_labels, crop_size, num_samples, input_shape, num_channels
+            "train_dataset_dict" : train_dataset_dict,  # batch_size, segmentation_labels, label_mapping, inverse_label_mapping, crop_size, num_samples, input_shape, num_channels
             "label_lookup" : label_lookup,       
             "epoch" : None,
             "loss"  : None,

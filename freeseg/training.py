@@ -28,7 +28,6 @@ class Training:
         
     def __init__(self,
                  train_output_folder,
-                 labels_segmentation,
                  train_loader,  # torch.utils.data.DataLoader              
                  model,
                  model_arch_dict=None,
@@ -49,9 +48,6 @@ class Training:
         ----------
         train_output_folder : string
             path of a directory where the models will be saved during training.
-        labels_segmentation : 1d numpy array
-            List of labels for which to compute Dice scores. 
-            It should be the same list as the segmentation_labels used in training.
         train_loader : torch.utils.data.DataLoader
             DataLoader to create the training data generator
         validation_loader : DataLoader
@@ -71,11 +67,11 @@ class Training:
         self._best_model_metric = best_model_metric
 
         self._setup_training_directory(train_output_folder)
-        
-        self._labels_segmentation, self._unique_idx = np.unique(labels_segmentation, return_index=True)
-        self._num_labels = len(self._labels_segmentation)
-        self._label_mapping = {label.item(): i for i, label in enumerate(self._labels_segmentation)}
-        self._inverse_label_mapping = {v: k for k, v in self._label_mapping.items()}
+
+        labels_segmentation = train_dataset_dict["segmentation_labels"]
+        self._num_labels = len(labels_segmentation)
+        self._label_mapping = train_dataset_dict["label_mapping"]
+        self._inverse_label_mapping = train_dataset_dict["inverse_label_mapping"]
 
         self._device = device
         self._preprocessing_device = preprocessing_device

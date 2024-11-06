@@ -57,6 +57,7 @@ validation:
 ```bash
 fspython scripts/freeseg_train.py
          --config <config.yaml>
+	 [--check_augment]
          [--dataset_list_file <dataset_list_file>]
          [--ctab <ctab>]
          [--train_root_folder <train_root_folder>]

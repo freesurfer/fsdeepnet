@@ -71,9 +71,8 @@ def apply_spatial_transform(image, label, voxsize,
     )
 
     transformed_image = voxynth.transform.spatial_transform(image, trf)
-    transformed_label = voxynth.transform.spatial_transform(
-        label, trf, method="nearest"
-    )
+    transformed_label = voxynth.transform.spatial_transform(label, trf, method="nearest")
+
     return transformed_image, transformed_label
 
 

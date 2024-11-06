@@ -19,6 +19,7 @@ from freeseg.metrics import WeightedL2Loss, DiceLoss, DiceScore
 """
 Usage: train.py 
        --config <config.yaml>
+       [--check_augment]
        [--dataset_list_file <dataset_list_file>]
        [--ctab <ctab>]
        [--train_root_folder <train_root_folder>]
@@ -130,8 +131,11 @@ def main():
         preprocessing_device = torch.device("cpu")
         
     # create training/validation dataset with the desired augmentations specified
+    labels_segmentation = sorted(config["dataset"]["expected_classes"])
+    label_mapping = {label:i for i, label in enumerate(labels_segmentation)}
+    inverse_label_mapping = {v: k for k, v in label_mapping.items()}
     train_dataset, validation_dataset, _ = load_datasets(
-        config, config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"), device=preprocessing_device
+        config, config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"), device=preprocessing_device, check_augment=args.check_augment
     )
 
     # Create training DataLoader
@@ -157,6 +161,7 @@ def main():
     logging.info(f"Preprocessing num_workers: {num_workers}")
     logging.info(f"Preprocessing prefetch_factor: {prefetch_factor}")
     logging.info(f"Preprocessing persistent_workers: {persistent_workers}")
+    logging.info(f"Preprocessing check_augment: {args.check_augment}")
 
     if (checkpoint is not None):
         logging.info(f"resume training from model: {checkpoint}")
@@ -169,9 +174,12 @@ def main():
     logging.info(f"training config: saved as {output_folder}/config.yaml")
     logging.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
 
+    # save label_mapping/inverse_label_mapping in train_dataset_dict
     train_dataset_dict = {
         "batch_size": config["training"]["batch_size"],
-        "segmentation_labels": sorted(unique_classes),
+        "segmentation_labels": labels_segmentation,
+        "label_mapping": label_mapping,
+        "inverse_label_mapping": inverse_label_mapping,
         "crop_size": crop_size,
         "num_samples": len(train_dataset),
         "input_shape": input_shape[1:],
@@ -202,6 +210,7 @@ def argument_parse():
     parser.add_argument("--write_tensorboard_summary", action='store_true', help="Write tensorboard summary")
     parser.add_argument("--perform_evaluation", action='store_true', help="Perform evaluation after each epoch")
     parser.add_argument("--best_model_metric", type=str, default=None, choices=["loss", "dice"], help="Metric for saving the best model (loss or dice)")
+    parser.add_argument("--check_augment", action='store_true', help="Reject augmentations not having all the labels")
     parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
 
     # parse commandline
@@ -227,7 +236,6 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
 
     # create the Training object
     trainer = Training(train_output_folder,
-                       config["dataset"]["expected_classes"],
                        train_loader,
                        model,
                        model_arch_dict=model_arch_dict,

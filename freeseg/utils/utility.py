@@ -87,6 +87,8 @@ def load_config(config_file):
         config = yaml.safe_load(file)
     return config
 
+
+# ??? (todo) check other remap_labels() and onehot() usages ???
 def remap_labels(labels, mapping):
     remapped_labels = torch.zeros_like(labels)
     for old_label, new_label in mapping.items():
@@ -98,17 +100,17 @@ def onehot(labels, num_classes, device=None):
     One-hot encode a tensor of integer labels.
 
     Args:
-        labels (torch.Tensor): A tensor of integer labels.
+        labels (torch.Tensor): A tensor of integer labels [N, 1, H, W(, D)]
         num_classes (int): The number of classes.
         device (torch.device, optional): The desired device (CPU or GPU). 
                                          If None, defaults to the device of the 'labels' tensor.
 
     Returns:
-        torch.Tensor: A one-hot encoded tensor. 
+        torch.Tensor: A one-hot encoded tensor [N, num_classes, H, W(, D)]
     """
     if device is None:
         device = labels.device 
-    onehot_labels = torch.eye(num_classes, device=device)[labels.long().squeeze(1)]
+    onehot_labels = torch.eye(num_classes, device=device)[labels.squeeze(1)]
     if (onehot_labels.ndim == 5):  # 3D
         return onehot_labels.permute(0, 4, 1, 2, 3)
     elif (onehot_labels.ndim == 4): # 2D
@@ -191,7 +193,7 @@ def DataGenerator(dataloader, device=None):
 
     while (True):
         for n_batch, (dataset_idx, images, labels) in enumerate(dataloader):
-            images, labels = images.to(device).float(), labels.to(device)
+            images, labels = images.to(device).float(), labels.to(device).int()
             
             # extracts the single value from the dataset_idx tensor
             # returns it as a Python scalar
