@@ -90,7 +90,6 @@ class Training:
             
         self._dice_metric_hard = DiceScore(
             num_classes=self._num_labels,
-            input_type="prob",
             dice_type="hard",
             # return_loss=False,
         )

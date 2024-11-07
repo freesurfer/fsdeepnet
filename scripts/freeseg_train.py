@@ -14,7 +14,7 @@ from freeseg.models import UNet
 from freeseg.training import Training
 from freeseg.utils import load_config
 from freeseg.datasets import load_datasets
-from freeseg.metrics import WeightedL2Loss, DiceLoss, DiceScore
+from freeseg.metrics import WeightedL2Loss, DiceLoss
 
 """
 Usage: train.py 
@@ -261,7 +261,6 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
     # train dice epochs
     dice_loss_fn = DiceLoss(
         num_classes=num_labels,
-        input_type="prob",
         dice_type="soft"
     )                   
     trainer.train_model(lr=config["training"]["pre_train_learning_rate"],

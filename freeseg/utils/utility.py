@@ -88,7 +88,6 @@ def load_config(config_file):
     return config
 
 
-# ??? (todo) check other remap_labels() and onehot() usages ???
 def remap_labels(labels, mapping):
     remapped_labels = torch.zeros_like(labels)
     for old_label, new_label in mapping.items():
@@ -100,7 +99,7 @@ def onehot(labels, num_classes, device=None):
     One-hot encode a tensor of integer labels.
 
     Args:
-        labels (torch.Tensor): A tensor of integer labels [N, 1, H, W(, D)]
+        labels (torch.Tensor): A tensor of integer labels [N, (1,) H, W(, D)]
         num_classes (int): The number of classes.
         device (torch.device, optional): The desired device (CPU or GPU). 
                                          If None, defaults to the device of the 'labels' tensor.

@@ -82,7 +82,6 @@ training:
   pre_train_learning_rate: 0.0001
   # define label index to be excluded from dice computation, 0=background
   # we compute background dice so it is set to empty []
-  ignore_indexes: []                
   write_tensorboard_summary: False  # whether to output tensorboard logs
   perform_evaluation: False         # whether to perform evaluation after each epoch
   best_model_metric: dice           # metric to pick best model when perform_evaluation=True  
