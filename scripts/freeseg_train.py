@@ -19,6 +19,7 @@ from freeseg.metrics import WeightedL2Loss, DiceLoss
 """
 Usage: train.py 
        --config <config.yaml>
+       [--model_name <model_class>]
        [--check_augment]
        [--dataset_list_file <dataset_list_file>]
        [--ctab <ctab>]
@@ -78,6 +79,8 @@ def main():
 
     if (args.verbose):
         config["preprocessing"]["verbose"] = args.verbose
+    if (args.model_name is not None):
+        config["model"]["name"] = args.model_name
     if (args.dataset_list_file is not None):
         config["dataset"]["dataset_list_file"] = args.dataset_list_file    
     if (args.crop_size is not None):
@@ -201,6 +204,7 @@ def argument_parse():
 
     # input/outputs
     parser.add_argument("--config", type=str, required=True, help="Path to the configuration file")
+    parser.add_argument("--model_name", type=str, help="Class used to create the model to train")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
     parser.add_argument("--ctab", type=str, help="Path to the lookup table")
     parser.add_argument("--train_root_folder", type=str, default=None, help="Base folder for saving training outputs")    
@@ -231,11 +235,12 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
           validation_loader=None, device=None, preprocessing_device=None, train_dataset_dict=None, debug=False):
     # create the model to train
     model_arch_dict = config["model"]
-    model_arch_dict["name"] = "UNet"
     model_arch_dict["num_channels"] = config["dataset"]["expected_num_channels"]
     model_arch_dict["nb_labels"] = len(config["dataset"]["expected_classes"])
-    model_arch_dict["final_pred_activation"] = config["model"].get("final_pred_activation", "softmax")
-    model = UNet(model_arch_dict).to(device)
+    #model_arch_dict["final_pred_activation"] = config["model"].get("final_pred_activation", "softmax")
+
+    model_creation_string = model_arch_dict["name"] + "(model_arch_dict)"
+    model = eval(model_creation_string).to(device)
    
     # print Model Architecture
     # from torchinfo import summary

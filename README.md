@@ -57,17 +57,18 @@ validation:
 ```bash
 fspython scripts/freeseg_train.py
          --config <config.yaml>
-	 [--check_augment]
-         [--dataset_list_file <dataset_list_file>]
+         [--checkpoint <checkpoint>]
          [--ctab <ctab>]
+	 [--check_augment]
+         [--dataset_list_file <dataset_list_file>]	 
          [--train_root_folder <train_root_folder>]
          [--run_name <--run_name>]
-         [--checkpoint <checkpoint>]
+	 [--model_name <model_class>]	 
          [--crop_size <W H (D)>]
          [--write_tensorboard_summary]
          [--perform_evaluation]
          [--best_model_metric <loss|dice>]
-         [--cpu]
+         [--cpu]	 
 ```
 
 
