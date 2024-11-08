@@ -20,7 +20,7 @@ model:
   final_pred_activation: "softmax"
 
 preprocessing:
-  debug: False
+  verbose: False
   train_augmentations: [
     # "flipping",          # need to define left_right_corresponding
     "spatial_transform",

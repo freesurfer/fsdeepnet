@@ -77,7 +77,7 @@ def main():
     config["training"]["run_name"] = run_name
 
     if (args.verbose):
-        config["preprocessing"]["debug"] = args.verbose
+        config["preprocessing"]["verbose"] = args.verbose
     if (args.dataset_list_file is not None):
         config["dataset"]["dataset_list_file"] = args.dataset_list_file    
     if (args.crop_size is not None):

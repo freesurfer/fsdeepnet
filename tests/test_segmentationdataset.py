@@ -7,7 +7,7 @@ import argparse
 import numpy as np
 import shutil
 
-from freeseg.utils import load_config, save_framedimage
+from freeseg.utils import load_config
 from freeseg.datasets import load_datasets, SegmentationDataset
 
 """
@@ -62,7 +62,7 @@ def main():
     if (args.outdir is not None):
         config["preprocessing"]["augmentation_dir"] = args.outdir
     if (args.verbose):
-        config["preprocessing"]["debug"] = args.verbose
+        config["preprocessing"]["verbose"] = args.verbose
         
     # Access updated configuration values
     crop_size = config["preprocessing"]["crop_size"]
@@ -109,12 +109,6 @@ def main():
 
         for idx in range(len(train_dataset)):
             index, image_tensor, label_tensor = train_dataset[idx]
-
-            out_image = os.path.join(args.outdir, f"image{index+1:03d}_augmented_image.mgz")                                         
-            save_framedimage(image_tensor, out_image)
-          
-            out_label = os.path.join(args.outdir, f"image{index+1:03d}_augmented_label.mgz")                           
-            save_framedimage(label_tensor, out_label)
 
     
 def argument_parse():

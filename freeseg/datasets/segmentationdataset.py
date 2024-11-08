@@ -6,7 +6,7 @@ import yaml
 from torch.utils.data import Dataset
 
 from freeseg.augmentation import apply_augmentations
-from freeseg.utils import load_framedimage
+from freeseg.utils import load_framedimage, save_framedimage
 
 class SegmentationDataset(Dataset):
     def __init__(self, config, dataset_dict=None, image=None, label=None, transform=None, device=None, check_augment=False):
@@ -59,14 +59,14 @@ class SegmentationDataset(Dataset):
         label, label_tensor, _ = load_framedimage(label_path, orientation="RAS", device=self.device, ndims=self.ndims)
 
         # where/whether to save preprocessed data
-        save_volumes = os.path.basename(image_path)
+        save_volumes = os.path.splitext(os.path.basename(image_path))[0]
         output_dir = self.augment_para.get("augmentation_dir", None)
         if ((output_dir is not None) and (not os.path.exists(output_dir))):
             os.makedirs(output_dir)            
 
         # Apply data augmentation if transform is specified
         if self.transform:
-            trycount = 1
+            trycount = 1 if (self.check_augment) else None
             while (True):
                 # image.geom.voxsize returned from surfa.load_volume() is (3, 1)
                 # extract voxsizes to match {image_tensor.ndim-1}D data
@@ -81,7 +81,7 @@ class SegmentationDataset(Dataset):
                     self.augment_para,
                     voxsize=voxsize,
                     output_dir=output_dir,
-                    save_volumes=save_volumes,
+                    save_volumes=save_volumes + f"_try{trycount}" if (trycount is not None) else save_volumes,
                     augmentations_to_apply=self.transform,
                     left_right_corresponding=self.config["dataset"].get(
                         "left_right_corresponding", None
@@ -94,12 +94,23 @@ class SegmentationDataset(Dataset):
                 havealllabels = True                               
                 if (self.check_augment):
                     if (torch.count_nonzero(augmented_label_tensor) < torch.count_nonzero(label_tensor)):
-                        havealllabels = False
+                        if (output_dir is not None):
+                            out_image = os.path.join(output_dir, save_volumes + f"_rejected{trycount}_image.mgz")
+                            save_framedimage(augmented_image_tensor, out_image, original_framedimage=image)
+                            out_label = os.path.join(output_dir, save_volumes + f"_rejected{trycount}_label.mgz")
+                            save_framedimage(augmented_label_tensor, out_label, original_framedimage=label)
+                        havealllabels = False                        
+            
                 if (havealllabels):
+                    if (output_dir is not None):
+                        out_image = os.path.join(output_dir, save_volumes + f"_augmented_image.mgz")
+                        save_framedimage(augmented_image_tensor, out_image, original_framedimage=image)
+                        out_label = os.path.join(output_dir, save_volumes + f"_augmented_label.mgz")
+                        save_framedimage(augmented_label_tensor, out_label, original_framedimage=label)
                     break
 
                 trycount = trycount + 1
-                logging.info(f"Reject augmentation, retry #{trycount} ...")               
+                logging.info(f"Reject {save_volumes} augmentation, retry #{trycount} ...")               
 
         return index, augmented_image_tensor, augmented_label_tensor
 
