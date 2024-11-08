@@ -176,8 +176,7 @@ def load_datasets(
             config,
             dataset_dict=dataset,            
             transform=validation_augmentations,
-            device=device,
-            check_augment=check_augment
+            device=device
         )
 
     dataset = dataset_dict.get("test")
@@ -187,8 +186,7 @@ def load_datasets(
             config,
             dataset_dict=dataset,            
             transform=test_augmentations,
-            device=device,
-            check_augment=check_augment
+            device=device
         )
 
     return train_dataset, validation_dataset, test_dataset

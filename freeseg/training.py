@@ -65,6 +65,7 @@ class Training:
         self._ctab = ctab
         self._validation_loader = validation_loader
         self._best_model_metric = best_model_metric
+        self._batch_size = train_dataset_dict["batch_size"]
 
         self._setup_training_directory(train_output_folder)
 
@@ -266,28 +267,16 @@ class Training:
         """
 
         train_loss = 0.0
-        train_dices = np.zeros((self._num_labels, steps_per_epoch))
+        train_dices = np.zeros((self._batch_size, self._num_labels, steps_per_epoch))
 
         self._model.train()        
         for step in range(steps_per_epoch):
-            (batch_idx, images, labels, dataset_idx) = next(self._input_generator)
+            (batch_idx, images, labels, dataset_indices) = next(self._input_generator)
             # training device and preprocessing device could be different
             images, labels = images.to(self._device), labels.to(self._device)
-            if (self._debug and step == steps_per_epoch-1):
-                # debugging
-                out_image = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_augmented_image.mgz")
-                out_label = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_augmented_label.mgz")
-                print(f"[DEBUG] output augmented image/label {out_image} and {out_label} ...")                
-                save_framedimage(images.squeeze(0), out_image)
-                save_framedimage(labels.squeeze(0), out_label)
             
-            labels = remap_labels(labels, self._label_mapping)
-            labels = onehot(labels, num_classes=self._num_labels, device=self._device)
-            if (self._debug and step == steps_per_epoch-1):
-                # debugging
-                out_label_onehot = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_augmented_label_onehot.mgz")
-                print(f"[DEBUG] output augmented label onehot encoded {out_label_onehot} ...")                
-                save_framedimage(labels.squeeze(0), out_label_onehot, onehotencoded=True)            
+            onehot_labels = remap_labels(labels, self._label_mapping)
+            onehot_labels = onehot(onehot_labels, num_classes=self._num_labels, device=self._device)
 
             # Zero your gradients for every batch
             optimizer.zero_grad()
@@ -297,9 +286,9 @@ class Training:
 
             # Compute the loss and its gradients
             if (metric_type == 'wl2'):
-                loss = loss_fn(penultimate, labels)
+                loss = loss_fn(penultimate, onehot_labels)
             elif (metric_type == 'dice'):
-                loss = loss_fn(outputs, labels)
+                loss = loss_fn(outputs, onehot_labels)
             loss.backward()
 
             # Adjust learning weights
@@ -310,30 +299,37 @@ class Training:
 
             # --- Metrics Calculation ---
             # Calculate hard Dice
-            batch_hard_dice = self._dice_metric_hard(outputs, labels)
-            train_dices[:, step] = batch_hard_dice.detach().cpu().numpy()
-            logging.info(f"  {step+1:4d}/{steps_per_epoch:<4d} loss: {loss.item():.4f}, dice avg: {np.mean(train_dices[:, step]):.4f}")
+            batch_hard_dice = self._dice_metric_hard(outputs, onehot_labels)
+            train_dices[:, :, step] = batch_hard_dice.detach().cpu().numpy()
+            logging.info(f"  {step+1:4d}/{steps_per_epoch:<4d} loss: {loss.item():.4f}, dice avg: {np.mean(train_dices[:, :, step]):.4f}")
             if (self._debug and step == steps_per_epoch-1):
-                # debugging
-                out_segmentation = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_prediction_loss{loss.item():.4f}_dice{np.mean(train_dices[:, step]):.4f}.mgz")
-                print(f"[DEBUG] output prediciton {out_segmentation} ...")
-                predicted_segmentation = torch.argmax(outputs, dim=1)
-                # map labels to original id
-                segmentation = remap_labels(predicted_segmentation, self._inverse_label_mapping)
-                save_framedimage(segmentation, out_segmentation)
+                # output debugging volumes
+                print(f"[DEBUG] output augmented images/labels, onehot encoded labels, posteriors, prediciton (batch_size x [H, W(, D), C]) ...")                
+                for n, idx in enumerate(dataset_indices):
+                    out_image = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}augmented_image.mgz")
+                    out_label = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}augmented_label.mgz")
+                    save_framedimage(images[n].squeeze(0), out_image)
+                    save_framedimage(labels[n].squeeze(0), out_label)
 
-                out_posteriors = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_posteriors_loss{loss.item():.4f}_dice{np.mean(train_dices[:, step]):.4f}.mgz")
-                print(f"[DEBUG] output posteriors {out_posteriors} ...")               
-                posteriors = outputs.squeeze(0)  # remove batch axis => non-batched tensor [C, H, W (,D)]
-                save_framedimage(posteriors, out_posteriors, onehotencoded=True)
-                # end of debugging            
+                    out_label_onehot = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}augmented_label_onehot.mgz")
+                    save_framedimage(onehot_labels[n].squeeze(0), out_label_onehot, onehotencoded=True)
+
+                    out_posteriors = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}posteriors_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.mgz")
+                    posteriors = outputs[n].squeeze(0)  # remove batch axis => non-batched tensor [C, H, W (,D)]
+                    save_framedimage(posteriors, out_posteriors, onehotencoded=True)
+
+                    out_segmentation = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}prediction_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.mgz")
+                    predicted_segmentation = torch.argmax(outputs[n].unsqueeze(0), dim=1)
+                    segmentation = remap_labels(predicted_segmentation, self._inverse_label_mapping)
+                    save_framedimage(segmentation, out_segmentation)
+            # end of debugging volumes output     
 
             if (self._summary_writer is not None):
                 # Write to TensorBoard every batch
                 self._summary_writer.add_scalar("Train/Loss", loss.item(), epoch * steps_per_epoch + batch_idx)
                 self._summary_writer.add_scalar(
                     "Train/Dice",
-                    np.mean(train_dices[:, step]),
+                    np.mean(train_dices[:, :, step]),
                     #torch.mean(torch.tensor(batch_hard_dice)),
                     epoch * steps_per_epoch + batch_idx,
                 )
@@ -345,7 +341,7 @@ class Training:
 
                     # Get slices from different examples in the batch
                     image_slices = images[:num_examples_to_visualize, 0, slice_index].cpu()
-                    label_slices = labels[:num_examples_to_visualize, 0, slice_index].cpu()
+                    label_slices = onehot_labels[:num_examples_to_visualize, 0, slice_index].cpu()
                     output_slices = outputs[:num_examples_to_visualize, 0, slice_index].cpu()
 
                     # Create grids (using a colormap if needed)

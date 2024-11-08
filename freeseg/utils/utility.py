@@ -191,12 +191,11 @@ def DataGenerator(dataloader, device=None):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     while (True):
-        for n_batch, (dataset_idx, images, labels) in enumerate(dataloader):
+        for n_batch, (dataset_indices, images, labels) in enumerate(dataloader):
             images, labels = images.to(device).float(), labels.to(device).int()
-            
-            # extracts the single value from the dataset_idx tensor
-            # returns it as a Python scalar
-            yield n_batch, images, labels, dataset_idx.item()
+
+            # images/labels are batched, dataset_indices is list of index to dataset entry
+            yield n_batch, images, labels, dataset_indices
 
 
 # ================================================================================================

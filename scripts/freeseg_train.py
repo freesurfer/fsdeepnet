@@ -26,6 +26,7 @@ Usage: train.py
        [--run_name <--run_name>]
        [--checkpoint <checkpoint>]
        [--crop_size <W H D>]
+       [--batch_size <n>]
        [--write_tensorboard_summary]
        [--perform_evaluation]
        [--best_model_metric <loss|dice>]
@@ -35,6 +36,7 @@ Usage: train.py
        [--pin_memory]
        [--persistent_workers]
        [--debug]
+       [--verbose]
 """
 
 # Configure logging settings
@@ -74,12 +76,14 @@ def main():
         run_name = config.get("training", {}).get("run_name", f"run_{timestamp}")
     config["training"]["run_name"] = run_name
 
-    if (args.debug):
-        config["preprocessing"]["debug"] = args.debug
+    if (args.verbose):
+        config["preprocessing"]["debug"] = args.verbose
     if (args.dataset_list_file is not None):
         config["dataset"]["dataset_list_file"] = args.dataset_list_file    
     if (args.crop_size is not None):
         config["preprocessing"]["crop_size"] = args.crop_size
+    if (args.batch_size is not None):
+        config["training"]["batch_size"] = args.batch_size
     if (args.write_tensorboard_summary):
         config["training"]["write_tensorboard_summary"] = args.write_tensorboard_summary
     if (args.perform_evaluation):
@@ -167,6 +171,7 @@ def main():
         logging.info(f"resume training from model: {checkpoint}")
     logging.info(f"train_root_folder: {train_root_folder}")
     logging.info(f"run_name: {run_name}")
+    logging.info(f"batch_size: {config['training']['batch_size']}")
     logging.info(f"crop_size: {crop_size}")
     logging.info(f"color table: {ctab}")
     if (perform_evaluation):
@@ -206,12 +211,14 @@ def argument_parse():
     parser.add_argument("--pin_memory", action='store_true', help="Store data in pinned memory")
     parser.add_argument("--persistent_workers", action='store_true', help=" Keep the workers Dataset instances alive")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
+    parser.add_argument("--batch_size", type=int, help="Batch size for DataLoader")
     #parser.add_argument("--expected_classes", nargs="+", type=int, help="Expected classes in the dataset")
     parser.add_argument("--write_tensorboard_summary", action='store_true', help="Write tensorboard summary")
     parser.add_argument("--perform_evaluation", action='store_true', help="Perform evaluation after each epoch")
     parser.add_argument("--best_model_metric", type=str, default=None, choices=["loss", "dice"], help="Metric for saving the best model (loss or dice)")
     parser.add_argument("--check_augment", action='store_true', help="Reject augmentations not having all the labels")
     parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
+    parser.add_argument("--verbose", action='store_true', help="Print debug info to stdout") 
 
     # parse commandline
     args = parser.parse_args()

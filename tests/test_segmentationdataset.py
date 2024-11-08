@@ -7,7 +7,7 @@ import argparse
 import numpy as np
 import shutil
 
-from freeseg.utils import load_config
+from freeseg.utils import load_config, save_framedimage
 from freeseg.datasets import load_datasets, SegmentationDataset
 
 """
@@ -19,8 +19,10 @@ Usage: test_preprocessing.py
        [--image <im1 im2 ...> --label <lb1 lb2 ...>]
        [--dataset_list_file <dataset_list_file>]
        [--crop_size <W H D>]
+       [--batch_size <n>]
        [--cpu]
        [--debug]
+       [--verbose]
 
     * - The input image/label is taken from
         1. '--image <im1 im2 ...> --label <lb1 lb2 ...>'
@@ -55,10 +57,12 @@ def main():
         config["dataset"]["dataset_list_file"] = args.dataset_list_file    
     if (args.crop_size is not None):
         config["preprocessing"]["crop_size"] = args.crop_size
+    if (args.batch_size is not None):
+        config["training"]["batch_size"] = args.batch_size
     if (args.outdir is not None):
         config["preprocessing"]["augmentation_dir"] = args.outdir
-    if (args.debug):
-        config["preprocessing"]["debug"] = args.debug
+    if (args.verbose):
+        config["preprocessing"]["debug"] = args.verbose
         
     # Access updated configuration values
     crop_size = config["preprocessing"]["crop_size"]
@@ -84,7 +88,6 @@ def main():
             config, config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"), device=preprocessing_device, check_augment=args.check_augment
         )    
 
-    # ??? todo: we probably can get rid of sample_input_shape too
     sample_input_shape, unique_classes, label_lookup = train_dataset.preload()
     input_shape = sample_input_shape[1:]
 
@@ -95,6 +98,7 @@ def main():
     
     logging.info("Training Device: {}".format(device))
     logging.info("Preprocessing Device: {}".format(preprocessing_device))
+    logging.info(f"batch_size: {config['training']['batch_size']}")
     logging.info(f"crop_size: {crop_size}")
     
     if (args.augment):
@@ -105,6 +109,12 @@ def main():
 
         for idx in range(len(train_dataset)):
             index, image_tensor, label_tensor = train_dataset[idx]
+
+            out_image = os.path.join(args.outdir, f"image{index+1:03d}_augmented_image.mgz")                                         
+            save_framedimage(image_tensor, out_image)
+          
+            out_label = os.path.join(args.outdir, f"image{index+1:03d}_augmented_label.mgz")                           
+            save_framedimage(label_tensor, out_label)
 
     
 def argument_parse():
@@ -120,8 +130,10 @@ def argument_parse():
     parser.add_argument("--label", nargs="+", type=str, help="Input label map(s)")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
+    parser.add_argument("--batch_size", type=int, help="Batch size for DataLoader")
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
     parser.add_argument("--debug", action='store_true', help="Output debug information/volume")
+    parser.add_argument("--verbose", action='store_true', help="Print debug info to stdout")
 
     # parse commandline
     args = parser.parse_args()
