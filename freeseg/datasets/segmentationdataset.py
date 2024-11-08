@@ -6,7 +6,7 @@ import yaml
 from torch.utils.data import Dataset
 
 from freeseg.augmentation import apply_augmentations
-from freeseg.utils import load_framedimage, save_framedimage
+from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot
 
 class SegmentationDataset(Dataset):
     def __init__(self, config, dataset_dict=None, image=None, label=None, transform=None, device=None, check_augment=False):
@@ -32,6 +32,8 @@ class SegmentationDataset(Dataset):
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.num_classes = len(sorted(config["dataset"]["expected_classes"]))
+        self.label_mapping = config["dataset"]["label_mapping"]
         self.check_augment = check_augment
 
         assert (self.ndims == 3 or self.ndims == 2), "Model supports 3D or 2D"
@@ -102,17 +104,27 @@ class SegmentationDataset(Dataset):
                         havealllabels = False                        
             
                 if (havealllabels):
+                    # freeseg.utils.remap_labels() and freeseg.utils.onehot() expect batched tensor [N, 1, H, W(, D)]
+                    # add batch axis before calling remap_labels() and onehot()
+                    augmented_label_tensor = augmented_label_tensor.int().unsqueeze(0)
+                    onehot_augmented_label_tensor = remap_labels(augmented_label_tensor, self.label_mapping)
+                    onehot_augmented_label_tensor = onehot(onehot_augmented_label_tensor, num_classes=self.num_classes, device=self.device)
+                    # remove the added batch axis, DataLoader will batch the tensor based on batch_size
+                    onehot_augmented_label_tensor = onehot_augmented_label_tensor.squeeze(0)
+                    
                     if (output_dir is not None):
                         out_image = os.path.join(output_dir, save_volumes + f"_augmented_image.mgz")
                         save_framedimage(augmented_image_tensor, out_image, original_framedimage=image)
                         out_label = os.path.join(output_dir, save_volumes + f"_augmented_label.mgz")
                         save_framedimage(augmented_label_tensor, out_label, original_framedimage=label)
+                        out_label_onehot = os.path.join(output_dir, save_volumes + f"_augmented_label_onehot.mgz")
+                        save_framedimage(onehot_augmented_label_tensor, out_label_onehot, onehotencoded=True)
                     break
 
                 trycount = trycount + 1
                 logging.info(f"Reject {save_volumes} augmentation, retry #{trycount} ...")               
 
-        return index, augmented_image_tensor, augmented_label_tensor
+        return index, augmented_image_tensor, onehot_augmented_label_tensor
 
     def preload(self):
         """preprocesses all label maps, retrieve input tensor shape and unique classes."""

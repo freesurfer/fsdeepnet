@@ -138,6 +138,7 @@ def main():
     labels_segmentation = sorted(config["dataset"]["expected_classes"])
     label_mapping = {label:i for i, label in enumerate(labels_segmentation)}
     inverse_label_mapping = {v: k for k, v in label_mapping.items()}
+    config["dataset"]["label_mapping"] = label_mapping
     train_dataset, validation_dataset, _ = load_datasets(
         config, config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"), device=preprocessing_device, check_augment=args.check_augment
     )

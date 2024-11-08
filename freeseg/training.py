@@ -10,7 +10,7 @@ from torchvision.utils import make_grid
 
 from freeseg.checkpoint import Checkpoint
 from freeseg.metrics import DiceScore
-from freeseg.utils import remap_labels, onehot, DataGenerator, save_framedimage
+from freeseg.utils import remap_labels, DataGenerator, save_framedimage
 
 
 class Training:
@@ -273,11 +273,8 @@ class Training:
         for step in range(steps_per_epoch):
             (batch_idx, images, labels, dataset_indices) = next(self._input_generator)
             # training device and preprocessing device could be different
-            images, labels = images.to(self._device), labels.to(self._device)
+            images, onehot_labels = images.to(self._device), labels.to(self._device)
             
-            onehot_labels = remap_labels(labels, self._label_mapping)
-            onehot_labels = onehot(onehot_labels, num_classes=self._num_labels, device=self._device)
-
             # Zero your gradients for every batch
             optimizer.zero_grad()
 
@@ -307,9 +304,7 @@ class Training:
                 print(f"[DEBUG] output augmented images/labels, onehot encoded labels, posteriors, prediciton (batch_size x [H, W(, D), C]) ...")                
                 for n, idx in enumerate(dataset_indices):
                     out_image = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}augmented_image.mgz")
-                    out_label = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}augmented_label.mgz")
                     save_framedimage(images[n].squeeze(0), out_image)
-                    save_framedimage(labels[n].squeeze(0), out_label)
 
                     out_label_onehot = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}augmented_label_onehot.mgz")
                     save_framedimage(onehot_labels[n].squeeze(0), out_label_onehot, onehotencoded=True)
@@ -386,9 +381,6 @@ class Training:
         with torch.no_grad():
             for batch_idx, (images, labels, dataset_idx) in enumerate(self._validation_loader):
                 images, labels = images.to(self._device).float(), labels.to(self._device)
-
-                labels = remap_labels(labels, self._label_mapping)
-                labels = onehot(labels, num_classes=self._num_labels, device=self._device)                
 
                 (outputs, penultimate) = self._model(images)
 

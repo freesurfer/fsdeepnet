@@ -21,7 +21,6 @@ Usage: test_preprocessing.py
        [--crop_size <W H D>]
        [--batch_size <n>]
        [--cpu]
-       [--debug]
        [--verbose]
 
     * - The input image/label is taken from
@@ -78,6 +77,10 @@ def main():
         shutil.copyfile(config["dataset"]["dataset_list_file"], os.path.join(output_folder, "dataset_list.yaml"))
         
     # create training dataset with the desired augmentations specified
+    labels_segmentation = sorted(config["dataset"]["expected_classes"])
+    label_mapping = {label:i for i, label in enumerate(labels_segmentation)}
+    inverse_label_mapping = {v: k for k, v in label_mapping.items()}
+    config["dataset"]["label_mapping"] = label_mapping
     if (args.image is not None and args.label is not None):
         logging.info("Loading dataset: SegmentationDataset(...)")
         train_dataset = SegmentationDataset(config, image=args.image, label=args.label,
@@ -108,7 +111,7 @@ def main():
         logging.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
 
         for idx in range(len(train_dataset)):
-            index, image_tensor, label_tensor = train_dataset[idx]
+            index, image_tensor, onehot_label_tensor = train_dataset[idx]
 
     
 def argument_parse():
@@ -126,7 +129,6 @@ def argument_parse():
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     parser.add_argument("--batch_size", type=int, help="Batch size for DataLoader")
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
-    parser.add_argument("--debug", action='store_true', help="Output debug information/volume")
     parser.add_argument("--verbose", action='store_true', help="Print debug info to stdout")
 
     # parse commandline
