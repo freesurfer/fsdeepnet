@@ -60,7 +60,10 @@ class Prediction:
         assert checkpoint.model_arch_dict is not None, "Model architecture information not available."
         assert checkpoint.train_dataset_dict is not None, "Training dataset information not available."
 
-        model_creation_string = checkpoint.model_arch_dict["name"] + "(checkpoint.model_arch_dict)"
+        the_model_name = checkpoint.model_arch_dict.get("name", None)
+        assert the_model_name is not None, "Model name is not available."
+
+        model_creation_string = the_model_name + "(checkpoint.model_arch_dict)"
         self._model = eval(model_creation_string)
         self._model = self._model.to(self._device)
 

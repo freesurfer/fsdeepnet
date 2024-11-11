@@ -59,11 +59,10 @@ fspython scripts/freeseg_train.py
          --config <config.yaml>
          [--checkpoint <checkpoint>]
          [--ctab <ctab>]
-	 [--check_augment]
          [--dataset_list_file <dataset_list_file>]	 
          [--train_root_folder <train_root_folder>]
          [--run_name <--run_name>]
-	 [--model_name <model_class>]	 
+	 [--model_name <model_classname>]
          [--crop_size <W H (D)>]
          [--write_tensorboard_summary]
          [--perform_evaluation]

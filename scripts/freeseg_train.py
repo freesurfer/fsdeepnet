@@ -19,7 +19,7 @@ from freeseg.metrics import WeightedL2Loss, DiceLoss
 """
 Usage: train.py 
        --config <config.yaml>
-       [--model_name <model_class>]
+       [--model_name <model_classname>]
        [--check_augment]
        [--dataset_list_file <dataset_list_file>]
        [--ctab <ctab>]
@@ -239,7 +239,10 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
     model_arch_dict["nb_labels"] = len(config["dataset"]["expected_classes"])
     #model_arch_dict["final_pred_activation"] = config["model"].get("final_pred_activation", "softmax")
 
-    model_creation_string = model_arch_dict["name"] + "(model_arch_dict)"
+    the_model_name = model_arch_dict.get("name", None)
+    assert the_model_name is not None, "Model name is not available."
+
+    model_creation_string = the_model_name + "(model_arch_dict)"
     model = eval(model_creation_string).to(device)
    
     # print Model Architecture
