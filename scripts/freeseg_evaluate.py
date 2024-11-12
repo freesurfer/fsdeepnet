@@ -7,7 +7,7 @@ import argparse
 from freeseg.evaluation import Evaluation
 
 """
-Usage: evaluate.py 
+Usage: freeseg_evaluate.py 
        --gt <ground_truth>
        --seg <segmentation>
        [--segmentation_labels <segmentation_labels.npy>]

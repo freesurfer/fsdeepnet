@@ -271,9 +271,9 @@ class Training:
 
         self._model.train()        
         for step in range(steps_per_epoch):
-            (batch_idx, images, labels, priors, dataset_indices) = next(self._input_generator)
+            (batch_idx, images, onehot_labels, priors, dataset_indices) = next(self._input_generator)
             # training device and preprocessing device could be different
-            images, onehot_labels, priors = images.to(self._device), labels.to(self._device), priors.to(self._device)
+            images, onehot_labels, priors = images.to(self._device), onehot_labels.to(self._device), priors.to(self._device)
             
             # Zero your gradients for every batch
             optimizer.zero_grad()

@@ -44,8 +44,8 @@ class SegmentationDataset(Dataset):
             for item in dataset_dict:
                 self.image_files.append(item["image_filepath"])
                 self.label_files.append(item["label_filepath"])
-                if (item.get("priors_filepath")):
-                    self.priors_files.append(item["priors_filepath"])
+                if (item.get("prior_filepath")):
+                    self.priors_files.append(item["prior_filepath"])
         elif (image is not None and label is not None):
             self.image_files = image
             self.label_files = label

@@ -17,7 +17,7 @@ from freeseg.datasets import load_datasets
 from freeseg.metrics import WeightedL2Loss, DiceLoss
 
 """
-Usage: train.py 
+Usage: freeseg_train.py 
        --config <config.yaml>
        [--model_name <model_classname>]
        [--check_augment]

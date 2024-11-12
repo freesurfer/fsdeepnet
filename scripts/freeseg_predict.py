@@ -8,7 +8,7 @@ from freeseg.prediction import Prediction
 
 
 """
-Usage: predict.py 
+Usage: freeseg_predict.py 
        --i <input_images>
        --o  <output_segmentations>
        --checkpoint <checkpoint>
