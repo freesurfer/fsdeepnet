@@ -142,9 +142,8 @@ def main():
     label_mapping = {label:i for i, label in enumerate(labels_segmentation)}
     inverse_label_mapping = {v: k for k, v in label_mapping.items()}
     config["dataset"]["label_mapping"] = label_mapping
-    train_dataset, validation_dataset, _ = load_datasets(
-        config, config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"), device=preprocessing_device, check_augment=args.check_augment
-    )
+    train_dataset, validation_dataset, _ = load_datasets(config, config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"),
+                                                         device=preprocessing_device, check_augment=args.check_augment)
 
     # Create training DataLoader
     train_loader = DataLoader(train_dataset, batch_size=config["training"]["batch_size"], shuffle=True,
@@ -192,7 +191,8 @@ def main():
         "crop_size": crop_size,
         "num_samples": len(train_dataset),
         "input_shape": input_shape[1:],
-        "num_channels": input_shape[0],        
+        "num_channels": input_shape[0],
+        "priors": train_dataset.haspriors()
     }
 
     train(train_loader, config, output_folder, len(unique_classes), ctab, label_lookup, checkpoint, validation_loader, device, preprocessing_device, train_dataset_dict, debug=args.debug)
@@ -237,6 +237,7 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
     model_arch_dict = config["model"]
     model_arch_dict["num_channels"] = config["dataset"]["expected_num_channels"]
     model_arch_dict["nb_labels"] = len(config["dataset"]["expected_classes"])
+    model_arch_dict["add_priors"] = train_dataset_dict.get("priors", False)
     #model_arch_dict["final_pred_activation"] = config["model"].get("final_pred_activation", "softmax")
 
     the_model_name = model_arch_dict.get("name", None)

@@ -40,6 +40,7 @@ def apply_flipping(image, label, aff, left_right_corresponding, flip_prob=0.5):
 
 
 def apply_spatial_transform(image, label, voxsize,
+                            priors=None,
                             affine_probability=1.0,
                             max_translation=5.0,
                             max_rotation=5.0,
@@ -73,7 +74,11 @@ def apply_spatial_transform(image, label, voxsize,
     transformed_image = voxynth.transform.spatial_transform(image, trf)
     transformed_label = voxynth.transform.spatial_transform(label, trf, method="nearest")
 
-    return transformed_image, transformed_label
+    transformed_priors = None
+    if (priors is not None):
+        transformed_priors = voxynth.transform.spatial_transform(priors, trf, method="nearest")
+
+    return transformed_image, transformed_label, transformed_priors
 
 
 def apply_randomcrop(image, label, crop_size, mode='random', bbox_labels=None, verbose=False):
@@ -430,6 +435,7 @@ def apply_augmentations(
     expected_classes,
     augment_para,
     voxsize,
+    priors_tensor=None,
     output_dir=None,
     save_volumes=None,
     augmentations_to_apply=None,
@@ -475,6 +481,7 @@ def apply_augmentations(
         flip_prob = augment_para.get("flip_prob")
         aff = original_image.geom.vox2world.matrix
 
+        # ??? todo: need to flip priors too ???
         image_tensor, label_tensor = apply_flipping(image_tensor, label_tensor, aff, left_right_corresponding, flip_prob)
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
@@ -490,8 +497,9 @@ def apply_augmentations(
 
     # ??? spatial_transform always happens for hypothalamus
     if "spatial_transform" in augmentations_to_apply:
-        image_tensor, label_tensor = apply_spatial_transform(
+        image_tensor, label_tensor, priors_tensor = apply_spatial_transform(
             image_tensor, label_tensor, voxsize,
+            priors=priors_tensor,
             affine_probability=augment_para.get("affine_probability", 1.0),
             max_translation=augment_para.get("max_translation", 5.0),
             max_rotation=augment_para.get("max_rotation", 5.0),
@@ -527,6 +535,9 @@ def apply_augmentations(
             
                 image_tensor, _ = apply_centercrop(image_tensor, crop_size, center_point=center_point, verbose=verbose)
                 label_tensor, _ = apply_centercrop(label_tensor, crop_size, center_point=center_point, verbose=verbose)
+                if (priors_tensor is not None):
+                    priors_tensor, _ = apply_centercrop(priors_tensor, crop_size, center_point=center_point, verbose=verbose)
+
                 if save_volumes is not None and output_dir is not None:
                     save_framedimage(
                         image_tensor,
@@ -541,6 +552,7 @@ def apply_augmentations(
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
 
+    # ??? todo: apply_randomcrop() needs to handle priors ???
     if "randomcrop" in augmentations_to_apply:
         if crop_size is not None:
             bbox_labels = augment_para.get("bbox_labels", None)
@@ -559,6 +571,7 @@ def apply_augmentations(
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
 
+    # ??? todo: apply_randomcrop() needs to handle priors ???
     if "randomcrop_center" in augmentations_to_apply:
         if crop_size is not None:
             bbox_labels = augment_para.get("bbox_labels", None)
@@ -646,4 +659,4 @@ def apply_augmentations(
             )
 
 
-    return image_tensor, label_tensor
+    return image_tensor, label_tensor, priors_tensor

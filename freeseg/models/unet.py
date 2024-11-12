@@ -13,6 +13,7 @@ class ConvBlock(nn.Module):
         use_residuals=False,
         use_batchnorm=True,
         activation="elu",
+        weightinit="xavier_uniform"
     ):
         super().__init__()
 
@@ -28,12 +29,12 @@ class ConvBlock(nn.Module):
                 in_channels_conv = in_channels
             else:
                 in_channels_conv = out_channels
-            # self.convs.append(nn.Conv3d(in_channels_conv, out_channels, kernel_size=conv_size, padding=1))
+
             self.convs.append(
                 convL(in_channels_conv, out_channels, kernel_size=conv_size, padding=1)
             )
 
-        self.weight_init(self.convs)
+        self.weight_init(self.convs, weightinit)
 
         """
         The default BatchNorm3d layer behavior is different between .train() and .eval().
@@ -60,16 +61,21 @@ class ConvBlock(nn.Module):
             self.residual_conv = convL(
                 in_channels, out_channels, kernel_size=conv_size, padding=1
             )
-            weight_init(self.residual_conv)
+            self.weight_init(self.residual_conv, weightinit)
         else:
             self.residual_conv = None
 
 
     # initialize weights/bias
-    def weight_init(self, modulelist):
+    def weight_init(self, modulelist, weightinit="xavier_uniform"):
         for m in modulelist:
-            nn.init.xavier_uniform_(m.weight)
             nn.init.zeros_(m.bias)
+            if (weightinit == "xavier_uniform"):
+                nn.init.xavier_uniform_(m.weight)
+            elif (weightinit == "zeros"):
+                nn.init.zeros_(m.weight)
+            else:
+                raise ValueError(f"Invalid weightinit option: {weightinit}. It is either 'xavier_uniform' or 'zeros'.")
 
                 
     def forward(self, x):
@@ -112,6 +118,7 @@ class UNet(nn.Module):
         use_residuals = model_arch_dict.get("use_residuals", False)
         use_batchnorm = model_arch_dict.get("use_batchnorm", True)
         activation = model_arch_dict.get("activation", "elu")
+        add_priors = model_arch_dict.get("add_priors", False)
         refine_conv = model_arch_dict.get("refine_conv", False)
         final_pred_activation = model_arch_dict.get("final_pred_activation", "softmax")
 
@@ -123,11 +130,14 @@ class UNet(nn.Module):
         self.use_residuals = use_residuals
         self.use_batchnorm = use_batchnorm
         self.activation = activation
+        self.add_priors = add_priors
         self.refine_conv = refine_conv
         self.final_pred_activation = final_pred_activation
 
         convL = getattr(nn, "Conv%dd" % ndims)
         self.pool = getattr(nn, "MaxPool%dd" % ndims)(kernel_size=pool_size, stride=pool_size)
+
+        weightinit = "zeros" if (self.add_priors) else "xavier_uniform"
 
         # Encoding path
         self.encoder = nn.ModuleList()
@@ -144,6 +154,7 @@ class UNet(nn.Module):
                     use_residuals=self.use_residuals,
                     use_batchnorm=self.use_batchnorm,
                     activation=self.activation,
+                    weightinit=weightinit
                 )
             )
             in_channels = nb_lvl_feats
@@ -180,6 +191,7 @@ class UNet(nn.Module):
                     use_residuals=self.use_residuals,
                     use_batchnorm=self.use_batchnorm,
                     activation=self.activation,
+                    weightinit=weightinit
                 )
             )
             
@@ -188,11 +200,12 @@ class UNet(nn.Module):
 
         # Classification layer
         self.classifier = convL(self.nb_features, nb_labels, kernel_size=1)
+
         nn.init.xavier_uniform_(self.classifier.weight)
         nn.init.zeros_(self.classifier.bias)
         
 
-    def forward(self, x):
+    def forward(self, x, priors=None):
         skip_connections = []
 
         # Encoding path
@@ -216,6 +229,16 @@ class UNet(nn.Module):
         
         # Classification layer
         x1 = x = self.classifier(x)
+
+        """
+        https://stackoverflow.com/questions/63479765/whats-the-best-way-of-checking-whether-a-torchtensor-is-empty
+        To know whether a tensor is allocated (type and storage), use defined().
+        To know whether an allocated tensor has zero elements, use numel()
+        To know whether a tensor is allocated and whether it has zero elements, use defined() and then numel()
+        """
+        if (self.add_priors and priors is not None and priors.numel() != 0):
+            x = torch.add(x, priors)
+            x1 = torch.add(x1, priors)
         
 
         if self.final_pred_activation == 'softmax':

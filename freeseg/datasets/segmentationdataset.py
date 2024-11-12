@@ -9,7 +9,7 @@ from freeseg.augmentation import apply_augmentations
 from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot
 
 class SegmentationDataset(Dataset):
-    def __init__(self, config, dataset_dict=None, image=None, label=None, transform=None, device=None, check_augment=False):
+    def __init__(self, config, dataset_dict=None, image=None, label=None, priors=None, transform=None, device=None, check_augment=False):
         """
         SegmentationDataset Constructor
 
@@ -38,17 +38,29 @@ class SegmentationDataset(Dataset):
 
         assert (self.ndims == 3 or self.ndims == 2), "Model supports 3D or 2D"
 
-        # Extract image and label file paths
+        # Extract image, label, priors file paths
+        self.image_files, self.label_files, self.priors_files = [], [], []
         if (dataset_dict is not None):
-            self.image_files = [item["image_filepath"] for item in dataset_dict]
-            self.label_files = [item["label_filepath"] for item in dataset_dict]
+            for item in dataset_dict:
+                self.image_files.append(item["image_filepath"])
+                self.label_files.append(item["label_filepath"])
+                if (item.get("priors_filepath")):
+                    self.priors_files.append(item["priors_filepath"])
         elif (image is not None and label is not None):
             self.image_files = image
             self.label_files = label
+            if (priors is not None):
+                self.priors_files = priors
 
         assert (len(self.image_files) == len(self.label_files)), "image and label need to be the same length"
+        if (self.haspriors()):
+            assert (len(self.label_files) == len(self.priors_files)), "label abd priors need to be the same length"
 
 
+    def haspriors(self):
+        return True if (len(self.priors_files) > 0) else False
+
+    
     def __len__(self):
         return self.num_entries
 
@@ -59,6 +71,12 @@ class SegmentationDataset(Dataset):
         # Load image and label using the load_framedimage function
         image, image_tensor, _ = load_framedimage(image_path, orientation="RAS", device=self.device, ndims=self.ndims)
         label, label_tensor, _ = load_framedimage(label_path, orientation="RAS", device=self.device, ndims=self.ndims)
+
+        # load priors if they are provided
+        priors_tensor = None        
+        if (self.haspriors()):
+            priors_path = self.priors_files[index]        
+            _, priors_tensor, _  = load_framedimage(priors_path, orientation="RAS", device=self.device, ndims=self.ndims)
 
         # where/whether to save preprocessed data
         save_volumes = os.path.splitext(os.path.basename(image_path))[0]
@@ -74,7 +92,7 @@ class SegmentationDataset(Dataset):
                 # extract voxsizes to match {image_tensor.ndim-1}D data
                 # make it writeable or voxynth.augment.image_augment() will complain non-writable numpy array
                 voxsize = np.copy(image.geom.voxsize[:image_tensor.ndim-1])
-                augmented_image_tensor, augmented_label_tensor = apply_augmentations(
+                augmented_image_tensor, augmented_label_tensor, augmented_priors_tensor = apply_augmentations(
                     image_tensor,
                     label_tensor,
                     image,
@@ -82,6 +100,7 @@ class SegmentationDataset(Dataset):
                     self.config["dataset"].get("expected_classes"),
                     self.augment_para,
                     voxsize=voxsize,
+                    priors_tensor=priors_tensor,
                     output_dir=output_dir,
                     save_volumes=save_volumes + f"_try{trycount}" if (trycount is not None) else save_volumes,
                     augmentations_to_apply=self.transform,
@@ -124,7 +143,11 @@ class SegmentationDataset(Dataset):
                 trycount = trycount + 1
                 logging.info(f"Reject {save_volumes} augmentation, retry #{trycount} ...")               
 
-        return index, augmented_image_tensor, onehot_augmented_label_tensor
+        if (augmented_priors_tensor is None):
+            # torch.utils.data.DataLoader can't return NoneType, make an empty tensor with 0 elements
+            augmented_priors_tensor = torch.empty(0, *onehot_augmented_label_tensor.shape[1:])
+
+        return index, augmented_image_tensor, onehot_augmented_label_tensor, augmented_priors_tensor
 
     def preload(self):
         """preprocesses all label maps, retrieve input tensor shape and unique classes."""
@@ -159,6 +182,7 @@ class SegmentationDataset(Dataset):
 
         logging.info("Dataset Information:")
         logging.info(f"  Number of samples: {self.num_entries}")
+        logging.info(f"  Haspriors: {self.haspriors()}")        
         logging.info(f"  Number of unique classes: {len(unique_classes)}")
         logging.info(f"  Unique class values: {sorted(unique_classes)}")
         logging.info(f"  Input shape: {input_shape[1:]}")

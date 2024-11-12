@@ -16,7 +16,7 @@ Usage: test_preprocessing.py
        [--augment]
        [--outdir <augmentation_output_dir>]
        [--check_augment]
-       [--image <im1 im2 ...> --label <lb1 lb2 ...>]
+       [--image <im1 im2 ...> --label <lb1 lb2 ...> [--priors <...>]]
        [--dataset_list_file <dataset_list_file>]
        [--crop_size <W H D>]
        [--batch_size <n>]
@@ -83,7 +83,7 @@ def main():
     config["dataset"]["label_mapping"] = label_mapping
     if (args.image is not None and args.label is not None):
         logging.info("Loading dataset: SegmentationDataset(...)")
-        train_dataset = SegmentationDataset(config, image=args.image, label=args.label,
+        train_dataset = SegmentationDataset(config, image=args.image, label=args.label, priors=args.priors,
                                             transform=config["preprocessing"].get("train_augmentations"), device=preprocessing_device, check_augment=args.check_augment)
     else:
         logging.info("Loading dataset: load_dataset(...)")
@@ -111,7 +111,7 @@ def main():
         logging.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
 
         for idx in range(len(train_dataset)):
-            index, image_tensor, onehot_label_tensor = train_dataset[idx]
+            index, image_tensor, onehot_label_tensor, priors_tensor = train_dataset[idx]
 
     
 def argument_parse():
@@ -125,6 +125,7 @@ def argument_parse():
     parser.add_argument("--check_augment", action='store_true', help="Reject augmentations not having all the labels")
     parser.add_argument("--image", nargs="+", type=str, help="Input image volume(s)")
     parser.add_argument("--label", nargs="+", type=str, help="Input label map(s)")
+    parser.add_argument("--priors", nargs="+", type=str, help="Input priors")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     parser.add_argument("--batch_size", type=int, help="Batch size for DataLoader")

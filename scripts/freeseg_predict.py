@@ -52,7 +52,7 @@ def argument_parse():
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to a checkpoint file to resume training from")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     parser.add_argument("--ctab", type=str, help="Path to the lookup table")
-    parser.add_argument("--label", type=str, help="Label(s) for input image(s). Can be a path to a label or to a folder.")
+    parser.add_argument("--label", type=str, help="Label(s) for input image(s). Can be a path to a label or to a folder. The labels can be binary masks.")
     parser.add_argument("--gt", type=str, help="Path to ground truth folder for dice evaluation.")
     parser.add_argument("--path_dice", type=str, help="Path to dice scores output.")
     parser.add_argument("--noaddctab", action="store_true", help="Do not embed colortable into seg output")
