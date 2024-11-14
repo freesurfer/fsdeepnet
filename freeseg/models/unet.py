@@ -13,28 +13,43 @@ class ConvBlock(nn.Module):
         use_residuals=False,
         use_batchnorm=True,
         activation="elu",
-        weightinit="xavier_uniform"
+        weight_init="xavier_uniform"
     ):
         super().__init__()
 
         # support both 3D and 2D
         convL = getattr(nn, "Conv%dd" % ndims)
-
         if convL is None:
             raise ValueError(f"Unsupported number of dimensions for the Unet: {ndims}")
 
+        if activation.lower() == "elu":
+            activation_func = nn.ELU()
+        elif activation.lower() == "relu":
+            activation_func = nn.ReLU()
+        else:
+            raise ValueError(f"Invalid activation function: {activation}")
+
+        # convolution + activation layers
         self.convs = nn.ModuleList()
-        for i in range(nb_conv_per_level):
-            if i == 0:
-                in_channels_conv = in_channels
-            else:
-                in_channels_conv = out_channels
+        for conv in range(nb_conv_per_level):
+            in_channels_conv = in_channels if (conv == 0) else out_channels
+            
+            module_list = nn.ModuleList()
+            module_list.append(convL(in_channels_conv, out_channels, kernel_size=conv_size, padding=1))
+            self.init_weight(module_list, weight_init)         
 
-            self.convs.append(
-                convL(in_channels_conv, out_channels, kernel_size=conv_size, padding=1)
-            )
+            if (conv < nb_conv_per_level - 1) or (not use_residuals):
+                module_list.append(activation_func)
 
-        self.weight_init(self.convs, weightinit)
+            self.convs.append(module_list)
+
+        # residual block
+        self.resblock = None        
+        if use_residuals:
+            self.resblock = nn.ModuleList()
+            self.resblock.append(convL(in_channels, out_channels, kernel_size=conv_size, padding=1))
+            self.init_weight(self.resblock, weight_init)                
+            self.resblock.append(activation_func)
 
         """
         The default BatchNorm3d layer behavior is different between .train() and .eval().
@@ -47,54 +62,36 @@ class ConvBlock(nn.Module):
             getattr(nn, "BatchNorm%dd" % ndims)(out_channels, track_running_stats=False) if use_batchnorm else nn.Identity()
         )
 
-        if activation.lower() == "elu":
-            self.activation = nn.ELU()
-        elif activation.lower() == "relu":
-            self.activation = nn.ReLU()
-        else:
-            raise ValueError(f"Invalid activation function: {activation}")
-
-        self.use_residuals = use_residuals
-        self.nb_conv_per_level = nb_conv_per_level
-
-        if use_residuals and in_channels != out_channels:
-            self.residual_conv = convL(
-                in_channels, out_channels, kernel_size=conv_size, padding=1
-            )
-            self.weight_init(self.residual_conv, weightinit)
-        else:
-            self.residual_conv = None
-
 
     # initialize weights/bias
-    def weight_init(self, modulelist, weightinit="xavier_uniform"):
+    def init_weight(self, modulelist, weight_init="xavier_uniform"):
         for m in modulelist:
             nn.init.zeros_(m.bias)
-            if (weightinit == "xavier_uniform"):
+            if (weight_init == "xavier_uniform"):
                 nn.init.xavier_uniform_(m.weight)
-            elif (weightinit == "zeros"):
+            elif (weight_init == "zeros"):
                 nn.init.zeros_(m.weight)
             else:
-                raise ValueError(f"Invalid weightinit option: {weightinit}. It is either 'xavier_uniform' or 'zeros'.")
+                raise ValueError(f"Invalid weight_init option: {weight_init}. It is either 'xavier_uniform' or 'zeros'.")
 
                 
     def forward(self, x):
         residual = x
 
-        for level, conv in enumerate(self.convs):
-            x = conv(x)
-            if (level < self.nb_conv_per_level - 1) or (not self.use_residuals):
-                x = self.activation(
-                    x
-                )
+        # convolution + activation
+        for conv in self.convs:
+            for layer in conv:
+                x = layer(x)
 
-        if self.use_residuals:
-            if self.residual_conv is not None:
-                residual = self.residual_conv(residual)
+        # residual block
+        if self.resblock is not None:
+            residual = self.resblock[0](residual)  # residual conv
             x += residual
-            x = self.activation(x)
-    
+            x = self.resblock[1](x)  # activation
+
+        # batch norm
         x = self.bn(x)
+
         return x
 
 
@@ -121,113 +118,124 @@ class UNet(nn.Module):
         add_priors = model_arch_dict.get("add_priors", False)
         refine_conv = model_arch_dict.get("refine_conv", False)
         final_pred_activation = model_arch_dict.get("final_pred_activation", "softmax")
+        weight_init = model_arch_dict.get("weight_init", "xavier_uniform")
+
+        assert (weight_init == "xavier_uniform" or weight_init == "zeros"), \
+            f"weight_init {weight_init} is not supported. The options are either 'xavier_uniform' or 'zeros'"
 
         super().__init__()
-        self.num_channels = num_channels
-        self.nb_features = nb_features
-        self.nb_levels = nb_levels
-        self.feat_mult = feat_mult
-        self.use_residuals = use_residuals
-        self.use_batchnorm = use_batchnorm
-        self.activation = activation
+
         self.add_priors = add_priors
         self.refine_conv = refine_conv
         self.final_pred_activation = final_pred_activation
 
         convL = getattr(nn, "Conv%dd" % ndims)
-        self.pool = getattr(nn, "MaxPool%dd" % ndims)(kernel_size=pool_size, stride=pool_size)
+        pool = getattr(nn, "MaxPool%dd" % ndims)(kernel_size=pool_size, stride=pool_size)
 
-        weightinit = "zeros" if (self.add_priors) else "xavier_uniform"
-
-        # Encoding path
+        # Encoder (Contracting path)
         self.encoder = nn.ModuleList()
-        in_channels = self.num_channels
-        for level in range(self.nb_levels):
-            nb_lvl_feats = int(self.nb_features * (self.feat_mult**level))
-            self.encoder.append(
+        in_channels = num_channels
+        for level in range(nb_levels - 1):
+            nb_lvl_feats = nb_features * (feat_mult**level)
+
+            encoder = nn.ModuleList()
+            encoder.append(
                 ConvBlock(
                     in_channels,
                     nb_lvl_feats,
                     ndims=ndims,
                     conv_size=conv_size,
                     nb_conv_per_level=nb_conv_per_level,
-                    use_residuals=self.use_residuals,
-                    use_batchnorm=self.use_batchnorm,
-                    activation=self.activation,
-                    weightinit=weightinit
+                    use_residuals=use_residuals,
+                    use_batchnorm=use_batchnorm,
+                    activation=activation,
+                    weight_init=weight_init
                 )
             )
+            encoder.append(pool)
+
+            self.encoder.append(encoder)
             in_channels = nb_lvl_feats
-        
-        # Decoding path
+
+        # Bottleneck
+        nb_lvl_feats = nb_features * (feat_mult**(nb_levels - 1))
+        self.bottleneck = ConvBlock(
+            in_channels,
+            nb_lvl_feats,
+            ndims=ndims,
+            conv_size=conv_size,
+            nb_conv_per_level=nb_conv_per_level,
+            use_residuals=use_residuals,
+            use_batchnorm=use_batchnorm,
+            activation=activation,
+            weight_init=weight_init
+        )
+
+        # Decoder (Expansive path)
         self.decoder = nn.ModuleList()
-        for level in reversed(range(self.nb_levels - 1)):
-            nb_lvl_feats = int(self.nb_features * (self.feat_mult**level))
+        for level in reversed(range(nb_levels - 1)):
+            in_channels = nb_lvl_feats # output channels from previous convolution level
+            nb_lvl_feats = nb_features * (feat_mult**level)
 
-            module_list = nn.ModuleList()
-            # module_list.append(
-            #     nn.Upsample(scale_factor=pool_size, mode="nearest")
-            # )
+            decoder = nn.ModuleList()
             if ndims == 2:
-                module_list.append(nn.Upsample(scale_factor=pool_size, mode='bilinear', align_corners=True))
+                decoder.append(nn.Upsample(scale_factor=pool_size, mode='bilinear', align_corners=True))
             elif ndims == 3:
-                module_list.append(nn.Upsample(scale_factor=pool_size, mode='trilinear', align_corners=True))
-
+                decoder.append(nn.Upsample(scale_factor=pool_size, mode='trilinear', align_corners=True))
 
             if self.refine_conv:
-                module_list.append(
-                    convL(in_channels, nb_lvl_feats, kernel_size=conv_size, padding=1)
-                )  # Refinement convolution
+                decoder.append(convL(in_channels, nb_lvl_feats, kernel_size=conv_size, padding=1))  # Refinement convolution
                 in_channels = nb_lvl_feats
 
+            # add skip connection channels (nb_lvl_feats: output channels from the encoder convolution block at the same level)
             in_feats_convblock = in_channels + nb_lvl_feats
-            module_list.append(
+            decoder.append(
                 ConvBlock(
                     in_feats_convblock,  # YJH: concatenated channels
                     nb_lvl_feats,
                     ndims=ndims,
                     conv_size=conv_size,
                     nb_conv_per_level=nb_conv_per_level,
-                    use_residuals=self.use_residuals,
-                    use_batchnorm=self.use_batchnorm,
-                    activation=self.activation,
-                    weightinit=weightinit
+                    use_residuals=use_residuals,
+                    use_batchnorm=use_batchnorm,
+                    activation=activation,
+                    weight_init=weight_init
                 )
             )
             
-            self.decoder.append(module_list)
-            in_channels = nb_lvl_feats
+            self.decoder.append(decoder)
 
-        # Classification layer
-        self.classifier = convL(self.nb_features, nb_labels, kernel_size=1)
-
-        nn.init.xavier_uniform_(self.classifier.weight)
+        # Classification layer (Compute likelihood prediction)
+        self.classifier = convL(nb_features, nb_labels, kernel_size=1)
         nn.init.zeros_(self.classifier.bias)
+        if (self.add_priors or weight_init == "zeros"):
+            nn.init.zeros_(m.weight)
+        elif (weight_init == "xavier_uniform"):
+            nn.init.xavier_uniform_(self.classifier.weight)
         
 
     def forward(self, x, priors=None):
         skip_connections = []
 
-        # Encoding path
-        for level in range(self.nb_levels):
-            x = self.encoder[level](x)
-            if level < self.nb_levels - 1:
-                skip_connections.append(x)
-                x = self.pool(x)
+        # Encoder (Contracting path)
+        for encoder in (self.encoder):
+            x = encoder[0](x) # ConvBlock
+            skip_connections.append(x)
+            x = encoder[1](x) # MaxPool
+
+        # Bottleneck
+        x = self.bottleneck(x)
         
-        # Decoding path
-        for level in range(self.nb_levels - 1):
-            n = 0 # keep track of decoder module index
-            x = self.decoder[level][n](x) # Upsample
-            n += 1
+        # Decoder (Expansive path)
+        for decoder in (self.decoder):
+            x = decoder[0](x) # Upsample
             if self.refine_conv:
-                x = self.decoder[level][n](x) # Refinement convolution
-                n += 1
+                x = decoder[1](x) # Refinement convolution
             skip_connection = skip_connections.pop()
             x = torch.cat([x, skip_connection], dim=1)
-            x = self.decoder[level][n](x) # ConvBlock
+            x = decoder[-1](x) # ConvBlock
         
-        # Classification layer
+        # Classification layern (Compute likelihood prediction)
         x1 = x = self.classifier(x)
 
         """
@@ -241,6 +249,7 @@ class UNet(nn.Module):
             x1 = torch.add(x1, priors)
         
 
+        # output prediction layer
         if self.final_pred_activation == 'softmax':
             x = nn.functional.softmax(x, dim=1)
         elif self.final_pred_activation == 'sigmoid':
@@ -249,7 +258,6 @@ class UNet(nn.Module):
             pass  # No activation applied
         else:
             raise ValueError(f"Unknown final_pred_activation: {self.final_pred_activation}")
-
 
         # also return penultimate layer output for WeightedL2Loss
         return [x, x1]

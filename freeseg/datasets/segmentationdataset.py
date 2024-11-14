@@ -54,7 +54,7 @@ class SegmentationDataset(Dataset):
 
         assert (len(self.image_files) == len(self.label_files)), "image and label need to be the same length"
         if (self.haspriors()):
-            assert (len(self.label_files) == len(self.priors_files)), "label abd priors need to be the same length"
+            assert (len(self.label_files) == len(self.priors_files)), "label and priors need to be the same length"
 
 
     def haspriors(self):
@@ -182,7 +182,7 @@ class SegmentationDataset(Dataset):
 
         logging.info("Dataset Information:")
         logging.info(f"  Number of samples: {self.num_entries}")
-        logging.info(f"  Haspriors: {self.haspriors()}")        
+        logging.info(f"  Has priors: {self.haspriors()}")        
         logging.info(f"  Number of unique classes: {len(unique_classes)}")
         logging.info(f"  Unique class values: {sorted(unique_classes)}")
         logging.info(f"  Input shape: {input_shape[1:]}")
