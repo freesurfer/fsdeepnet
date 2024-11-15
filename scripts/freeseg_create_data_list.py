@@ -11,6 +11,7 @@ from sklearn.model_selection import train_test_split
 Usage: freeseg_create_data_list.py
        -d <data_folder>
        [-o <output_file>]
+       [--ignore_prior]
        [--train_ratio <train_ratio>]
        [--val_ratio <val_ratio>]
        [--test_ratio <test_ratio>]
@@ -24,7 +25,7 @@ Usage: freeseg_create_data_list.py
     * images, labels, priors are placed under their corresponding directories with same filename for each subject.
 """
 
-def create_dataset_file(data_folder, output_file=None,
+def create_dataset_file(data_folder, output_file=None, ignore_prior=False,
                         train_ratio=0.7, val_ratio=0.15, test_ratio=0.15):
     images, labels = [], []
     labels_folder = os.path.join(data_folder, "labels")    
@@ -52,7 +53,7 @@ def create_dataset_file(data_folder, output_file=None,
     test_img = [os.path.join(images_folder, img) for img in test_img]
 
     priors_folder = os.path.join(data_folder, "priors")
-    if (os.path.isdir(priors_folder)):
+    if (not ignore_prior and os.path.isdir(priors_folder)):
         train_pri = [os.path.join(priors_folder, lbl) for lbl in train_pri]
         val_pri = [os.path.join(priors_folder, lbl) for lbl in val_pri]
         test_pri = [os.path.join(priors_folder, lbl) for lbl in test_pri]
@@ -96,6 +97,7 @@ if __name__ == "__main__":
         "--output_file",
         help="Path to the output file (optional, defaults to 'dataset_list.yaml').",
     )
+    parser.add_argument("--ignore_prior", action='store_true', help="Don't include priors in output dataset yaml")
     parser.add_argument(
         "--train_ratio", type=float, default=0.7, help="Ratio of the training dataset."
     )
@@ -108,6 +110,7 @@ if __name__ == "__main__":
     create_dataset_file(
         args.data_folder,
         args.output_file,
+        args.ignore_prior,
         train_ratio=args.train_ratio,
         val_ratio=args.val_ratio,
         test_ratio=args.test_ratio,
