@@ -209,7 +209,7 @@ class UNet(nn.Module):
         self.classifier = convL(nb_features, nb_labels, kernel_size=1)
         nn.init.zeros_(self.classifier.bias)
         if (self.add_priors or weight_init == "zeros"):
-            nn.init.zeros_(m.weight)
+            nn.init.zeros_(self.classifier.weight)
         elif (weight_init == "xavier_uniform"):
             nn.init.xavier_uniform_(self.classifier.weight)
         
