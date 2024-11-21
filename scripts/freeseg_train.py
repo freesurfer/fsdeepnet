@@ -193,10 +193,11 @@ def main():
         "input_shape": input_shape[1:],
         "num_channels": input_shape[0],
         "priors": train_dataset.haspriors(),
-        "weight_init": args.weight_init
     }
 
-    train(train_loader, config, output_folder, len(unique_classes), ctab, label_lookup, checkpoint, validation_loader, device, preprocessing_device, train_dataset_dict, debug=args.debug)
+    train(train_loader, config, output_folder, len(unique_classes), ctab,
+          label_lookup=label_lookup, checkpoint=checkpoint, validation_loader=validation_loader, device=device, preprocessing_device=preprocessing_device,
+          train_dataset_dict=train_dataset_dict, debug=args.debug, weight_init=args.weight_init)
                        
     
 def argument_parse():
@@ -223,7 +224,7 @@ def argument_parse():
     parser.add_argument("--perform_evaluation", action='store_true', help="Perform evaluation after each epoch")
     parser.add_argument("--best_model_metric", type=str, default=None, choices=["loss", "dice"], help="Metric for saving the best model (loss or dice)")
     parser.add_argument("--check_augment", action='store_true', help="Reject augmentations not having all the labels")
-    parser.add_argument("--weight_init", type=str, help="How to init network weight, 'zeros' or 'xavier_uniform'")
+    parser.add_argument("--weight_init", type=str, help="How to init network weights, 'zeros' or 'xavier_uniform'")
     parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
     parser.add_argument("--verbose", action='store_true', help="Print debug info to stdout") 
 
@@ -234,14 +235,14 @@ def argument_parse():
 
 
 def train(train_loader, config, train_output_folder, num_labels, ctab, label_lookup=None, checkpoint=None,
-          validation_loader=None, device=None, preprocessing_device=None, train_dataset_dict=None, debug=False):
+          validation_loader=None, device=None, preprocessing_device=None, train_dataset_dict=None, debug=False, weight_init=None):
     # create the model to train
     model_arch_dict = config["model"]
     model_arch_dict["num_channels"] = config["dataset"]["expected_num_channels"]
     model_arch_dict["nb_labels"] = len(config["dataset"]["expected_classes"])
     model_arch_dict["add_priors"] = train_dataset_dict.get("priors", False)
-    if (train_dataset_dict.get("weight_init", None) is not None):
-        model_arch_dict["weight_init"] = train_dataset_dict["weight_init"]
+    if (weight_init is not None):
+        model_arch_dict["weight_init"] = weight_init
 
     the_model_name = model_arch_dict.get("name", None)
     assert the_model_name is not None, "Model name is not available."

@@ -123,6 +123,14 @@ class UNet(nn.Module):
         assert (weight_init == "xavier_uniform" or weight_init == "zeros"), \
             f"weight_init {weight_init} is not supported. The options are either 'xavier_uniform' or 'zeros'"
 
+        # if we are using the codes in line 273,
+        #   1. set classifier_weight_init to 'xavier_uniform'
+        #   2. comment out line 258 - 260
+        classifier_weight_init = weight_init
+        if (add_priors):
+            classifier_weight_init = "zeros"
+        print(f"[INFO] UNet: encoder/decoder weight_init={weight_init}, classifier weight_init={classifier_weight_init}")
+
         super().__init__()
 
         self.add_priors = add_priors
@@ -208,11 +216,11 @@ class UNet(nn.Module):
         # Classification layer (Compute likelihood prediction)
         self.classifier = convL(nb_features, nb_labels, kernel_size=1)
         nn.init.zeros_(self.classifier.bias)
-        if (self.add_priors or weight_init == "zeros"):
+        if (classifier_weight_init == "zeros"):
             nn.init.zeros_(self.classifier.weight)
-        elif (weight_init == "xavier_uniform"):
+        elif (classifier_weight_init == "xavier_uniform"):
             nn.init.xavier_uniform_(self.classifier.weight)
-        
+
 
     def forward(self, x, priors=None):
         skip_connections = []
@@ -244,10 +252,12 @@ class UNet(nn.Module):
         To know whether an allocated tensor has zero elements, use numel()
         To know whether a tensor is allocated and whether it has zero elements, use defined() and then numel()
         """
+        # here we are adding the priors to output of classification layer;
+        # the 'add_prior' implementation in https://github.com/BBillot/SynthSeg/blob/master/ext/neuron/models.py#L501
+        # adds priors to the softmax output, then takes softmax again
         if (self.add_priors and priors is not None and priors.numel() != 0):
             x = torch.add(x, priors)
             x1 = torch.add(x1, priors)
-        
 
         # output prediction layer
         if self.final_pred_activation == 'softmax':
@@ -258,6 +268,23 @@ class UNet(nn.Module):
             pass  # No activation applied
         else:
             raise ValueError(f"Unknown final_pred_activation: {self.final_pred_activation}")
+
+        """
+        # Benjamin's add_prior implementation (https://github.com/BBillot/SynthSeg/blob/master/ext/neuron/models.py#L501)
+        # if we are using this section of codes,
+        #   1. set classifier_weight_init to 'xavier_uniform'
+        #   2. comment out line 258 - 260
+        if (self.add_priors and priors is not None and priors.numel() != 0):
+            x = torch.add(x, priors)
+            if self.final_pred_activation == 'softmax':
+                x = nn.functional.softmax(x, dim=1)
+            elif self.final_pred_activation == 'sigmoid':
+                x = nn.functional.sigmoid(x)
+            elif self.final_pred_activation == 'linear':
+                pass  # No activation applied
+            else:
+                raise ValueError(f"Unknown final_pred_activation: {self.final_pred_activation}")
+        """
 
         # also return penultimate layer output for WeightedL2Loss
         return [x, x1]
