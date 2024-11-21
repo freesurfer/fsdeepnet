@@ -300,23 +300,35 @@ class Training:
             train_dices[:, :, step] = batch_hard_dice.detach().cpu().numpy()
             logging.info(f"  {step+1:4d}/{steps_per_epoch:<4d} loss: {loss.item():.4f}, dice avg: {np.mean(train_dices[:, :, step]):.4f}")
             if (self._debug and step == steps_per_epoch-1):
-                # output debugging volumes
-                print(f"[DEBUG] output augmented images/labels, onehot encoded labels, posteriors, prediciton (batch_size x [H, W(, D), C]) ...")                
+                # begin of debugging volumes output
+                # output augmented images/labels/priors, onehot encoded labels, posteriors, prediciton from each batch (batch_size x [C, H, W(, D)])
+                print(f"[DEBUG] output augmented images/labels, onehot encoded labels, posteriors, prediciton ...")                
                 for n, idx in enumerate(dataset_indices):
-                    out_image = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}augmented_image.mgz")
-                    save_framedimage(images[n].squeeze(0), out_image)
+                    out_image = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.augmented_image.mgz")
+                    save_framedimage(images[n], out_image)
 
-                    out_label_onehot = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}augmented_label_onehot.mgz")
-                    save_framedimage(onehot_labels[n].squeeze(0), out_label_onehot, onehotencoded=True)
+                    out_label_onehot = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.augmented_label_onehot.mgz")
+                    save_framedimage(onehot_labels[n], out_label_onehot, onehotencoded=True)
 
-                    out_posteriors = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}posteriors_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.mgz")
-                    posteriors = outputs[n].squeeze(0)  # remove batch axis => non-batched tensor [C, H, W (,D)]
+                    # convert onehot encoding back to label segmentation
+                    out_label = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.augmented_label.mgz")
+                    label_seg = torch.zeros(onehot_labels[n].shape[1:]).int()
+                    for ch in range(onehot_labels[n].shape[0]):
+                        label_seg[onehot_labels[n][ch] == 1] = ch
+                    save_framedimage(label_seg.unsqueeze(0), out_label)
+
+                    if (priors is not None):
+                        out_priors = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.augmented_priors.mgz")
+                        save_framedimage(priors[n], out_priors)
+
+                    out_posteriors = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.posteriors_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.mgz")
+                    posteriors = outputs[n]  # non-batched tensor [C, H, W (,D)]
                     save_framedimage(posteriors, out_posteriors, onehotencoded=True)
 
-                    out_segmentation = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}prediction_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.mgz")
-                    predicted_segmentation = torch.argmax(outputs[n].unsqueeze(0), dim=1)
+                    out_segmentation = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.prediction_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.mgz")
+                    predicted_segmentation = torch.argmax(outputs[n], dim=0)
                     segmentation = remap_labels(predicted_segmentation, self._inverse_label_mapping)
-                    save_framedimage(segmentation, out_segmentation)
+                    save_framedimage(segmentation.unsqueeze(0), out_segmentation)
             # end of debugging volumes output     
 
             if (self._summary_writer is not None):

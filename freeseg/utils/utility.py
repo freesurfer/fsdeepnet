@@ -74,10 +74,13 @@ def save_framedimage(framedimage_tensor, output_file, original_framedimage=None,
         if (ndims == 3 and orientation is not None):
             surfa_image = surfa_image.reorient(orientation)
     else:
+        orientation = "RAS" if (orientation is None) else orientation
+        rotation_matrix = sf.transform.orientation.orientation_to_rotation_matrix(orientation)
+        geom = sf.transform.geometry.ImageGeometry(shape=np_image.shape[:-1], voxsize=1, rotation=rotation_matrix)
         if (ndims == 2 and onehotencoded):
-            surfa_image = sf.Slice(np_image.squeeze(), labels=labels)
+            surfa_image = sf.Slice(np_image.squeeze(), labels=labels, geometry=geom)
         else:
-            surfa_image = sf.Volume(np_image.squeeze(), labels=labels)            
+            surfa_image = sf.Volume(np_image.squeeze(), labels=labels, geometry=geom)            
     
     surfa_image.save(output_file)
 
