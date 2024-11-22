@@ -44,6 +44,19 @@ validation:
 - image_filepath: path/to/validation_image2
   label_filepath: path/to/validation_segmentation2
 ...
+
+  * To train the network with priors, the dataset_list.yaml needs to have 3 entries for each subject:
+      image_filepath: path/to/image1
+      label_filepath: path/to/segmentation1
+      prior_filepath: path/to/prior1
+
+  * The input data directory is expected to be arranged as following, Place images, labels, and priors under their corresponding directories with same filename for each subject.
+      data_folder/
+        |---------- images/
+        |---------- labels/
+        |---------- priors/
+
+  * The "--ignore_prior" option can be used to not generate prior entries even if the priors/ subdirectory exists.
 ```
 
 4. Edit your config.yaml file as per your dataset and model requirements etc.
@@ -83,6 +96,7 @@ fspython scripts/freeseg_predict.py
     	 [--crop_size <W H (D)>]
 	 [--ctab <ctab>]
 	 [--label <input_labels>]
+	 [--prior <input_priors>]
        	 [--gt <ground_truth>] 
        	 [--path_dice <path_dice>]
        	 [--noaddctab]

@@ -15,6 +15,7 @@ Usage: freeseg_predict.py
        [--crop_size <W H D>]
        [--ctab <ctab>]
        [--label <input_labels>]
+       [--prior <input_priors>]
        [--gt <ground_truth_dir>] 
        [--path_dice <path_dice>]
        [--noaddctab]
@@ -34,6 +35,7 @@ def main():
             crop_size=args.crop_size,
             ctab=args.ctab,
             path_labels=args.label,
+            path_priors=args.prior,
             path_gt=args.gt,
             path_dice=args.path_dice,
             addctab=True if (not args.noaddctab) else False,
@@ -53,6 +55,7 @@ def argument_parse():
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     parser.add_argument("--ctab", type=str, help="Path to the lookup table")
     parser.add_argument("--label", type=str, help="Label(s) for input image(s). Can be a path to a label or to a folder. The labels can be binary masks.")
+    parser.add_argument("--prior", type=str, help="Input priors")
     parser.add_argument("--gt", type=str, help="Path to ground truth folder for dice evaluation.")
     parser.add_argument("--path_dice", type=str, help="Path to dice scores output.")
     parser.add_argument("--noaddctab", action="store_true", help="Do not embed colortable into seg output")
@@ -66,13 +69,14 @@ def argument_parse():
     return args
 
 
-def predict(path_images, out_segmentations, checkpoint, crop_size=None, ctab=None, path_labels=None,
+def predict(path_images, out_segmentations, checkpoint, crop_size=None, ctab=None, path_labels=None, path_priors=None,
             path_gt=None, path_dice=None, addctab=True, write_posteriors=False, device=None, debug=False):
     prediction = Prediction(device, ctab=ctab)
     prediction.load_model(checkpoint)
     prediction.predict(path_images, out_segmentations,
                        crop_size=crop_size,
                        path_labels=path_labels,
+                       path_priors=path_priors,
                        path_gt=path_gt,
                        path_dice=path_dice,
                        addctab=addctab,
