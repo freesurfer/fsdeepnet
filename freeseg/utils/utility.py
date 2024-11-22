@@ -43,7 +43,7 @@ def load_framedimage(file_path, orientation=None, device=None, ndims=3):
     return framedimage, framedimage_tensor, orig_orientation
 
 
-def save_framedimage(framedimage_tensor, output_file, original_framedimage=None, orientation=None, labels=None, onehotencoded=False):
+def save_framedimage(framedimage_tensor, output_file, original_framedimage=None, orientation=None, labels=None, onehotencoded=False, dtype=None):
     """
     Save the augmented framedimage to a file.
     input tensor is non-batched [C, H, W (,D)] (ndims = tensor.ndim - 1)
@@ -58,13 +58,16 @@ def save_framedimage(framedimage_tensor, output_file, original_framedimage=None,
     ndims = framedimage_tensor.ndim - 1  # get the surfa.FramedArray.basedim
     np_image = tensor_cpu.detach().numpy()  # [H, W, (D,) C]
 
+    dtype = original_framedimage.dtype if ((dtype is None) and (original_framedimage is not None)) else dtype
+    if (dtype is not None):
+        np_image = np_image.astype(dtype)        
+
     """
     output input tensor as surfa.Slice only if ndim=2 and onehotencoded=True
     this will output posteriors and onehot encoded label as 4D volume [H, W, D, nlabels], D=1 for 2D
     other image/label is output as [H, W, (D,) C]
     """
     if (original_framedimage is not None):
-        np_image = np_image.astype(original_framedimage.dtype)        
         if (ndims == 2 and onehotencoded):
             surfa_image = sf.Slice(np_image.squeeze(), geometry=original_framedimage.geom, labels=labels, metadata=original_framedimage.metadata)
         else:
@@ -195,7 +198,7 @@ def DataGenerator(dataloader, device=None):
 
     while (True):
         for n_batch, (dataset_indices, images, labels, priors) in enumerate(dataloader):
-            images, labels = images.to(device).float(), labels.to(device).int()
+            images, priors, labels = images.to(device).float(), priors.to(device).float(), labels.to(device).int()
 
             # images/labels are batched, dataset_indices is list of index to dataset entry
             yield n_batch, images, labels, priors, dataset_indices

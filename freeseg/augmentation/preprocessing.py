@@ -474,6 +474,12 @@ def apply_augmentations(
             os.path.join(output_dir, save_volumes + "_reoriented_label.mgz"),
             original_framedimage=original_label,            
         )
+        save_framedimage(
+            priors_tensor,
+            os.path.join(output_dir, save_volumes + "_reoriented_prior.mgz"),
+            original_framedimage=original_image,
+            dtype=float
+        )        
             
     crop_size = augment_para.get("crop_size", None)
             
@@ -522,6 +528,12 @@ def apply_augmentations(
                 os.path.join(output_dir, save_volumes + "_transformed_label.mgz"),
                 original_framedimage=original_label,                
             )
+            save_framedimage(
+                priors_tensor,
+                os.path.join(output_dir, save_volumes + "_transformed_prior.mgz"),
+                original_framedimage=original_image,
+                dtype=float
+            )            
 
     # ??? we are now supporting cropping, randomcrop, randomcrop_center. check to allow only one type of cropping ???
     if "cropping" in augmentations_to_apply:
@@ -549,6 +561,12 @@ def apply_augmentations(
                         os.path.join(output_dir, save_volumes + "_centercropped_label.mgz"),
                         original_framedimage=original_label,                        
                     )
+                    save_framedimage(
+                        priors_tensor,
+                        os.path.join(output_dir, save_volumes + "_centercropped_prior.mgz"),
+                        original_framedimage=original_image,
+                        dtype=float
+                    )                    
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
 

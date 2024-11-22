@@ -94,11 +94,6 @@ def main():
     sample_input_shape, unique_classes, label_lookup = train_dataset.preload()
     input_shape = sample_input_shape[1:]
 
-    if (args.augment):
-        # output segmentation_labels.npy in training directory
-        f_segmentation_labels = os.path.join(output_folder, "segmentation_labels.npy")
-        np.save(f_segmentation_labels, np.array(sorted(unique_classes)).astype(int))
-    
     logging.info("Training Device: {}".format(device))
     logging.info("Preprocessing Device: {}".format(preprocessing_device))
     logging.info(f"batch_size: {config['training']['batch_size']}")
@@ -110,6 +105,10 @@ def main():
         logging.info(f"training config: saved as {output_folder}/config.yaml")
         logging.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
 
+        # output segmentation_labels.npy in training directory
+        f_segmentation_labels = os.path.join(output_folder, "segmentation_labels.npy")
+        np.save(f_segmentation_labels, np.array(sorted(unique_classes)).astype(int))
+        
         for idx in range(len(train_dataset)):
             index, image_tensor, onehot_label_tensor, priors_tensor = train_dataset[idx]
 

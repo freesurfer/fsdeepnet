@@ -76,7 +76,7 @@ class SegmentationDataset(Dataset):
         priors_tensor = None        
         if (self.haspriors()):
             priors_path = self.priors_files[index]        
-            _, priors_tensor, _  = load_framedimage(priors_path, orientation="RAS", device=self.device, ndims=self.ndims)
+            sfprior, priors_tensor, _  = load_framedimage(priors_path, orientation="RAS", device=self.device, ndims=self.ndims)
 
         # where/whether to save preprocessed data
         save_volumes = os.path.splitext(os.path.basename(image_path))[0]
@@ -110,6 +110,7 @@ class SegmentationDataset(Dataset):
                     device=self.device
                 )
                 
+                # ??? (2024-11-22) the logic is not working ???
                 # check if augmented label contains all the labels                             
                 # compare the voxel counts of all labels
                 havealllabels = True                               
@@ -136,6 +137,8 @@ class SegmentationDataset(Dataset):
                         save_framedimage(augmented_image_tensor, out_image, original_framedimage=image)
                         out_label = os.path.join(output_dir, save_volumes + f"_augmented_label.mgz")
                         save_framedimage(augmented_label_tensor, out_label, original_framedimage=label)
+                        out_prior = os.path.join(output_dir, save_volumes + f"_augmented_prior.mgz")
+                        save_framedimage(augmented_priors_tensor, out_prior, original_framedimage=sfprior, dtype=float)                       
                         out_label_onehot = os.path.join(output_dir, save_volumes + f"_augmented_label_onehot.mgz")
                         save_framedimage(onehot_augmented_label_tensor, out_label_onehot, onehotencoded=True)
                     break
@@ -158,13 +161,24 @@ class SegmentationDataset(Dataset):
 
         label_lookup = None
         unique_classes = set()
-        for f_label, f_image in zip(self.label_files, self.image_files):
+        for n in range(self.num_entries):
+            f_label, f_image = self.label_files[n], self.image_files[n]
+            if (self.haspriors()):
+                f_prior = self.priors_files[n]
+
             label, label_tensor, _ = load_framedimage(f_label, device=self.device, ndims=self.ndims)
             image, image_tensor, _ = load_framedimage(f_image, device=self.device, ndims=self.ndims)
-
+            prior, prior_tensor, _ = load_framedimage(f_prior, device=self.device, ndims=self.ndims)
+            
             # label_tensor and image_tensor are non-batched [C, H, W (,D)]
             assert (self.ndims == label_tensor.ndim - 1), f"Expected {self.ndims}D label, but got {label_tensor.ndim - 1}D"            
-            assert (self.ndims == image_tensor.ndim - 1), f"Expected {self.ndims}D image, but got {image_tensor.ndim - 1}D"
+            #assert (self.ndims == image_tensor.ndim - 1), f"Expected {self.ndims}D image, but got {image_tensor.ndim - 1}D"
+            assert (label_tensor.shape == image_tensor.shape), \
+                f"image and label need to be in the same shape. label {f_label} has shape {label_tensor.shape}, image {f_image} has shape {image_tensor.shape}"
+
+            # prior_tensor is non-batched [self.num_classes, H, W (,D)]
+            assert (list(prior_tensor.shape) == [self.num_classes, *label_tensor.shape[1:]]), \
+                f"Expected prior shape [self.num_classes, *label_tensor.shape[1:]], but got {list(prior_tensor.shape)}"
 
             input_shape = image_tensor.shape
             assert (input_shape[0] == expected_num_channels), \
@@ -185,7 +199,7 @@ class SegmentationDataset(Dataset):
         logging.info(f"  Has priors: {self.haspriors()}")        
         logging.info(f"  Number of unique classes: {len(unique_classes)}")
         logging.info(f"  Unique class values: {sorted(unique_classes)}")
-        logging.info(f"  Input shape: {input_shape[1:]}")
+        logging.info(f"  Input shape: {list(input_shape[1:])}")
         logging.info(f"  Number of channels: {input_shape[0]}")
     
         return input_shape, unique_classes, label_lookup

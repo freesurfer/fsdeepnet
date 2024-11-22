@@ -187,6 +187,8 @@ class Prediction:
             sfimage, image_tensor, orig_orientation = load_framedimage(path_images[i], orientation="RAS", device=self._device, ndims=self._ndims)
             if (path_priors is not None):
                 sfprior, prior_tensor, orig_ori_prior = load_framedimage(path_priors[i], orientation="RAS", device=self._device, ndims=self._ndims)
+                assert (list(prior_tensor.shape) == [self._num_labels, *image_tensor.shape[1:]]), \
+                    f"Expected prior shape [self.num_classes, *image_tensor.shape[1:]], but got {list(prior_tensor.shape)}"
                 
             if (list_predictions is not None):
                 list_predictions.append(os.path.splitext(os.path.basename(path_images[i]))[0])  # strip file extension
@@ -213,6 +215,9 @@ class Prediction:
                 center_point = None
                 if (path_labels is not None):
                     sflabel, label_tensor, _ = load_framedimage(path_labels[i], orientation="RAS", device=self._device, ndims=self._ndims)
+                    assert (label_tensor.shape == image_tensor.shape), \
+                        f"image and label need to be in the same shape. label {path_labels[i]} has shape {label_tensor.shape}, image {path_images[i]} has shape {image_tensor.shape}"
+
                     center_point = centroid(label_tensor.cpu().squeeze(0).detach().numpy())
                     if (label_lookup is None):
                         label_lookup = sflabel.labels
@@ -245,9 +250,9 @@ class Prediction:
                     save_framedimage(image_tensor_cropped, out_cropped_image, original_framedimage=sfimage, orientation=orig_orientation)
                     if (prior_tensor_cropped is not None):
                         out_cropped_prior = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_priors[i]))[0])+f".prior.{crop}.RAS.mgz"
-                        save_framedimage(prior_tensor_cropped, out_cropped_prior, original_framedimage=sfprior)
+                        save_framedimage(prior_tensor_cropped, out_cropped_prior, original_framedimage=sfprior, dtype=float)
                         out_cropped_prior = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_priors[i]))[0])+f".prior.{crop}.mgz"
-                        save_framedimage(prior_tensor_cropped, out_cropped_prior, original_framedimage=sfprior, orientation=orig_orientation)
+                        save_framedimage(prior_tensor_cropped, out_cropped_prior, original_framedimage=sfprior, orientation=orig_orientation, dtype=float)
                     if (path_labels is not None):
                         out_cropped_label = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_labels[i]))[0])+f".label.{crop}.RAS.mgz"
                         save_framedimage(label_tensor_cropped, out_cropped_label, original_framedimage=sflabel)
@@ -301,7 +306,7 @@ class Prediction:
                 posteriors = outputs.squeeze(0)  # remove batch axis => non-batched tensor [C, H, W (,D)]
                 #posteriors = movedim(1, -1)  # move channel to last axis
                 save_framedimage(posteriors, out_posteriors, original_framedimage=sfimage, 
-                                 orientation=orig_orientation, onehotencoded=True)
+                                 orientation=orig_orientation, onehotencoded=True, dtype=float)
                 print(f"output posteriors {out_posteriors}")
         # end of segmentation loop
 
