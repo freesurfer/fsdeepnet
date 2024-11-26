@@ -493,6 +493,20 @@ def apply_intensityAugmentation(image, noise_std=0, normalise=True, gamma_std=0,
     return torch.from_numpy(image_cpu).to(image.device)
 
 
+# data augmentations are applied in this order:
+#   flipping
+#   spatial_transform
+#   cropping, randomcrop, or randomcrop_center
+#   sampleConditionalGMM*
+#   blur_resample**
+#   bias_field***
+#   biasFieldCorruption***
+#   intensityAugmentation**
+#
+# *   need sampleConditionalGMM only when we generate a synthetic image from a label map
+# **  blur_resample or intensityAugmentation
+# *** bias_field or biasFieldCorruption
+# ??? should bias_field happen before blur_resample ???
 def apply_augmentations(
     image_tensor,
     label_tensor,
@@ -674,6 +688,20 @@ def apply_augmentations(
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
         
+    if "sampleConditionalGMM" in augmentations_to_apply:
+        num_channels = augment_para.get("num_channels", 1)  # dataset expected_num_channels
+        prior_distribution = augment_para.get("prior_distribution", "uniform")  # 'normal'
+        prior_mean = augment_para.get("prior_mean", [25, 225])
+        prior_std = augment_para.get("prior_std", [5, 25])
+        image_tensor = apply_sampleConditionalGMM(label_tensor, generation_labels,
+                                                  prior_mean=prior_mean, prior_std=prior_std, prior_distribution=prior_distribution, num_channels=num_channels)
+        if save_volumes is not None and output_dir is not None:
+            save_framedimage(
+                image_tensor,
+                os.path.join(output_dir, save_volumes + f"_sampleConditionalGMM_{prior_distribution}_image.mgz"),
+                original_framedimage=original_image,                
+            )
+
     if "blur_resample" in augmentations_to_apply:
         image_tensor = apply_blur_resample(
             image_tensor, voxsize,
@@ -691,20 +719,6 @@ def apply_augmentations(
             save_framedimage(
                 image_tensor,
                 os.path.join(output_dir, save_volumes + "_blur_resampled_image.mgz"),
-                original_framedimage=original_image,                
-            )
-
-    if "sampleConditionalGMM" in augmentations_to_apply:
-        num_channels = augment_para.get("num_channels", 1)  # dataset expected_num_channels
-        prior_distribution = augment_para.get("prior_distribution", "uniform")  # 'normal'
-        prior_mean = augment_para.get("prior_mean", [25, 225])
-        prior_std = augment_para.get("prior_std", [5, 25])
-        image_tensor = apply_sampleConditionalGMM(label_tensor, generation_labels,
-                                                  prior_mean=prior_mean, prior_std=prior_std, prior_distribution=prior_distribution, num_channels=num_channels)
-        if save_volumes is not None and output_dir is not None:
-            save_framedimage(
-                image_tensor,
-                os.path.join(output_dir, save_volumes + f"_sampleConditionalGMM_{prior_distribution}_image.mgz"),
                 original_framedimage=original_image,                
             )
 
