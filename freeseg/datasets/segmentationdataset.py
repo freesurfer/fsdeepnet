@@ -25,9 +25,11 @@ class SegmentationDataset(Dataset):
             "Must provide input image/label using 'dataset_dict' or 'image/label'"
 
         self.num_entries = len(dataset_dict) if (dataset_dict is not None) else len(image)
+        self.num_channels = config["dataset"]["expected_num_channels"]
         self.ndims = config["model"]["ndims"]
         self.config = config
         self.augment_para = config["preprocessing"]
+        self.augment_para["num_channels"] = self.num_channels  # needed in sampleConditionalGMM 
         self.transform = transform
         self.device = device
         if (self.device is None):
@@ -157,7 +159,7 @@ class SegmentationDataset(Dataset):
 
         logging.info("Perform dataset checking ...")
 
-        expected_num_channels =self.config["dataset"]["expected_num_channels"]
+        expected_num_channels = self.num_channels
 
         label_lookup = None
         unique_classes = set()

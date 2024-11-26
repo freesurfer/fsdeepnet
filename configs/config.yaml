@@ -65,11 +65,24 @@ preprocessing:
   
   # bias field parameters
   bias_field_probability: 1 # Ben: turned on if bias_field_std > 0
-  bias_field_max_magnitude: 0.5
+  bias_field_max_magnitude: 0.5  # bias_field_std for biasFieldCorruption
+  bias_field_scale: .025         # for biasFieldCorruption
   # Ben: voxel size of the bias field - ben_voxelsize=1/bias_scale=40 (bias_scale=.025)
   # set fwhm=ben_voxelsize
   # gstd=fwhm/sqrt(log(256))=40/sqrt(log(256))=16.98
   bias_field_smoothing_range: [16.97, 16.99]
+
+  # sampleConditionalGMM parameters
+  prior_mean: [25, 225]
+  prior_std: [5, 25]
+  prior_distribution: "uniform"
+
+  # intensityAugmentation parameters
+  ia_noise_std: 0
+  ia_normalise: True
+  ia_gamma_std: 0
+  ia_prob_noise: 0.95
+  ia_prob_gamma: 1
   
 training:
   dice_epochs: 100

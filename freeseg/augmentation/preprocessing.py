@@ -695,7 +695,7 @@ def apply_augmentations(
             )
 
     if "sampleConditionalGMM" in augmentations_to_apply:
-        num_channels = 1  # dataset expected_num_channels
+        num_channels = augment_para.get("num_channels", 1)  # dataset expected_num_channels
         prior_distribution = augment_para.get("prior_distribution", "uniform")  # 'normal'
         prior_mean = augment_para.get("prior_mean", [25, 225])
         prior_std = augment_para.get("prior_std", [5, 25])
@@ -724,9 +724,9 @@ def apply_augmentations(
             )
 
     if "biasFieldCorruption" in augmentations_to_apply:
-        bias_field_std = .7  # SynthSeg
-        bias_scale = .025
-        prob = 0.95
+        bias_field_std = augment_para.get("bias_field_max_magnitude", .7)  # SynthSeg
+        bias_scale = augment_para.get("bias_field_scale", .025)
+        prob = augment_para.get("bias_field_probability", 0.95)
         image_tensor = apply_biasFieldCorruption(image_tensor, bias_field_std=bias_field_std, bias_scale=bias_scale, prob=prob)
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
@@ -736,13 +736,13 @@ def apply_augmentations(
             )
             
     if "intensityAugmentation" in augmentations_to_apply:
-        noise_std = 1.0  # default is 0 for SynthSeg, no white noise added
-        normalise = True
-        gamma_std = 0.5
-        prob_noise = 0.95
-        prob_gamma = 1
-        image_tensor = apply_intensityAugmentation(image_tensor, noise_std=noise_std, normalise=normalise, gamma_std=gamma_std,
-                                                   prob_noise=prob_noise, prob_gamma=prob_gamma)
+        ia_noise_std = augment_para.get("ia_noise_std", 1.0)  # default is 0 for SynthSeg, no white noise added
+        ia_normalise = augment_para.get("ia_normalise", True)
+        ia_gamma_std = augment_para.get("ia_gamma_std", 0.5)
+        ia_prob_noise = augment_para.get("ia_prob_noise", 0.95)
+        ia_prob_gamma = augment_para.get("ia_prob_gamma", 1)
+        image_tensor = apply_intensityAugmentation(image_tensor, noise_std=ia_noise_std, normalise=ia_normalise, gamma_std=ia_gamma_std,
+                                                   prob_noise=ia_prob_noise, prob_gamma=ia_prob_gamma)
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
                 image_tensor,
