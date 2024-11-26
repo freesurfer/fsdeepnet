@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import numpy.random as npr
 import math
 import torch
 from freeseg import voxynth
@@ -309,91 +310,160 @@ def apply_bias_field(image, voxsize,
     return bf_augmented_image
 
 
-def apply_sampleConditionalGMM(label_map, expected_classes, prior_mean=[25, 225], prior_std=[5, 25], distribution='uniform'):
+# generate an initial synthetic scan G by sampling a GMM conditioned on L described in SynthSeg paper
+# (https://www.sciencedirect.com/science/article/pii/S1361841523000506)
+def apply_sampleConditionalGMM(label_map, generation_labels, prior_mean=[25, 225], prior_std=[5, 25], prior_distribution='uniform', num_channels=1):
     """
-    The label_map tensors are expected to have shape [batch H W D].
-    gaussian mean and std are sampled independently for each batch
+    Generate a synthetic image (num_channels) by sampling a Gaussian Mixture Model conditioned on a label map given as input.
+    Each channel is sampled independently.
+
+    GMM-sampling parameters:
+      prior_distribution: type of distribution from which we sample the GMM parameters {'uniform', 'normal'}
+      prior_mean: hyperparameters controlling the means of Gaussian distributions of the GMM
+      prior_std:  hyperparameters controlling the standard deviations of Gaussian distributions of the GMM
+ 
+    label_map: input tensors expected to have shape [1, H, W (,D)]
+    sampled_image: output tensor [num_channels, H, W (,D)]
     """    
 
-    assert expected_classes is not None, 'expected_classes is needed for sampleConditionalGMM'
+    assert (generation_labels is not None), 'generation_labels is needed for sampleConditionalGMM'
 
-    batchsize = label_map.shape[0]
-    n_classes = len(expected_classes)
-
-    prior_shape = [batchsize, n_classes]
-    if distribution == 'uniform':
+    # sample means and stds of Gaussian distributions of the GMM
+    num_classes = len(generation_labels)
+    prior_shape = (num_channels, num_classes)
+    if prior_distribution == 'uniform':
         means = np.random.uniform(low=prior_mean[0], high=prior_mean[1], size=prior_shape)
         stds  = np.random.uniform(low=prior_std[0], high=prior_std[1], size=prior_shape)
-    elif distribution == 'normal':
+    elif prior_distribution == 'normal':
         means = np.random.normal(loc=prior_mean[0], scale=prior_mean[1], size=prior_shape)
         stds  = np.random.normal(loc=prior_std[0], scale=prior_std[1], size=prior_shape)
     else:
-        raise ValueError("Distribution not supported, should be 'uniform' or 'normal'.")    
+        raise ValueError("Prior distribution not supported, should be 'uniform' or 'normal'.")
 
-    sampled_image = np.zeros(label_map.shape)
-    for labelid in range(n_classes):
-        label_indices = (label_map == expected_classes[labelid])
-        indices_count = label_indices.sum(axis=[1,2,3])
-        gauss_samples = np.random.normal(loc=means[:, labelid], scale=stds[:, labelid], size=(batchsize, indices_count))
-        for batch, indices in enumerate(label_indices):
-            sampled_image[batch][indices] = gauss_samples[batch]
-        
-    # convert it to tensor        
-    sampled_image_tensor = torch.from_numpy(sampled_image).to(label_map.device)
+    # reset all negative values to zero
+    means[means < 0] = 0
+    stds[stds < 0] = 0
+
+    # the following is taken from SynthSeg.model_inputs.build_model_inputs()
+    # https://github.com/BBillot/SynthSeg/blob/master/SynthSeg/model_inputs.py#L142C1-L149C1
+    random_coef = npr.uniform()
+    if random_coef > 0.95:  # reset the background to 0 in 5% of cases
+        means[0] = 0
+        stds[0] = 0
+    elif random_coef > 0.7:  # reset the background to low Gaussian in 25% of cases
+        means[0] = npr.uniform(0, 15)
+        stds[0] = npr.uniform(0, 5)
+
+    # generate synthetic image
+    label_map = label_map.squeeze(0)   # remove the channel axis
+    sampled_image = torch.zeros((num_channels, *label_map.shape)).to(label_map.device)
+    for labelid in range(num_classes):
+        label_indices = (label_map == generation_labels[labelid])
+        indices_count = label_indices.sum()
+
+        # each channel is sampled independently
+        for n_channel in range(num_channels):
+            gauss_samples = np.random.normal(loc=means[n_channel, labelid], scale=stds[n_channel, labelid], size=indices_count)
+            gauss_samples = torch.from_numpy(gauss_samples).to(sampled_image.dtype).to(label_map.device)
+            sampled_image[n_channel][label_indices] = gauss_samples
  
-    return sampled_image_tensor
+    return sampled_image
 
 
+# This is descibed in Hypothalamus paper (https://www.sciencedirect.com/science/article/pii/S1053811920307734)
+#  "
+#    The augmentation model also accounts for non-uniformities in the magnetic field commonly observed in MR scanners (Simmons et al., 1994).
+#    Because this phenomenon translates into intensity inhomogeneities smoothly varying across MRI scans (Sled and Pike, 1998),
+#    we model it with a multiplicative smooth field. As before, we sample a small low resolution field (e.g., of size 4 × 4 × 4),
+#    and upscale it to image size with linear interpolation. Then, we take the voxel-wise exponential to ensure the non-negativity of this field.
+#    Finally, we multiply the spatially deformed scan by the obtained bias field to corrupt its intensities (Fig. 1(c)).
+#  "
 def apply_biasFieldCorruption(image, bias_field_std=.5, bias_scale=.025, prob=0.95):
     """
-    The input tensors are expected to have shape [batch H W D].
-    bias field is sampled independently for each batch. 
-    """
-    
-    if (not np.random.rand() < prob):
-        return image
+    Apply a smooth random bias field to the input tensor by applying the following steps:
 
-    batchsize = image.shape[0]
-    ndims = len(image.shape) - 1
+    1) sample a value for the standard deviation of a centred normal distribution
+    2) a small-size SVF is sampled from this normal distribution
+    3) the small SVF is then resized with trilinear interpolation to image size
+    4) it is rescaled to positive values by taking the voxel-wise exponential
+    5) it is multiplied to the input tensor.
+
+    The input tensor is expected to have shape [C, H, W (,D)].
+
+    The bias field is sampled and applied independently for each channel of the input tensor. 
+
+    bias_field_std: max value to sample the standard deviation of a centred normal distribution from range [0, bias_field_std]
+    bias_scale:     ratio between the shape of the input tensor and the shape of the sampled SVF.
+    prob:           probability to apply this bias field corruption.
+    """
+
+    if (not np.random.rand() < prob or bias_field_std <= 0):
+        return image
+    
+    num_channels = image.shape[0]
+    ndims = image.ndim - 1
     image_shape = image.shape[1:]
     
-    # sampling shapes
-    std_shape = [batchsize] + [1] * ndims
-    small_bias_shape = [batchsize] + [math.ceil(image_shape[i] * bias_scale) for i in range(len(image_shape))]
+    # sampling shapes, the bias field will be sampled and applied independently for each channel of the input tensor
+    std_shape = [num_channels] + [1] * ndims   # [C, 1, 1, 1]
+    small_bias_shape = [num_channels] + [math.ceil(image_shape[i] * bias_scale) for i in range(len(image_shape))]  # [C, h, w, (,d)]
 
     # sample small bias field
     stddev = np.random.uniform(low=0, high=bias_field_std, size=std_shape)
     bias_field = np.random.normal(loc=0, scale=stddev, size=small_bias_shape) 
-
-    bias_field_tensor = torch.from_numpy(bias_field)
-    bias_field_tensor = bias_field_tensor.to(image.device, dtype=image.dtype)
-        
-    # resize bias field and take exponential
-    bias_field_tensor = torch.nn.functional.interpolate(bias_field_tensor.unsqueeze(1), image_shape, mode='trilinear')
-    bias_field_tensor = bias_field_tensor.squeeze(1)  # remove the dummy channel dimension
+    
+    # resize bias field and take exponential    
+    bias_field_tensor = torch.from_numpy(bias_field).to(image.device, dtype=image.dtype)
+    bias_field_tensor = torch.nn.functional.interpolate(bias_field_tensor.unsqueeze(0), image_shape, mode='trilinear')
+    bias_field_tensor = bias_field_tensor.squeeze(0)  # remove the dummy batch dimension
     bias_field_tensor = torch.exp(bias_field_tensor)
 
-    # elementwise multiplication
+    # element-wise multiplication
     bf_augmented_image = torch.mul(bias_field_tensor, image)
 
     return bf_augmented_image
 
 
-def apply_intensityAugmentation(image, noise_std=0, clip_values=[0, 300], normalise=True, gamma_std=0, contrast_inversion=False,
-                                prob_noise=0.95, prob_gamma=1):
+# This is descibed in Hypothalamus paper (https://www.sciencedirect.com/science/article/pii/S1053811920307734)
+#   "
+#     In order to make the network robust against acquisition procedures,
+#     we add further global intensity augmentation by shifting the brightness and contrast of the image with randomly sampled values (Fig. 1(d)).
+#     The obtained scan is subsequently flipped along the right-left axis with a probability of 0.5 (Fig. 1(e)), and randomly cropped to a size of 160^3,
+#     which is more than large enough to ensure that the hypothalamus is always present in the resulting scan.
+#     Finally, intensities are rescaled between [0,1] with min-max normalisation.
+#     Additional examples of augmented images are shown in the Supplementary materials (Fig. S1).
+#   "
+def apply_intensityAugmentation(image, noise_std=0, normalise=True, gamma_std=0, prob_noise=0.95, prob_gamma=1):
     """
-    The input tensors are expected to have shape [batch H W D].
-    noise and gamma are sampled independently for each batch.
+    Augment the intensities of the input tensor. All channels are augmented separately.
+
+    The following steps are applied (all are optional):
+    1) white noise corruption, with a randomly sampled std dev.
+    2) min-max normalisation
+    3) gamma augmentation (i.e. voxel-wise exponentiation by a randomly sampled power)
+
+    The input tensor is expected to have shape [C, H, W (,D)].
+
+    The noise and gamma are sampled and applied independently for each channel of the input tensor.
+
+    noise_std:  max value to sample the standard deviation of the Gaussian white noise from the range [0, noise_std].
+                Default is 0, where white noise corruption is skipped.
+    normalise:  whether to apply min-max normalisation, to normalise between 0 and 1. Default is True.
+    gamma_std:  standard deviation of the normal distribution from which we sample gamma.
+                Default is 0, where no gamma augmentation occurs.
+    prob_noise: probability to apply noise injection
+    prob_gamma: probability to apply gamma augmentation
     """
     
-    image_cpu = image.cpu().detach().numpy()
-    
-    batchsize = image_cpu.shape[0]
-    ndims = len(image_cpu.shape) - 1
+    num_channels = image.shape[0]
+    ndims = image.ndim - 1
+
+    image_cpu = image.cpu().detach().numpy()    
 
     sample_shape = None
-    if (noise_std > 0 or gamma_std > 0 or contrast_inversion):
-        sample_shape = [batchsize] + [1] * ndims
+    # noise and gamma are sampled and applied independently for each channel of the input tensor
+    if (noise_std > 0 or gamma_std > 0):
+        sample_shape = [num_channels] + [1] * ndims
     
     # add noise with predefined probability
     if (noise_std > 0 and np.random.rand() < prob_noise):
@@ -401,16 +471,16 @@ def apply_intensityAugmentation(image, noise_std=0, clip_values=[0, 300], normal
         noise = np.random.normal(loc=0, scale=noise_stddev, size=image_cpu.shape)
         image_cpu += noise
 
-    # clip image_cpus to given values
-    if (clip_values is not None):
-        image_cpu = np.clip(image_cpu, a_min=clip_values[0], a_max=clip_values[1])
-
     # normalise
     if (normalise):
         # simple min and max
-        axis = tuple(dim for dim in range(image_cpu.ndim))
-        m = np.min(image_cpu, axis=axis)
-        M = np.max(image_cpu, axis=axis)
+        axis = tuple(dim for dim in range(1, ndims+1)) # axis=(H, W (,D))
+        m = np.min(image_cpu, axis=axis) # [C, 1]
+        M = np.max(image_cpu, axis=axis) # [C, 1]
+        
+        m = np.expand_dims(m, axis=axis) # [C, 1, 1 (,1)]
+        M = np.expand_dims(M, axis=axis) # [C, 1, 1 (,1)]
+
         # normalise
         image_cpu = np.clip(image_cpu, a_min=m, a_max=M)
         image_cpu = (image_cpu - m) / (M - m + np.finfo(float).eps)
@@ -420,10 +490,6 @@ def apply_intensityAugmentation(image, noise_std=0, clip_values=[0, 300], normal
         gamma = np.random.normal(loc=0, scale=gamma_std, size=sample_shape)
         image_cpu = np.power(image_cpu, np.exp(gamma))
 
-    # apply random contrast inversion
-    if (contrast_inversion):
-        image_cpu = 1 - image_cpu
-
     return torch.from_numpy(image_cpu).to(image.device)
 
 
@@ -432,7 +498,7 @@ def apply_augmentations(
     label_tensor,
     original_image,
     original_label,
-    expected_classes,
+    generation_labels,
     augment_para,
     voxsize,
     priors_tensor=None,
@@ -628,6 +694,20 @@ def apply_augmentations(
                 original_framedimage=original_image,                
             )
 
+    if "sampleConditionalGMM" in augmentations_to_apply:
+        num_channels = 1  # dataset expected_num_channels
+        prior_distribution = augment_para.get("prior_distribution", "uniform")  # 'normal'
+        prior_mean = augment_para.get("prior_mean", [25, 225])
+        prior_std = augment_para.get("prior_std", [5, 25])
+        image_tensor = apply_sampleConditionalGMM(label_tensor, generation_labels,
+                                                  prior_mean=prior_mean, prior_std=prior_std, prior_distribution=prior_distribution, num_channels=num_channels)
+        if save_volumes is not None and output_dir is not None:
+            save_framedimage(
+                image_tensor,
+                os.path.join(output_dir, save_volumes + f"_sampleConditionalGMM_{prior_distribution}_image.mgz"),
+                original_framedimage=original_image,                
+            )
+
     # ??? only allow one "bias_field" or "biasFieldCorruption" ???
     if "bias_field" in augmentations_to_apply:
         image_tensor = apply_bias_field(
@@ -644,9 +724,10 @@ def apply_augmentations(
             )
 
     if "biasFieldCorruption" in augmentations_to_apply:
-        image_tensor = apply_biasFieldCorruption(
-            image_tensor
-        )
+        bias_field_std = .7  # SynthSeg
+        bias_scale = .025
+        prob = 0.95
+        image_tensor = apply_biasFieldCorruption(image_tensor, bias_field_std=bias_field_std, bias_scale=bias_scale, prob=prob)
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
                 image_tensor,
@@ -654,21 +735,14 @@ def apply_augmentations(
                 original_framedimage=original_image,                
             )
             
-    if "sampleConditionalGMM" in augmentations_to_apply:
-        image_tensor = apply_sampleConditionalGMM(
-            label_tensor, expected_classes
-        )
-        if save_volumes is not None and output_dir is not None:
-            save_framedimage(
-                image_tensor,
-                os.path.join(output_dir, save_volumes + "_sampleConditionalGMM_image.mgz"),
-                original_framedimage=original_image,                
-            )
-
     if "intensityAugmentation" in augmentations_to_apply:
-        image_tensor = apply_intensityAugmentation(
-            image_tensor,
-        )
+        noise_std = 1.0  # default is 0 for SynthSeg, no white noise added
+        normalise = True
+        gamma_std = 0.5
+        prob_noise = 0.95
+        prob_gamma = 1
+        image_tensor = apply_intensityAugmentation(image_tensor, noise_std=noise_std, normalise=normalise, gamma_std=gamma_std,
+                                                   prob_noise=prob_noise, prob_gamma=prob_gamma)
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
                 image_tensor,
