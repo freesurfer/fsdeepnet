@@ -356,15 +356,14 @@ def apply_sampleConditionalGMM(label_map, generation_labels, prior_mean=[25, 225
 
     # generate synthetic image
     label_map = label_map.squeeze(0)   # remove the channel axis
-    sampled_image = torch.zeros((num_channels, *label_map.shape)).to(label_map.device)
+    sampled_image = torch.zeros((num_channels, *label_map.shape), device=label_map.device)
     for labelid in range(num_classes):
         label_indices = (label_map == generation_labels[labelid])
         indices_count = label_indices.sum()
 
         # each channel is sampled independently
         for n_channel in range(num_channels):
-            gauss_samples = np.random.normal(loc=means[n_channel, labelid], scale=stds[n_channel, labelid], size=indices_count)
-            gauss_samples = torch.from_numpy(gauss_samples).to(sampled_image.dtype).to(label_map.device)
+            gauss_samples = means[n_channel, labelid] + stds[n_channel, labelid] * torch.randn(indices_count, device=label_map.device)   # N(means[n_channel, labelid] + stds[n_channel, labelid])
             sampled_image[n_channel][label_indices] = gauss_samples
  
     return sampled_image
@@ -409,11 +408,10 @@ def apply_biasFieldCorruption(image, bias_field_std=.5, bias_scale=.025, prob=0.
     small_bias_shape = [num_channels] + [math.ceil(image_shape[i] * bias_scale) for i in range(len(image_shape))]  # [C, h, w, (,d)]
 
     # sample small bias field
-    stddev = np.random.uniform(low=0, high=bias_field_std, size=std_shape)
-    bias_field = np.random.normal(loc=0, scale=stddev, size=small_bias_shape) 
+    stddev = bias_field_std * torch.rand(std_shape, device=image.device)              # U(0, bias_field_std)
+    bias_field_tensor = stddev * torch.randn(small_bias_shape, device=image.device)   # N(0, stddev)
     
     # resize bias field and take exponential    
-    bias_field_tensor = torch.from_numpy(bias_field).to(image.device, dtype=image.dtype)
     bias_field_tensor = torch.nn.functional.interpolate(bias_field_tensor.unsqueeze(0), image_shape, mode='trilinear')
     bias_field_tensor = bias_field_tensor.squeeze(0)  # remove the dummy batch dimension
     bias_field_tensor = torch.exp(bias_field_tensor)
@@ -458,39 +456,35 @@ def apply_intensityAugmentation(image, noise_std=0, normalise=True, gamma_std=0,
     num_channels = image.shape[0]
     ndims = image.ndim - 1
 
-    image_cpu = image.cpu().detach().numpy()    
-
-    sample_shape = None
     # noise and gamma are sampled and applied independently for each channel of the input tensor
-    if (noise_std > 0 or gamma_std > 0):
-        sample_shape = [num_channels] + [1] * ndims
+    sample_shape = [num_channels] + [1] * ndims # [C, 1, 1 (,1)]
     
     # add noise with predefined probability
     if (noise_std > 0 and np.random.rand() < prob_noise):
-        noise_stddev = np.random.uniform(low=0, high=noise_std, size=sample_shape)
-        noise = np.random.normal(loc=0, scale=noise_stddev, size=image_cpu.shape)
-        image_cpu += noise
+        noise_stddev = noise_std * torch.rand(sample_shape, device=image.device)   # U(0, noise_std)
+        noise = noise_stddev * torch.randn(image.shape, device=image.device)       # N(0, noise_stddev)
+        image += noise
 
     # normalise
     if (normalise):
         # simple min and max
         axis = tuple(dim for dim in range(1, ndims+1)) # axis=(H, W (,D))
-        m = np.min(image_cpu, axis=axis) # [C, 1]
-        M = np.max(image_cpu, axis=axis) # [C, 1]
-        
-        m = np.expand_dims(m, axis=axis) # [C, 1, 1 (,1)]
-        M = np.expand_dims(M, axis=axis) # [C, 1, 1 (,1)]
+        m = torch.amin(image, dim=axis) # [C, 1]
+        M = torch.amax(image, dim=axis) # [C, 1]
+
+        m = torch.reshape(m, sample_shape) # [C, 1, 1 (,1)]
+        M = torch.reshape(M, sample_shape) # [C, 1, 1 (,1)]
 
         # normalise
-        image_cpu = np.clip(image_cpu, a_min=m, a_max=M)
-        image_cpu = (image_cpu - m) / (M - m + np.finfo(float).eps)
+        image = torch.clip(image, min=m, max=M)
+        image = (image - m) / (M - m + torch.finfo(torch.float32).eps)
 
     # apply voxel-wise exponentiation with predefined probability
     if (gamma_std > 0 and np.random.rand() < prob_gamma):
-        gamma = np.random.normal(loc=0, scale=gamma_std, size=sample_shape)
-        image_cpu = np.power(image_cpu, np.exp(gamma))
+        gamma = gamma_std * torch.randn(sample_shape, device=image.device)   # N(0, gamma_stddev)
+        image = torch.pow(image, torch.exp(gamma))
 
-    return torch.from_numpy(image_cpu).to(image.device)
+    return image
 
 
 # data augmentations are applied in this order:
