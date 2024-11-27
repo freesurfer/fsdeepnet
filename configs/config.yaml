@@ -36,7 +36,7 @@ preprocessing:
   flip_prob: 0.5
   crop_size: [160, 160, 160]
   
-  # spatial deformation parameters
+  # spatial deformation parameters (voxynth)
   affine_probability: 1.0
   max_translation: 30  #0.5
   max_rotation: 20     #5.0
@@ -50,7 +50,7 @@ preprocessing:
   warp_magnitude_range: [0, 3]
   shearing_bounds: 0.015
   
-  # blurring and resampling parameters
+  # blurring and resampling parameters (voxynth)
   smoothing_probability: 0.25
   smoothing_max_sigma: 2.0
   added_noise_probability: 1 #0.5
@@ -63,10 +63,9 @@ preprocessing:
   resized_one_axis_probability: 0
   resized_max_voxsize: 2
   
-  # bias field parameters
+  # bias field parameters (voxynth)
   bias_field_probability: 1 # Ben: turned on if bias_field_std > 0
-  bias_field_max_magnitude: 0.5  # bias_field_std for biasFieldCorruption
-  bias_field_scale: .025         # for biasFieldCorruption
+  bias_field_max_magnitude: 0.5
   # Ben: voxel size of the bias field - ben_voxelsize=1/bias_scale=40 (bias_scale=.025)
   # set fwhm=ben_voxelsize
   # gstd=fwhm/sqrt(log(256))=40/sqrt(log(256))=16.98
@@ -77,13 +76,19 @@ preprocessing:
   prior_std: [5, 25]
   prior_distribution: "uniform"
 
+  # ***parameters under section 'bias field parameters (voxynth)' will be overwritten
+  # biasFieldCorruption parameters
+  bias_field_probability: 0.95
+  bias_field_max_magnitude: 0.7
+  bias_field_scale: 0.025  
+
+  # ***parameters under section 'blurring and resampling parameters (voxynth)' will be overwritten
   # intensityAugmentation parameters
-  ia_noise_std: 0
-  ia_normalise: True
-  ia_gamma_std: 0
-  ia_prob_noise: 0.95
-  ia_prob_gamma: 1
-  
+  added_noise_probability: 0.95
+  added_noise_max_sigma: 1.0
+  gamma_scaling_probability: 1
+  gamma_scaling_max: 0.5
+
 training:
   dice_epochs: 100
   wl2_epochs: 5

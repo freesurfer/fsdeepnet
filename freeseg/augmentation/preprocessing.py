@@ -750,11 +750,11 @@ def apply_augmentations(
             )
             
     if "intensityAugmentation" in augmentations_to_apply:
-        ia_noise_std = augment_para.get("ia_noise_std", 1.0)  # default is 0 for SynthSeg, no white noise added
-        ia_normalise = augment_para.get("ia_normalise", True)
-        ia_gamma_std = augment_para.get("ia_gamma_std", 0.5)
-        ia_prob_noise = augment_para.get("ia_prob_noise", 0.95)
-        ia_prob_gamma = augment_para.get("ia_prob_gamma", 1)
+        ia_noise_std = augment_para.get("added_noise_max_sigma", 1.0)  # default is 0 for SynthSeg, no white noise added
+        ia_normalise = augment_para.get("normalize", True)
+        ia_gamma_std = augment_para.get("gamma_scaling_max", 0.5)
+        ia_prob_noise = augment_para.get("added_noise_probability", 0.95)
+        ia_prob_gamma = augment_para.get("gamma_scaling_probability", 1)
         image_tensor = apply_intensityAugmentation(image_tensor, noise_std=ia_noise_std, normalise=ia_normalise, gamma_std=ia_gamma_std,
                                                    prob_noise=ia_prob_noise, prob_gamma=ia_prob_gamma)
         if save_volumes is not None and output_dir is not None:
