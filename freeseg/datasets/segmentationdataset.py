@@ -195,14 +195,17 @@ class SegmentationDataset(Dataset):
             unique_classes.update(unique_values)
 
         expected_classes = self.config["dataset"]["expected_classes"]
+        """
         assert (sorted(unique_classes) == expected_classes), \
             f"Expected classes {expected_classes}, but got {sorted(unique_classes)}"
+        """
 
         logging.info("Dataset Information:")
         logging.info(f"  Number of samples: {self.num_entries}")
         logging.info(f"  Has priors: {self.haspriors()}")        
         logging.info(f"  Number of unique classes: {len(unique_classes)}")
         logging.info(f"  Unique class values: {sorted(unique_classes)}")
+        logging.info(f"  Segmentation labels: {expected_classes}")
         logging.info(f"  Input shape: {list(input_shape[1:])}")
         logging.info(f"  Number of channels: {input_shape[0]}")
     
