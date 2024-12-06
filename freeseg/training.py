@@ -317,7 +317,7 @@ class Training:
                         label_seg[onehot_labels[n][ch] == 1] = ch
                     save_framedimage(label_seg.unsqueeze(0), out_label)
 
-                    if (priors is not None):
+                    if (priors is not None and priors.numel() != 0):
                         out_priors = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.augmented_priors.mgz")
                         save_framedimage(priors[n], out_priors)
 

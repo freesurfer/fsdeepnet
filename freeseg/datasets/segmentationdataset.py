@@ -139,10 +139,11 @@ class SegmentationDataset(Dataset):
                         save_framedimage(augmented_image_tensor, out_image, original_framedimage=image)
                         out_label = os.path.join(output_dir, save_volumes + f"_augmented_label.mgz")
                         save_framedimage(augmented_label_tensor, out_label, original_framedimage=label)
-                        out_prior = os.path.join(output_dir, save_volumes + f"_augmented_prior.mgz")
-                        save_framedimage(augmented_priors_tensor, out_prior, original_framedimage=sfprior, dtype=float)                       
                         out_label_onehot = os.path.join(output_dir, save_volumes + f"_augmented_label_onehot.mgz")
                         save_framedimage(onehot_augmented_label_tensor, out_label_onehot, onehotencoded=True)
+                        if (augmented_priors_tensor is not None):
+                            out_prior = os.path.join(output_dir, save_volumes + f"_augmented_prior.mgz")
+                            save_framedimage(augmented_priors_tensor, out_prior, original_framedimage=sfprior, dtype=float)                        
                     break
 
                 trycount = trycount + 1

@@ -548,12 +548,13 @@ def apply_augmentations(
             os.path.join(output_dir, save_volumes + "_reoriented_label.mgz"),
             original_framedimage=original_label,            
         )
-        save_framedimage(
-            priors_tensor,
-            os.path.join(output_dir, save_volumes + "_reoriented_prior.mgz"),
-            original_framedimage=original_image,
-            dtype=float
-        )        
+        if (priors_tensor is not None):
+            save_framedimage(
+                priors_tensor,
+                os.path.join(output_dir, save_volumes + "_reoriented_prior.mgz"),
+                original_framedimage=original_image,
+                dtype=float
+            )        
             
     crop_size = augment_para.get("crop_size", None)
             
