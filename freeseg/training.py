@@ -166,7 +166,6 @@ class Training:
             train_dice_avg = np.mean(train_dices)
         
             # output training dices (n_labels x steps_per_epoch)
-            #f_dice_scores = os.path.join(self._dice_dir, f"train_dices_epoch{epoch+1}.npy")
             f_dice_scores = os.path.join(self._dice_dir, f"train_{metric_type}_{epoch+1:03d}.npy")
             np.save(f_dice_scores, train_dices)
     
@@ -200,7 +199,7 @@ class Training:
                 validation_dice_avg = np.mean(validation_dices)
         
                 # output validation dices (n_labels x len(self._validation_loader))
-                f_dice_scores = os.path.join(self._dice_dir, f"validation_dices_epoch{epoch+1}.npy")
+                f_dice_scores = os.path.join(self._dice_dir, f"validation_{metric_type}_{epoch+1:03d}.npy")
                 np.save(f_dice_scores, validation_dices)
 
                 logging.info(
@@ -386,28 +385,27 @@ class Training:
         """
         
         validation_loss = 0.0
-        validation_dices = np.zeros((self._num_labels, len(self._validation_loader)))
-        
-        self._model.eval()        
-        
-        with torch.no_grad():
-            for batch_idx, (images, labels, dataset_idx) in enumerate(self._validation_loader):
-                images, labels = images.to(self._device).float(), labels.to(self._device)
+        validation_dices = np.zeros((self._batch_size, self._num_labels, len(self._validation_loader)))
 
-                (outputs, penultimate) = self._model(images)
+        self._model.eval()        
+        with torch.no_grad():
+            for batch_idx, (dataset_indices, images, onehot_labels, priors) in enumerate(self._validation_loader):
+                images, onehot_labels, priors = images.to(self._device), onehot_labels.to(self._device), priors.to(self._device)
+
+                (outputs, penultimate) = self._model(images, priors)
 
                 if (metric_type == 'wl2'):
-                    loss = loss_fn(penultimate, labels)
+                    loss = loss_fn(penultimate, onehot_labels)
                 elif (metric_type == 'dice'):
-                    loss = loss_fn(outputs, labels)
+                    loss = loss_fn(outputs, onehot_labels)
 
                 validation_loss += loss.item()
 
                 # --- Metrics Calculation ---
                 # Calculate hard Dice
-                batch_hard_dice = self._dice_metric_hard(outputs, labels)
-                validation_dices[:, batch_idx] = batch_hard_dice.detach().cpu().numpy()
-                logging.info(f"  validation {batch_idx}/{len(self._validation_loader)} val loss: {loss.item():.4f}, val dice avg: {np.mean(validation_dices[:, batch_idx]):.4f}")
+                batch_hard_dice = self._dice_metric_hard(outputs, onehot_labels)
+                validation_dices[:, :, batch_idx] = batch_hard_dice.detach().cpu().numpy()
+                logging.info(f"  validation {batch_idx+1:4d}/{len(self._validation_loader):<4d} val loss: {loss.item():.4f}, val dice avg: {np.mean(validation_dices[:, :, batch_idx]):.4f}")
 
                 if (self._summary_writer is not None):
                     # Write validation loss and Dice to TensorBoard (once per epoch)
@@ -416,7 +414,7 @@ class Training:
                     )
                     self._summary_writer.add_scalar(
                         "Validation/Dice",
-                        np.mean(validation_dices[:, batch_idx]),
+                        np.mean(validation_dices[:, :, batch_idx]),
                         #torch.mean(torch.tensor(batch_hard_dice)),
                         epoch * len(self._validation_loader) + batch_idx,
                     )
@@ -428,7 +426,7 @@ class Training:
 
                         # Get slices from different examples in the batch
                         image_slices = images[:num_examples_to_visualize, 0, slice_index].cpu()
-                        label_slices = labels[:num_examples_to_visualize, 0, slice_index].cpu()
+                        label_slices = onehot_labels[:num_examples_to_visualize, 0, slice_index].cpu()
                         output_slices = outputs[:num_examples_to_visualize, 0, slice_index].cpu()
 
                         # Create grids (using a colormap if needed)
