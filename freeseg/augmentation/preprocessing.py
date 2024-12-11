@@ -252,6 +252,7 @@ def apply_centercrop(image, crop_size, label=None, prior=None, verbose=False):
     if (label is not None):
         center_point = centroid(label.squeeze(0), verbose=verbose)
 
+    zero_tensor = torch.zeros(label.squeeze(0).ndim, device=image.device, dtype=int)
     crop_half = (crop_size/2).int()
     if (center_point is None):
         center_point = (image_shape/2).int()   #tuple(dim // 2 for dim in image_shape)
@@ -259,13 +260,13 @@ def apply_centercrop(image, crop_size, label=None, prior=None, verbose=False):
         # adjust the calculated center so that croppred image will have crop_size
         if (torch.any(center_point < crop_half)):
             distance = crop_half - center_point
-            center_point += np.maximum(0,  distance)    
+            center_point += torch.maximum(zero_tensor,  distance)    
         if (torch.any(center_point > (image_shape - crop_half))):
             distance = center_point - (image_shape - crop_half)
-            center_point -= np.maximum(0,  distance)
+            center_point -= torch.maximum(zero_tensor,  distance)
 
     # Calculate the starting and ending indices for the crop region
-    start_coords = torch.maximum(torch.zeros(image.ndim-1, device=image.device, dtype=int), center_point - crop_half)
+    start_coords = torch.maximum(zero_tensor, center_point - crop_half)
     end_coords = torch.minimum(center_point + crop_half, image_shape)
     crop_idx = torch.concat((start_coords, end_coords))
     if (verbose):
