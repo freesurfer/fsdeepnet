@@ -204,6 +204,7 @@ class Prediction:
             if (label_lookup is None):
                 label_lookup = sfimage.labels
             crop_idx = None
+            label_tensor = None
             image_tensor_cropped = image_tensor
             prior_tensor_cropped = prior_tensor if (path_priors is not None) else None
             
@@ -212,38 +213,27 @@ class Prediction:
             image_shape = image_tensor.shape[1:]
             if (np.any(np.array(image_shape) > np.array(self._crop_size))):
                 # calculate the cropping center point if label image is available
-                center_point = None
                 if (path_labels is not None):
                     sflabel, label_tensor, _ = load_framedimage(path_labels[i], orientation="RAS", device=self._device, ndims=self._ndims)
                     assert (label_tensor.shape == image_tensor.shape), \
                         f"image and label need to be in the same shape. label {path_labels[i]} has shape {label_tensor.shape}, image {path_images[i]} has shape {image_tensor.shape}"
 
-                    center_point = centroid(label_tensor.cpu().squeeze(0).detach().numpy())
                     if (label_lookup is None):
                         label_lookup = sflabel.labels
 
                 # crop the images
                 # apply_centercrop() expects input image_tensor to be non-batched, output image_tensor_cropped is non-batched
-                (image_tensor_cropped, crop_idx) = apply_centercrop(image_tensor_cropped, self._crop_size, center_point=center_point)
+                (image_tensor_cropped, label_tensor_cropped, prior_tensor_cropped, crop_idx) = \
+                    apply_centercrop(image_tensor_cropped, self._crop_size, label=label_tensor, prior=prior_tensor_cropped)
                 image_tensor_cropped = image_tensor_cropped.to(self._device).float()
 
-                if (prior_tensor_cropped is not None):
-                    # crop the priors
-                    # apply_centercrop() expects input prior_tensor to be non-batched, output prior_tensor_cropped is non-batched
-                    (prior_tensor_cropped, crop_idx) = apply_centercrop(prior_tensor_cropped, self._crop_size, center_point=center_point)
-                    prior_tensor_cropped = prior_tensor_cropped.to(self._device).float()
-                
                 if (debug):
                     # begin of debugging
-                    print("[DEBUG] output cropped image/label ...")
-                    if (path_labels is not None):
-                        # crop the labels
-                        label_tensor_cropped, _ = apply_centercrop(label_tensor, self._crop_size, center_point=center_point)
-                        label_tensor_cropped = label_tensor_cropped.to(self._device)
-
                     crop = 'centercropped'
-                    if (center_point is not None):
+                    if (path_labels is not None):
                         crop = 'centroidcropped'
+
+                    print(f"[DEBUG] output {crop} image/label ...")
                     out_cropped_image = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.RAS.mgz"
                     save_framedimage(image_tensor_cropped, out_cropped_image, original_framedimage=sfimage)
                     out_cropped_image = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.mgz"

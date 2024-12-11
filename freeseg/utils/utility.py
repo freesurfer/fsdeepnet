@@ -172,24 +172,23 @@ def centroid(label, verbose=False):
     """
 
     # binarize the label image
-    mask = np.zeros(label.shape).astype(int)
-    mask[label > 0] = 1
+    #mask = torch.zeros(label.shape, dtype=int, device=label.device)
+    #mask[label > 0] = 1
 
     # calculate bounding box coordinates
-    lowerbound = np.zeros(mask.ndim).astype(int)
-    upperbound = np.zeros(mask.ndim).astype(int)
-    if (np.any(mask == 1)):  # check if any of the labels exist
-        coords = np.where(mask == 1)
+    lowerbound = torch.zeros(label.ndim, dtype=int, device=label.device)
+    upperbound = torch.zeros(label.ndim, dtype=int, device=label.device)
+    if (torch.any(label > 0)):  # check if any of the labels exist
+        coords = torch.where(label > 0)
         for dim, coord in enumerate(coords):
-            lowerbound[dim] = np.min(coord)
-            upperbound[dim] = np.max(coord)
+            lowerbound[dim] = torch.min(coord)
+            upperbound[dim] = torch.max(coord)
 
     centroid = lowerbound + (upperbound - lowerbound)/2
     if (verbose):
         print(f"label bbox: {lowerbound} - {upperbound}, centroid: {centroid}")    
     
-    return centroid.astype(int)    
-    #return tuple(centroid.astype(int))
+    return centroid.int()
 
 
 def DataGenerator(dataloader, device=None):

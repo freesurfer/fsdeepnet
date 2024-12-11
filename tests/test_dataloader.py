@@ -102,6 +102,10 @@ def main():
         
     # create training dataset with the desired augmentations specified
     logging.info("Loading dataset: load_dataset(...)")
+    labels_segmentation = sorted(config["dataset"]["expected_classes"])
+    label_mapping = {label:i for i, label in enumerate(labels_segmentation)}
+    inverse_label_mapping = {v: k for k, v in label_mapping.items()}
+    config["dataset"]["label_mapping"] = label_mapping    
     train_dataset, _, _ = load_datasets(
         config, config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"), device=preprocessing_device
     )
@@ -151,8 +155,8 @@ def main():
     for epoch in range(start_epoch, epochs):
         logging.info(f"Epoch {epoch+1:3d}/{epochs:<3d}")
         for step in range(steps_per_epoch):
-            (batch_idx, images, labels, dataset_idx) = next(input_generator)
-            logging.info(f"  {step+1:4d}/{steps_per_epoch:<4d} preprocessed batch #{batch_idx:<2d}, (training set index #{dataset_idx:<2d})")
+            (batch_idx, images, onehot_labels, priors, dataset_indices) = next(input_generator)
+            logging.info(f"  {step+1:4d}/{steps_per_epoch:<4d} preprocessed batch #{batch_idx:<2d}, (training set index {dataset_indices.tolist()})")
             #torch.cuda._sleep(500)
 
                        

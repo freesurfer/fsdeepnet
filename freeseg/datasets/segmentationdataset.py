@@ -151,7 +151,7 @@ class SegmentationDataset(Dataset):
 
         if (augmented_priors_tensor is None):
             # torch.utils.data.DataLoader can't return NoneType, make an empty tensor with 0 elements
-            augmented_priors_tensor = torch.empty(0, *onehot_augmented_label_tensor.shape[1:])
+            augmented_priors_tensor = torch.empty(0, *onehot_augmented_label_tensor.shape[1:], device=augmented_image_tensor.device)
 
         return index, augmented_image_tensor, onehot_augmented_label_tensor, augmented_priors_tensor
 

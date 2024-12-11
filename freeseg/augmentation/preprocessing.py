@@ -225,7 +225,7 @@ def apply_randomcrop(image, label, crop_size, mode='random', bbox_labels=None, v
     return cropped_image, cropped_label
 
 
-def apply_centercrop(image, crop_size, center_point=None, verbose=False):
+def apply_centercrop(image, crop_size, label=None, prior=None, verbose=False):
     """Applies a crop centered around a specified point or the image center.
 
     Args:
@@ -240,32 +240,41 @@ def apply_centercrop(image, crop_size, center_point=None, verbose=False):
     """    
 
     # input image is non-batched tensor
-    image_shape = image.shape[1:]
+    image_shape = torch.tensor(image.shape[1:], device=image.device)
+    crop_size = torch.tensor(crop_size, device=image.device)
 
-    crop_half = (np.array(crop_size)/2).astype(int)
+    crop_idx = None
+    if (not torch.any(image_shape > crop_size)):
+        return image, label, prior, crop_idx
 
+    center_point = None
+    # calculate the center point to crop the image/label around    
+    if (label is not None):
+        center_point = centroid(label.squeeze(0), verbose=verbose)
+
+    crop_half = (crop_size/2).int()
     if (center_point is None):
-        center_point = tuple(dim // 2 for dim in image_shape)
+        center_point = (image_shape/2).int()   #tuple(dim // 2 for dim in image_shape)
     else:
         # adjust the calculated center so that croppred image will have crop_size
-        if (np.any(center_point < crop_half)):
+        if (torch.any(center_point < crop_half)):
             distance = crop_half - center_point
             center_point += np.maximum(0,  distance)    
-        if (np.any(center_point > (image_shape - crop_half))):
+        if (torch.any(center_point > (image_shape - crop_half))):
             distance = center_point - (image_shape - crop_half)
             center_point -= np.maximum(0,  distance)
 
     # Calculate the starting and ending indices for the crop region
-    start_coords = tuple(max(0, center - half) for center, half in zip(center_point, crop_half))
-    end_coords = tuple(min(center + half, dim) for center, half, dim in zip(center_point, crop_half, image_shape))
-    crop_idx = np.concatenate([np.array(start_coords), np.array(end_coords)])
+    start_coords = torch.maximum(torch.zeros(image.ndim-1, device=image.device, dtype=int), center_point - crop_half)
+    end_coords = torch.minimum(center_point + crop_half, image_shape)
+    crop_idx = torch.concat((start_coords, end_coords))
     if (verbose):
         print(f"adjusted crop center: {center_point}, crop indices: {crop_idx}")
  
-    # Create slicing expression for efficient cropping
-    slicing = [slice(None)] + [slice(start, end) for start, end in zip(start_coords, end_coords)]
-
-    return image[slicing], crop_idx
+    return image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]], \
+           label[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (label is not None) else None, \
+           prior[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (prior is not None) else None, \
+           crop_idx
 
 
 def apply_blur_resample(image, voxsize,
@@ -556,8 +565,6 @@ def apply_augmentations(
                 dtype=float
             )        
             
-    crop_size = augment_para.get("crop_size", None)
-            
     if "flipping" in augmentations_to_apply:
         flip_prob = augment_para.get("flip_prob")
         aff = original_image.geom.vox2world.matrix
@@ -603,28 +610,22 @@ def apply_augmentations(
                 os.path.join(output_dir, save_volumes + "_transformed_label.mgz"),
                 original_framedimage=original_label,                
             )
-            save_framedimage(
-                priors_tensor,
-                os.path.join(output_dir, save_volumes + "_transformed_prior.mgz"),
-                original_framedimage=original_image,
-                dtype=float
-            )            
+            if (priors_tensor is not None):
+                save_framedimage(
+                    priors_tensor,
+                    os.path.join(output_dir, save_volumes + "_transformed_prior.mgz"),
+                    original_framedimage=original_image,
+                    dtype=float
+                )            
 
     # ??? we are now supporting cropping, randomcrop, randomcrop_center. check to allow only one type of cropping ???
+    crop_size = augment_para.get("crop_size", None)    
     if "cropping" in augmentations_to_apply:
         # check if the original image already has crop_size
         if (crop_size is not None):
             # image_tensor/label_tensor is non-batched
-            image_shape = image_tensor.shape[1:]
-            if (np.any(np.array(image_shape) > np.array(crop_size))):
-                # calculate the center point to crop the image/label around
-                center_point = centroid(label_tensor.cpu().squeeze(0).detach().numpy(), verbose=verbose)
-            
-                image_tensor, _ = apply_centercrop(image_tensor, crop_size, center_point=center_point, verbose=verbose)
-                label_tensor, _ = apply_centercrop(label_tensor, crop_size, center_point=center_point, verbose=verbose)
-                if (priors_tensor is not None):
-                    priors_tensor, _ = apply_centercrop(priors_tensor, crop_size, center_point=center_point, verbose=verbose)
-
+            image_tensor, label_tensor, priors_tensor, crop_idx = apply_centercrop(image_tensor, crop_size, label=label_tensor, prior=priors_tensor, verbose=verbose)
+            if (crop_idx is not None):
                 if save_volumes is not None and output_dir is not None:
                     save_framedimage(
                         image_tensor,
@@ -636,12 +637,13 @@ def apply_augmentations(
                         os.path.join(output_dir, save_volumes + "_centercropped_label.mgz"),
                         original_framedimage=original_label,                        
                     )
-                    save_framedimage(
-                        priors_tensor,
-                        os.path.join(output_dir, save_volumes + "_centercropped_prior.mgz"),
-                        original_framedimage=original_image,
-                        dtype=float
-                    )                    
+                    if (priors_tensor is not None):
+                        save_framedimage(
+                            priors_tensor,
+                            os.path.join(output_dir, save_volumes + "_centercropped_prior.mgz"),
+                            original_framedimage=original_image,
+                            dtype=float
+                        )                    
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
 
