@@ -19,6 +19,7 @@ from freeseg.metrics import WeightedL2Loss, DiceLoss
 """
 Usage: freeseg_train.py 
        --config <config.yaml>
+       [--keep_trainset_in_memory]
        [--model_name <model_classname>]
        [--check_augment]
        [--dataset_list_file <dataset_list_file>]
@@ -143,7 +144,7 @@ def main():
     inverse_label_mapping = {v: k for k, v in label_mapping.items()}
     config["dataset"]["label_mapping"] = label_mapping
     train_dataset, validation_dataset, _ = load_datasets(config, config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"),
-                                                         device=preprocessing_device, check_augment=args.check_augment)
+                                                         device=preprocessing_device, check_augment=args.check_augment, keep_trainset_in_memory=args.keep_trainset_in_memory)
 
     # Create training DataLoader
     train_loader = DataLoader(train_dataset, batch_size=config["training"]["batch_size"], shuffle=True,
@@ -177,6 +178,7 @@ def main():
     logging.info(f"batch_size: {config['training']['batch_size']}")
     logging.info(f"crop_size: {crop_size}")
     logging.info(f"color table: {ctab}")
+    logging.info(f"keep_trainset_in_memory: {args.keep_trainset_in_memory}")
     if (perform_evaluation):
         logging.info(f"best_model_metric: {best_model_metric}")
     logging.info(f"training config: saved as {output_folder}/config.yaml")
@@ -208,6 +210,7 @@ def argument_parse():
     parser.add_argument("--config", type=str, required=True, help="Path to the configuration file")
     parser.add_argument("--model_name", type=str, help="Class used to create the model to train")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
+    parser.add_argument("--keep_trainset_in_memory", action='store_true', help="Keep preloaded training data in memory")    
     parser.add_argument("--ctab", type=str, help="Path to the lookup table")
     parser.add_argument("--train_root_folder", type=str, default=None, help="Base folder for saving training outputs")    
     parser.add_argument("--run_name", type=str, default=None, help="Descriptive name for the run (used for naming TensorBoard log directories)")

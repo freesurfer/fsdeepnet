@@ -9,7 +9,7 @@ from freeseg.augmentation import apply_augmentations
 from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot
 
 class SegmentationDataset(Dataset):
-    def __init__(self, config, dataset_dict=None, image=None, label=None, priors=None, transform=None, device=None, check_augment=False):
+    def __init__(self, config, dataset_dict=None, image=None, label=None, priors=None, transform=None, device=None, check_augment=False, keep_trainset_in_memory=False):
         """
         SegmentationDataset Constructor
 
@@ -40,6 +40,10 @@ class SegmentationDataset(Dataset):
 
         assert (self.ndims == 3 or self.ndims == 2), "Model supports 3D or 2D"
 
+        self.keep_trainset_in_memory = keep_trainset_in_memory
+        self.images = []
+        self.image_tensors , self.label_tensors, self.prior_tensors = [], [], []
+        
         # Extract image, label, priors file paths
         self.image_files, self.label_files, self.priors_files = [], [], []
         if (dataset_dict is not None):
@@ -70,21 +74,32 @@ class SegmentationDataset(Dataset):
         image_path = self.image_files[index]
         label_path = self.label_files[index]
 
-        # Load image and label using the load_framedimage function
-        image, image_tensor, _ = load_framedimage(image_path, orientation="RAS", device=self.device, ndims=self.ndims)
-        label, label_tensor, _ = load_framedimage(label_path, orientation="RAS", device=self.device, ndims=self.ndims)
+        if (not self.keep_trainset_in_memory):
+            # Load image and label using the load_framedimage function
+            image, image_tensor, _ = load_framedimage(image_path, orientation="RAS", device=self.device, ndims=self.ndims)
+            label, label_tensor, _ = load_framedimage(label_path, orientation="RAS", device=self.device, ndims=self.ndims)
+            
+            # load priors if they are provided
+            priors_tensor = None        
+            if (self.haspriors()):
+                priors_path = self.priors_files[index]        
+                sfprior, priors_tensor, _  = load_framedimage(priors_path, orientation="RAS", device=self.device, ndims=self.ndims)
 
-        # load priors if they are provided
-        priors_tensor = None        
-        if (self.haspriors()):
-            priors_path = self.priors_files[index]        
-            sfprior, priors_tensor, _  = load_framedimage(priors_path, orientation="RAS", device=self.device, ndims=self.ndims)
-
-        # where/whether to save preprocessed data
-        save_volumes = os.path.splitext(os.path.basename(image_path))[0]
-        output_dir = self.augment_para.get("augmentation_dir", None)
-        if ((output_dir is not None) and (not os.path.exists(output_dir))):
-            os.makedirs(output_dir)            
+            # where/whether to save preprocessed data
+            save_volumes = os.path.splitext(os.path.basename(image_path))[0]
+            output_dir = self.augment_para.get("augmentation_dir", None)
+            if ((output_dir is not None) and (not os.path.exists(output_dir))):
+                os.makedirs(output_dir)                
+        else:
+            # retrieve preloaded data, saving augmentated volumes will not work when keep_trainset_in_memory=True
+            label = None
+            sfprior = None
+            save_volumes = None
+            output_dir = None
+            image = self.images[index]            
+            image_tensor  = self.image_tensors[index]
+            label_tensor  = self.label_tensors[index]
+            priors_tensor = self.prior_tensors[index]
 
         # Apply data augmentation if transform is specified
         if self.transform:
@@ -176,6 +191,7 @@ class SegmentationDataset(Dataset):
             assert (label_tensor.shape == image_tensor.shape), \
                 f"image and label need to be in the same shape. label {f_label} has shape {label_tensor.shape}, image {f_image} has shape {image_tensor.shape}"
 
+            prior, prior_tensor = None, None
             if (self.haspriors()):
                 f_prior = self.priors_files[n]
                 prior, prior_tensor, _ = load_framedimage(f_prior, device=self.device, ndims=self.ndims)
@@ -188,6 +204,12 @@ class SegmentationDataset(Dataset):
             assert (input_shape[0] == expected_num_channels), \
                 f"Expected {expected_num_channels} channels, but got {input_shape[0]}"
             
+            if (self.keep_trainset_in_memory):
+                self.images.append(image)
+                self.image_tensors.append(image_tensor)
+                self.label_tensors.append(label_tensor)
+                self.prior_tensors.append(prior_tensor)
+
             if (label_lookup is None):
                 label_lookup = image.labels if (image.labels is not None) else label.labels
 
@@ -218,7 +240,8 @@ def load_datasets(
     validation_augmentations=None,
     test_augmentations=None,
     device=None,
-    check_augment=False    
+    check_augment=False,
+    keep_trainset_in_memory=False
 ):
     if (device is None):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -234,7 +257,8 @@ def load_datasets(
             dataset_dict=dataset,            
             transform=train_augmentations,
             device=device,
-            check_augment=check_augment
+            check_augment=check_augment,
+            keep_trainset_in_memory=keep_trainset_in_memory
         )
 
     dataset = dataset_dict.get("validation")
