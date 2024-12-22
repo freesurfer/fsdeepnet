@@ -168,6 +168,9 @@ class Training:
             # output training dices (n_labels x steps_per_epoch)
             f_dice_scores = os.path.join(self._dice_dir, f"train_{metric_type}_{epoch+1:03d}.npy")
             np.save(f_dice_scores, train_dices)
+            f_dice_dat = os.path.join(self._dice_dir, f"d.train_{metric_type}_{epoch+1:03d}.dat")
+            # Save in text format as nepochs x nlabels
+            np.savetxt(f_dice_dat, np.transpose(np.squeeze(train_dices)))
     
             if (self._validation_loader is None):
                 logging.info(
@@ -201,6 +204,9 @@ class Training:
                 # output validation dices (n_labels x len(self._validation_loader))
                 f_dice_scores = os.path.join(self._dice_dir, f"validation_{metric_type}_{epoch+1:03d}.npy")
                 np.save(f_dice_scores, validation_dices)
+                f_dice_dat = os.path.join(self._dice_dir, f"d.validation_{metric_type}_{epoch+1:03d}.dat")
+                # Save in text format as nsubjects x nlabels
+                np.savetxt(f_dice_dat, np.transpose(np.squeeze(validation_dices)))
 
                 logging.info(
                     f"Epoch [{epoch+1}/{epochs}], "
