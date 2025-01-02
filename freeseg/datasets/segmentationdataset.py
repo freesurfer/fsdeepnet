@@ -164,11 +164,24 @@ class SegmentationDataset(Dataset):
                 trycount = trycount + 1
                 logging.info(f"Reject {save_volumes} augmentation, retry #{trycount} ...")               
 
-        if (augmented_priors_tensor is None):
-            # torch.utils.data.DataLoader can't return NoneType, make an empty tensor with 0 elements
-            augmented_priors_tensor = torch.empty(0, *onehot_augmented_label_tensor.shape[1:], device=augmented_image_tensor.device)
+            if (augmented_priors_tensor is None):
+                # torch.utils.data.DataLoader can't return NoneType, make an empty tensor with 0 elements
+                augmented_priors_tensor = torch.empty(0, *onehot_augmented_label_tensor.shape[1:], device=augmented_image_tensor.device)
 
-        return index, augmented_image_tensor, onehot_augmented_label_tensor, augmented_priors_tensor
+            return index, augmented_image_tensor, onehot_augmented_label_tensor, augmented_priors_tensor
+        else:
+            # freeseg.utils.remap_labels() and freeseg.utils.onehot() expect batched tensor [N, 1, H, W(, D)]
+            # add batch axis before calling remap_labels() and onehot()
+            onehot_label_tensor = remap_labels(label_tensor.int().unsqueeze(0), self.label_mapping)
+            onehot_label_tensor = onehot(onehot_label_tensor, num_classes=self.num_classes, device=self.device)
+            # remove the added batch axis, DataLoader will batch the tensor based on batch_size
+            onehot_label_tensor = onehot_label_tensor.squeeze(0)
+            if (priors_tensor is None):
+                # torch.utils.data.DataLoader can't return NoneType, make an empty tensor with 0 elements
+                priors_tensor = torch.empty(0, *onehot_label_tensor.shape[1:], device=image_tensor.device)
+            
+            return index, image_tensor, onehot_label_tensor, priors_tensor
+
 
     def preload(self):
         """preprocesses all label maps, retrieve input tensor shape and unique classes."""
