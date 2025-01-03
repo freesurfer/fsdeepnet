@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import sys
 import torch
 import argparse
 import yaml
@@ -8,7 +9,7 @@ import yaml
 from freeseg.prediction import Prediction
 
 
-"""
+description = """
 Usage: freeseg_predict.py 
        [--i <image_path> | --dataset_list_file <dataset.yaml> --cohort <train|validation|test>]
        --o  <output_segmentations>
@@ -78,7 +79,7 @@ def main():
 
 def argument_parse():
     # Parse command-line arguments
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description=description)
 
     # input/outputs
     parser.add_argument("--i", type=str, help="Image(s) to segment. Can be a path to an image or to a folder.")
@@ -95,6 +96,10 @@ def argument_parse():
     parser.add_argument("--write_posteriors", action='store_true', help="Save the label posteriors.")
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
     parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
+
+    if len(sys.argv) < 2:
+        parser.print_help()
+        sys.exit(1)
 
     # parse commandline
     args = parser.parse_args()
