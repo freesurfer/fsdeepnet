@@ -39,7 +39,8 @@ class SegmentationDataset(Dataset):
         self.check_augment = check_augment
 
         assert (self.ndims == 3 or self.ndims == 2), "Model supports 3D or 2D"
-        check_augmentations(self.transform)
+        if (self.transform is not None):
+            check_augmentations(self.transform)
 
         self.keep_trainset_in_memory = keep_trainset_in_memory
         self.images = []

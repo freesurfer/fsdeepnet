@@ -252,7 +252,7 @@ def apply_centercrop(image, crop_size, label=None, prior=None, verbose=False):
     if (label is not None):
         center_point = centroid(label.squeeze(0), verbose=verbose)
 
-    zero_tensor = torch.zeros(image_shape.ndim, device=image.device, dtype=int)
+    zero_tensor = torch.zeros(image.ndim-1, device=image.device, dtype=int)
     crop_half = (crop_size/2).int()
     if (center_point is None):
         center_point = (image_shape/2).int()   #tuple(dim // 2 for dim in image_shape)
