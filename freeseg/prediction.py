@@ -131,6 +131,12 @@ class Prediction:
                 os.makedirs(out_segmentations)
             assert os.path.isdir(out_segmentations), '%s need to be a directory to segment list of images' % (out_segmentations)
 
+            if (path_labels is not None):
+                assert os.path.isdir(path_labels), '%s need to be a directory\n' % (path_images, path_labels)
+                path_labels = sorted(glob.glob(os.path.join(path_labels, '*.nii.gz')) +
+                                     glob.glob(os.path.join(path_labels, '*.nii')) +
+                                     glob.glob(os.path.join(path_labels, '*.mgz')))
+                
             # pre-generate all *_predict* filenames
             out_segmentations = [os.path.join(out_segmentations, os.path.basename(p)) for p in path_images]
             out_segmentations = [p.replace('.nii', '.%s.nii' % pred_suffix) for p in out_segmentations]
@@ -181,6 +187,13 @@ class Prediction:
             path_images = [path_images]
             out_segmentations = [out_segmentations]
 
+        # check path_images, path_labels, path_priors, and out_segmentations have the same length
+        assert (len(path_images) == len(out_segmentations)), "input images and output segmentations need to be the same length"
+        if (path_labels is not None):
+            assert (len(path_images) == len(path_labels)), "images and labels need to be the same length"        
+        if (path_priors is not None):
+            assert (len(path_images) == len(path_priors)), "images and priors need to be the same length"
+        
         if (write_posteriors):
             out_posteriors_dir = os.path.join(os.path.dirname(out_segmentations[0]), "posteriors")
             os.makedirs(out_posteriors_dir, exist_ok=True)
