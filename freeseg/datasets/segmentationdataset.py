@@ -88,7 +88,7 @@ class SegmentationDataset(Dataset):
                 sfprior, priors_tensor, _  = load_framedimage(priors_path, orientation="RAS", device=self.device, ndims=self.ndims)
 
             # where/whether to save preprocessed data
-            save_volumes = os.path.splitext(os.path.basename(image_path))[0]
+            save_volumes = f"{index+1:04d}."+os.path.splitext(os.path.basename(image_path))[0]
             output_dir = self.augment_para.get("augmentation_dir", None)
             if ((output_dir is not None) and (not os.path.exists(output_dir))):
                 os.makedirs(output_dir)                
