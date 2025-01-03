@@ -138,7 +138,7 @@ class Prediction:
                                      glob.glob(os.path.join(path_labels, '*.mgz')))
                 
             # pre-generate all *_predict* filenames
-            out_segmentations = [os.path.join(out_segmentations, os.path.basename(p)) for p in path_images]
+            out_segmentations = [os.path.join(out_segmentations, f"{idx+1:04d}."+os.path.basename(p)) for idx, p in enumerate(path_images)]
             out_segmentations = [p.replace('.nii', '.%s.nii' % pred_suffix) for p in out_segmentations]
             out_segmentations = [p.replace('.mgz', '.%s.mgz' % pred_suffix) for p in out_segmentations]
         elif (os.path.isdir(path_images)):
@@ -168,7 +168,7 @@ class Prediction:
                                      glob.glob(os.path.join(path_priors, '*.mgz')))
 
             # pre-generate all *_predict* filenames
-            out_segmentations = [os.path.join(out_segmentations, os.path.basename(p)) for p in path_images]
+            out_segmentations = [os.path.join(out_segmentations, f"{idx+1:04d}."+os.path.basename(p)) for idx, p in enumerate(path_images)]
             out_segmentations = [p.replace('.nii', '.%s.nii' % pred_suffix) for p in out_segmentations]
             out_segmentations = [p.replace('.mgz', '.%s.mgz' % pred_suffix) for p in out_segmentations]
         else:
@@ -201,9 +201,7 @@ class Prediction:
             out_debug_dir = os.path.join(os.path.dirname(out_segmentations[0]), "debug")
             os.makedirs(out_debug_dir, exist_ok=True)
 
-        list_predictions = None
-        if (path_gt is not None):
-            list_predictions = list()  # make an empty list
+        list_predictions = list()  # make an empty list
 
         # perform segmentation
         for i in range(len(path_images)):
@@ -214,15 +212,14 @@ class Prediction:
                 sfprior, prior_tensor, orig_ori_prior = load_framedimage(path_priors[i], orientation="RAS", device=self._device, ndims=self._ndims)
                 assert (list(prior_tensor.shape) == [self._num_labels, *image_tensor.shape[1:]]), \
                     f"Expected prior shape [self.num_classes, *image_tensor.shape[1:]], but got {list(prior_tensor.shape)}"
-                
-            if (list_predictions is not None):
-                list_predictions.append(os.path.splitext(os.path.basename(path_images[i]))[0])  # strip file extension
+
+            list_predictions.append(path_images[i])
             if (debug):
                 print("[DEBUG] output re-oriented image/prior ...")
-                out_reoriented_image = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.reoriented.RAS.mgz"
+                out_reoriented_image = os.path.join(out_debug_dir, f"{i+1:04d}."+os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.reoriented.RAS.mgz"
                 save_framedimage(image_tensor, out_reoriented_image, original_framedimage=sfimage)
                 if (path_priors is not None):
-                    out_reoriented_prior = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_priors[i]))[0])+f".prior.reoriented.RAS.mgz"
+                    out_reoriented_prior = os.path.join(out_debug_dir, f"{i+1:04d}."+os.path.splitext(os.path.basename(path_priors[i]))[0])+f".prior.reoriented.RAS.mgz"
                     save_framedimage(prior_tensor, out_reoriented_prior, original_framedimage=sfprior)
                 
             label_lookup = self._label_lookup
@@ -259,19 +256,19 @@ class Prediction:
                         crop = 'centroidcropped'
 
                     print(f"[DEBUG] output {crop} image/label ...")
-                    out_cropped_image = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.RAS.mgz"
+                    out_cropped_image = os.path.join(out_debug_dir, f"{i+1:04d}."+os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.RAS.mgz"
                     save_framedimage(image_tensor_cropped, out_cropped_image, original_framedimage=sfimage)
-                    out_cropped_image = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.mgz"
+                    out_cropped_image = os.path.join(out_debug_dir, f"{i+1:04d}."+os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.mgz"
                     save_framedimage(image_tensor_cropped, out_cropped_image, original_framedimage=sfimage, orientation=orig_orientation)
                     if (prior_tensor_cropped is not None):
-                        out_cropped_prior = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_priors[i]))[0])+f".prior.{crop}.RAS.mgz"
+                        out_cropped_prior = os.path.join(out_debug_dir, f"{i+1:04d}."+os.path.splitext(os.path.basename(path_priors[i]))[0])+f".prior.{crop}.RAS.mgz"
                         save_framedimage(prior_tensor_cropped, out_cropped_prior, original_framedimage=sfprior, dtype=float)
-                        out_cropped_prior = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_priors[i]))[0])+f".prior.{crop}.mgz"
+                        out_cropped_prior = os.path.join(out_debug_dir, f"{i+1:04d}."+os.path.splitext(os.path.basename(path_priors[i]))[0])+f".prior.{crop}.mgz"
                         save_framedimage(prior_tensor_cropped, out_cropped_prior, original_framedimage=sfprior, orientation=orig_orientation, dtype=float)
                     if (path_labels is not None):
-                        out_cropped_label = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_labels[i]))[0])+f".label.{crop}.RAS.mgz"
+                        out_cropped_label = os.path.join(out_debug_dir, f"{i+1:04d}."+os.path.splitext(os.path.basename(path_labels[i]))[0])+f".label.{crop}.RAS.mgz"
                         save_framedimage(label_tensor_cropped, out_cropped_label, original_framedimage=sflabel)
-                        out_cropped_label = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(path_labels[i]))[0])+f".label.{crop}.mgz"
+                        out_cropped_label = os.path.join(out_debug_dir, f"{i+1:04d}."+os.path.splitext(os.path.basename(path_labels[i]))[0])+f".label.{crop}.mgz"
                         save_framedimage(label_tensor_cropped, out_cropped_label, original_framedimage=sflabel, orientation=orig_orientation)
                     # end of debugging
 
@@ -342,11 +339,10 @@ class Prediction:
                 eval.evaluate(path_gt, out_segmentations[0], path_dice=path_dice)
 
             # output predictions in the order they are performed
-            if (list_predictions is not None):
-                f_list_predictions = open(os.path.join(os.path.dirname(path_dice), 'predictions.lst'), "w")
-                for idx, predict in enumerate(list_predictions):
-                    f_list_predictions.write(f"{idx+1}:{predict}\n")
-                f_list_predictions.close()
+            f_list_predictions = open(os.path.join(os.path.dirname(path_dice), 'predictions.lst'), "w")
+            for idx, predict in enumerate(list_predictions):
+                f_list_predictions.write(f"{idx+1:04d}:{predict}\n")
+            f_list_predictions.close()
             
             
     """
