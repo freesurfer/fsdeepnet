@@ -63,6 +63,9 @@ def main():
                 path_priors.append(item["prior_filepath"])
 
         path_priors = path_priors if (len(path_priors)) else None
+        assert (len(path_images) == len(path_gt)), "image and label need to be the same length"
+        if (path_priors is not None):
+            assert (len(path_images) == len(path_priors)), "images and priors need to be the same length"
         
     predict(path_images, args.o, args.checkpoint,
             crop_size=args.crop_size,
