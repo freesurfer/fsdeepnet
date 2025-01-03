@@ -252,7 +252,7 @@ def apply_centercrop(image, crop_size, label=None, prior=None, verbose=False):
     if (label is not None):
         center_point = centroid(label.squeeze(0), verbose=verbose)
 
-    zero_tensor = torch.zeros(label.squeeze(0).ndim, device=image.device, dtype=int)
+    zero_tensor = torch.zeros(image_shape.ndim, device=image.device, dtype=int)
     crop_half = (crop_size/2).int()
     if (center_point is None):
         center_point = (image_shape/2).int()   #tuple(dim // 2 for dim in image_shape)
@@ -495,6 +495,24 @@ def apply_intensityAugmentation(image, noise_std=0, normalise=True, gamma_std=0,
         image = torch.pow(image, torch.exp(gamma))
 
     return image
+
+
+def check_augmentations(augmentations_to_apply):
+    """
+    check duplicated augmentations
+    """
+
+    if (("cropping" in augmentations_to_apply) and ("randomcrop" in augmentations_to_apply)):
+        raise ValueError("Both 'cropping' and 'randomcrop' are selected. Choose one.")
+    if (("cropping" in augmentations_to_apply) and ("randomcrop_center" in augmentations_to_apply)):
+        raise ValueError("Both 'cropping' and 'randomcrop_center' are selected. Choose one.")
+    if (("randomcrop" in augmentations_to_apply) and ("randomcrop_center" in augmentations_to_apply)):
+        raise ValueError("Both 'randomcrop' and 'randomcrop_center' are selected. Choose one.")
+
+    if (("bias_field" in augmentations_to_apply) and ("biasFieldCorruption" in augmentations_to_apply)):
+        raise ValueError("Both 'bias_field' and 'biasFieldCorruption' are selected. Choose one.")
+    if (("blur_resample" in augmentations_to_apply) and ("intensityAugmentation" in augmentations_to_apply)):
+        raise ValueError("Both 'blur_resample' and 'intensityAugmentation' are selected. Choose one.")
 
 
 # data augmentations are applied in this order:

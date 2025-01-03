@@ -5,7 +5,7 @@ import torch
 import yaml
 from torch.utils.data import Dataset
 
-from freeseg.augmentation import apply_augmentations
+from freeseg.augmentation import check_augmentations, apply_augmentations
 from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot
 
 class SegmentationDataset(Dataset):
@@ -39,6 +39,7 @@ class SegmentationDataset(Dataset):
         self.check_augment = check_augment
 
         assert (self.ndims == 3 or self.ndims == 2), "Model supports 3D or 2D"
+        check_augmentations(self.transform)
 
         self.keep_trainset_in_memory = keep_trainset_in_memory
         self.images = []

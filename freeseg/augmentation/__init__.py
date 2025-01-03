@@ -1,3 +1,4 @@
+from .preprocessing import check_augmentations
 from .preprocessing import apply_augmentations
 from .preprocessing import apply_flipping
 from .preprocessing import apply_spatial_transform
