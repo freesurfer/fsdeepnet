@@ -72,9 +72,15 @@ class Evaluation:
         n_labels = len(evaluation_labels)
         
         # convert path to absolute paths
-        gt_folder = os.path.abspath(gt_folder)
-        eval_folder = os.path.abspath(eval_folder)
-        if (os.path.isdir(gt_folder)):
+        if (not isinstance(gt_folder, list)):
+            gt_folder = os.path.abspath(gt_folder)
+        if (not isinstance(eval_folder, list)):
+            eval_folder = os.path.abspath(eval_folder)
+
+        if (isinstance(gt_folder, list) and isinstance(eval_folder, list)):
+            path_gt_labels = gt_folder
+            path_segs = eval_folder
+        elif (os.path.isdir(gt_folder)):
             assert os.path.isdir(eval_folder), 'both %s and %s need to be directory' % (gt_folder, eval_folder)
             # get *.nii.gz, *.nii, *.mgz in the directory
             path_gt_labels = sorted(glob.glob(os.path.join(gt_folder, '*.nii.gz')) +

@@ -90,7 +90,7 @@ fspython scripts/freeseg_train.py
 6. Run the prediction script to segment any input images
 ```bash
 fspython scripts/freeseg_predict.py 
-       	 --i <input_images>
+       	 [--i <image_path> | --dataset_list_file <dataset.yaml> --cohort <train|validation|test>]
       	 --o <output_segmentations>
     	 --checkpoint <checkpoint>
     	 [--crop_size <W H (D)>]
@@ -98,10 +98,14 @@ fspython scripts/freeseg_predict.py
 	 [--label <input_labels>]
 	 [--prior <input_priors>]
        	 [--gt <ground_truth>] 
-       	 [--path_dice <path_dice>]
        	 [--noaddctab]
        	 [--write_posteriors]
        	 [--cpu]
+
+       * Use one of the following options to specify images to segment:
+         1. --i <image_path> or 
+         2. --dataset_list_file <dataset.yaml> --cohort <train|validation|test>
+       * Options --i <image_path> and --dataset_list_file <dataset.yaml> are mutually exclusive.
 ```
 
 7. Run the evaluation script to compute dice between ground truth and segmentation

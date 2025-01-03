@@ -100,7 +100,6 @@ class Prediction:
                 path_labels=None,
                 path_priors=None,
                 path_gt=None, # for hard-dice calculation
-                path_dice=None,
                 addctab=True,
                 write_posteriors=False,
                 debug=False):
@@ -119,13 +118,24 @@ class Prediction:
         posteriors_suffix = 'posteriors'
             
         # convert path to absolute paths
-        path_images = os.path.abspath(path_images)
-        if (path_labels is not None):
-            path_labels = os.path.abspath(path_labels)
-        if (path_priors is not None):
-            path_priors = os.path.abspath(path_priors)
+        if (not isinstance(path_images, list)):
+            path_images = os.path.abspath(path_images)
+            if (path_labels is not None):
+                path_labels = os.path.abspath(path_labels)
+            if (path_priors is not None):
+                path_priors = os.path.abspath(path_priors)
             
-        if (os.path.isdir(path_images)):
+        if (isinstance(path_images, list)):
+            # list of images
+            if (not os.path.exists(out_segmentations)):
+                os.makedirs(out_segmentations)
+            assert os.path.isdir(out_segmentations), '%s need to be a directory to segment list of images' % (out_segmentations)
+
+            # pre-generate all *_predict* filenames
+            out_segmentations = [os.path.join(out_segmentations, os.path.basename(p)) for p in path_images]
+            out_segmentations = [p.replace('.nii', '.%s.nii' % pred_suffix) for p in out_segmentations]
+            out_segmentations = [p.replace('.mgz', '.%s.mgz' % pred_suffix) for p in out_segmentations]
+        elif (os.path.isdir(path_images)):
             if (path_labels is not None):
                 assert os.path.isdir(path_labels), 'both %s and %s need to be directory' % (path_images, path_labels)
             if (path_priors is not None):
@@ -159,6 +169,8 @@ class Prediction:
             # single image
             assert os.path.isfile(path_images), 'file does not exist: %s \n' \
                                                 'please make sure the path and the extension are correct' % path_images
+            assert (not os.path.isdir(out_segmentations)), 'both %s and %s need to be files' % (path_images, out_segmentations)
+                
             if (path_labels is not None):
                 assert os.path.isfile(path_labels), 'both %s and %s need to be file \n' % (path_images, path_labels)
                 path_labels = [path_labels]
@@ -305,12 +317,13 @@ class Prediction:
             # calculate hard-dice between saved segmentations and their ground truth
             from freeseg.evaluation import Evaluation
 
-            if (path_dice is None):
-                path_dice = os.path.join(os.path.dirname(out_segmentations[0]), 'dices.npy')
+            path_dice = os.path.join(os.path.dirname(out_segmentations[0]), 'dices.npy')
 
             print(f"\nEvaluating segmentations ...")
             eval = Evaluation(self._labels_segmentation)                
-            if (os.path.isdir(path_gt)):
+            if (isinstance(path_gt, list)):
+                eval.evaluate(path_gt, out_segmentations, path_dice=path_dice)
+            elif (os.path.isdir(path_gt)):
                 eval.evaluate(path_gt, os.path.dirname(out_segmentations[0]), path_dice=path_dice)
             else:
                 eval.evaluate(path_gt, out_segmentations[0], path_dice=path_dice)
