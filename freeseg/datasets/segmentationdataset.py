@@ -197,8 +197,8 @@ class SegmentationDataset(Dataset):
         for n in range(self.num_entries):
             f_label, f_image = self.label_files[n], self.image_files[n]
 
-            label, label_tensor, _ = load_framedimage(f_label, device=self.device, ndims=self.ndims)
-            image, image_tensor, _ = load_framedimage(f_image, device=self.device, ndims=self.ndims)
+            label, label_tensor, _ = load_framedimage(f_label, orientation="RAS", device=self.device, ndims=self.ndims)
+            image, image_tensor, _ = load_framedimage(f_image, orientation="RAS", device=self.device, ndims=self.ndims)
 
             # label_tensor and image_tensor are non-batched [C, H, W (,D)]
             assert (self.ndims == label_tensor.ndim - 1), f"Expected {self.ndims}D label, but got {label_tensor.ndim - 1}D"            
@@ -209,7 +209,7 @@ class SegmentationDataset(Dataset):
             prior, prior_tensor = None, None
             if (self.haspriors()):
                 f_prior = self.priors_files[n]
-                prior, prior_tensor, _ = load_framedimage(f_prior, device=self.device, ndims=self.ndims)
+                prior, prior_tensor, _ = load_framedimage(f_prior, orientation="RAS", device=self.device, ndims=self.ndims)
                 
                 # prior_tensor is non-batched [self.num_classes, H, W (,D)]
                 assert (list(prior_tensor.shape) == [self.num_classes, *label_tensor.shape[1:]]), \
