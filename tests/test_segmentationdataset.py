@@ -7,13 +7,14 @@ import argparse
 import numpy as np
 import shutil
 
-from freeseg.utils import load_config
+from freeseg.utils import load_config, set_deterministic_training
 from freeseg.datasets import load_datasets, SegmentationDataset
 
 """
 Usage: test_preprocessing.py 
        --config <config.yaml>
        [--augment]
+       [--deterministic]
        [--outdir <augmentation_output_dir>]
        [--check_augment]
        [--image <im1 im2 ...> --label <lb1 lb2 ...> [--priors <...>]]
@@ -23,7 +24,7 @@ Usage: test_preprocessing.py
        [--cpu]
        [--verbose]
 
-    * - The input image/label is taken from
+    * - The input image/label is taken from one of the following:
         1. '--image <im1 im2 ...> --label <lb1 lb2 ...>'
         2. '--dataset_list_file <dataset_list_file>' or 
            config.yaml entry ["dataset"]["dataset_list_file"]
@@ -56,6 +57,8 @@ def main():
         config["dataset"]["dataset_list_file"] = args.dataset_list_file    
     if (args.crop_size is not None):
         config["preprocessing"]["crop_size"] = args.crop_size
+    if (args.deterministic is not None):
+        config["training"]["deterministic"] = args.deterministic        
     if (args.batch_size is not None):
         config["training"]["batch_size"] = args.batch_size
     if (args.outdir is not None):
@@ -65,6 +68,11 @@ def main():
         
     # Access updated configuration values
     crop_size = config["preprocessing"]["crop_size"]
+    deterministic = config["training"]["deterministic"]
+    if (deterministic):
+        # ??? todo: for multi-process dataloader, use worker_init_fn() and generator to preserve reproducibility
+        #           see https://pytorch.org/docs/stable/notes/randomness.html
+        set_deterministic_training()
 
     output_folder = config["preprocessing"].get("augmentation_dir", None)
     if (args.augment):
@@ -98,6 +106,7 @@ def main():
     logging.info("Preprocessing Device: {}".format(preprocessing_device))
     logging.info(f"batch_size: {config['training']['batch_size']}")
     logging.info(f"crop_size: {crop_size}")
+    logging.info(f"deterministic: {deterministic}")
     
     if (args.augment):
         logging.info("Perform data augmentation ...")        
@@ -119,7 +128,8 @@ def argument_parse():
 
     # input/outputs
     parser.add_argument("--config", type=str, required=True, help="Path to the configuration file")
-    parser.add_argument("--augment", action='store_true', help="Perform augmentation on input image/label.")        
+    parser.add_argument("--augment", action='store_true', help="Perform augmentation on input image/label.")
+    parser.add_argument("--deterministic", action='store_true', help="deterministic training")
     parser.add_argument("--outdir", type=str, help="Path to augmentation output (needed for augmenting)")
     parser.add_argument("--check_augment", action='store_true', help="Reject augmentations not having all the labels")
     parser.add_argument("--image", nargs="+", type=str, help="Input image volume(s)")

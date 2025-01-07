@@ -90,6 +90,7 @@ preprocessing:
   gamma_scaling_max: 0.5
 
 training:
+  deterministic: False
   dice_epochs: 100
   wl2_epochs: 5
   steps_per_epoch: 1000

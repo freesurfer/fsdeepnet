@@ -249,6 +249,7 @@ class UNet(nn.Module):
         # here we are adding the priors to output of classification layer;
         # the 'add_prior' implementation in https://github.com/BBillot/SynthSeg/blob/master/ext/neuron/models.py#L501
         # adds priors to the softmax output, then takes softmax again
+        # to enable this section of codes, set classifier_weight_init = "zeros" (enable codes line 127 - 130)
         if (self.add_priors and priors is not None and priors.numel() != 0):
             x = torch.add(x, priors)
             x1 = torch.add(x1, priors)
@@ -267,6 +268,7 @@ class UNet(nn.Module):
         # Benjamin's add_prior implementation (https://github.com/BBillot/SynthSeg/blob/master/ext/neuron/models.py#L501)
         # priors are added to the softmax output, then takes softmax again        
         if (self.add_priors and priors is not None and priors.numel() != 0):
+            #print(f"[DEBUG] UNet.forward(): add priors")
             x = torch.add(x, priors)
             if self.final_pred_activation == 'softmax':
                 x = nn.functional.softmax(x, dim=1)

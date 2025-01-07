@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 
 from freeseg.models import UNet
 from freeseg.training import Training
-from freeseg.utils import load_config
+from freeseg.utils import load_config, set_deterministic_training
 from freeseg.datasets import load_datasets
 from freeseg.metrics import WeightedL2Loss, DiceLoss
 
@@ -20,6 +20,7 @@ from freeseg.metrics import WeightedL2Loss, DiceLoss
 Usage: freeseg_train.py 
        --config <config.yaml>
        [--keep_trainset_in_memory]
+       [--deterministic]
        [--model_name <model_classname>]
        [--check_augment]
        [--dataset_list_file <dataset_list_file>]
@@ -83,9 +84,11 @@ def main():
     if (args.model_name is not None):
         config["model"]["name"] = args.model_name
     if (args.dataset_list_file is not None):
-        config["dataset"]["dataset_list_file"] = args.dataset_list_file    
+        config["dataset"]["dataset_list_file"] = args.dataset_list_file
     if (args.crop_size is not None):
         config["preprocessing"]["crop_size"] = args.crop_size
+    if (args.deterministic is not None):
+        config["training"]["deterministic"] = args.deterministic
     if (args.batch_size is not None):
         config["training"]["batch_size"] = args.batch_size
     if (args.write_tensorboard_summary):
@@ -109,6 +112,12 @@ def main():
     ndims = config["model"]["ndims"]
     assert (ndims == len(crop_size)), f"crop_size {crop_size} is not for {ndims}D"
 
+    deterministic = config["training"]["deterministic"]
+    if (deterministic):
+        # ??? todo: for multi-process dataloader, use worker_init_fn() and generator to preserve reproducibility
+        #           see https://pytorch.org/docs/stable/notes/randomness.html
+        set_deterministic_training()
+    
     """
     # yaml has nested structure, the update doesn't update value in nested structure
     # Update configuration with command-line arguments
@@ -179,6 +188,7 @@ def main():
     logging.info(f"crop_size: {crop_size}")
     logging.info(f"color table: {ctab}")
     logging.info(f"keep_trainset_in_memory: {args.keep_trainset_in_memory}")
+    logging.info(f"deterministic: {deterministic}")
     if (perform_evaluation):
         logging.info(f"best_model_metric: {best_model_metric}")
     logging.info(f"training config: saved as {output_folder}/config.yaml")
@@ -210,7 +220,8 @@ def argument_parse():
     parser.add_argument("--config", type=str, required=True, help="Path to the configuration file")
     parser.add_argument("--model_name", type=str, help="Class used to create the model to train")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
-    parser.add_argument("--keep_trainset_in_memory", action='store_true', help="Keep preloaded training data in memory")    
+    parser.add_argument("--keep_trainset_in_memory", action='store_true', help="Keep preloaded training data in memory")
+    parser.add_argument("--deterministic", action='store_true', help="deterministic training")
     parser.add_argument("--ctab", type=str, help="Path to the lookup table")
     parser.add_argument("--train_root_folder", type=str, default=None, help="Base folder for saving training outputs")    
     parser.add_argument("--run_name", type=str, default=None, help="Descriptive name for the run (used for naming TensorBoard log directories)")

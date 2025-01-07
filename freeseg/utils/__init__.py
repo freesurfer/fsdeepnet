@@ -6,4 +6,5 @@ from .utility import onehot
 from .utility import bbox
 from .utility import centroid
 from .utility import DataGenerator
+from .utility import set_deterministic_training
 from .utility import get_ras_axes

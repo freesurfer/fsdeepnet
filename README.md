@@ -70,6 +70,8 @@ validation:
 ```bash
 fspython scripts/freeseg_train.py
          --config <config.yaml>
+	 [--keep_trainset_in_memory]
+         [--deterministic]
          [--checkpoint <checkpoint>]
          [--ctab <ctab>]
          [--dataset_list_file <dataset_list_file>]	 

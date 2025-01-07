@@ -1,3 +1,5 @@
+import os
+import random
 import numpy as np
 import surfa as sf
 import torch
@@ -187,7 +189,7 @@ def centroid(label, verbose=False):
 
     centroid = lowerbound + (upperbound - lowerbound)/2
     if (verbose):
-        print(f"label centroid: {lowerbound} - {upperbound}, centroid: {centroid}")    
+        print(f"label centroid: {lowerbound.tolist()} - {upperbound.tolist()}, centroid: {centroid.tolist()}")    
     
     return centroid.int()
 
@@ -202,6 +204,32 @@ def DataGenerator(dataloader, device=None):
 
             # images/labels are batched, dataset_indices is list of index to dataset entry
             yield n_batch, images, labels, priors, dataset_indices
+
+
+# https://pytorch.org/docs/stable/notes/randomness.html
+# ??? todo: for multi-process dataloader, use worker_init_fn() and generator to preserve reproducibility
+def set_deterministic_training(seed=42):
+    print("[INFO] set deterministic training")
+    print("\tSet Random Seed")
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+    if (torch.cuda.is_available()):
+        print("\tControl CUDA Randomness")
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+    # https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html
+    print("\tUse Deterministic Algorithms")
+    # operations that do not have a deterministic implementation will throw a warning instead of an error
+    torch.use_deterministic_algorithms(True, warn_only=True)
+    # fill the uninitialized memory with a known value
+    # torch.utils.deterministic.fill_uninitialized_memory = True  # default if torch.use_deterministic_algorithms(True) is set
+    # for CUDA version >= 10.2, see https://docs.nvidia.com/cuda/cublas/index.html#results-reproducibility
+    os.environ["CUBLAS_WORKSPACE_CONFIG"]=":4096:8"  # or CUBLAS_WORKSPACE_CONFIG=:16:8
 
 
 # ================================================================================================

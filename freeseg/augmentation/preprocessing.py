@@ -278,7 +278,7 @@ def apply_centercrop(image, crop_size, label=None, prior=None, verbose=False):
     end_coords = torch.minimum(center_point + crop_half, image_shape)
     crop_idx = torch.concat((start_coords, end_coords))
     if (verbose):
-        print(f"adjusted crop center: {center_point}, crop indices: {crop_idx}")
+        print(f"adjusted crop center: {center_point.tolist()}, crop indices: {crop_idx.tolist()}")
  
     return image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]], \
            label[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (label is not None) else None, \
