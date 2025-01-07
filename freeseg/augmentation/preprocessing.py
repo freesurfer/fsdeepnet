@@ -82,38 +82,41 @@ def apply_spatial_transform(image, label, voxsize,
     return transformed_image, transformed_label, transformed_priors
 
 
-def apply_randomcrop(image, label, crop_size, mode='random', bbox_labels=None, verbose=False):
+def apply_randomcrop(image, label, crop_size, mode='random', bbox_labels=None, prior=None, verbose=False):
     """
     Randomly crop input tensors to a given shape. 
-    The input tensors are expected to have shape [batch H W D].
+    The input tensors are non-batched, expected to have shape [C, H, W(, D)].
 
     Returns:
-        cropped_image, cropped_label
+        cropped_image, cropped_label, cropped_prior, crop_idx
         TODO: raise exception if there is no crops found that fit the bounding box of all labels
               handle batch > 1 ???
     """
 
     # assuming image and label have the same dimensions
-    image_shape = image.shape[1:]
+    image_shape = torch.tensor(image.shape[1:], device=image.device)
     image_ndims = len(image_shape)
 
-    bbox_upper = np.array([0] * image_ndims)
-    bbox_lower = np.array([image_shape[0]] * image_ndims)
+    crop_size = torch.tensor(crop_size, device=image.device)
+    
+    bbox_upper = torch.zeros(image_ndims, device=image.device, dtype=int)
+    bbox_lower = image_shape
     if (bbox_labels is not None):
         # calculate lower and upper bounds for the label bounding box
-        bbox_lower, bbox_upper = bbox(label, bbox_labels)
+        bbox_lower, bbox_upper = bbox(label, bbox_labels, verbose=verbose)
         
         # make sure crop_size > (bbox_upper - bbox_lower)
         """
         # ??? TODO ???
-        if (np.any(crop_size < (bbox_upper - bbox_lower))):
+        if (torch.any(crop_size < (bbox_upper - bbox_lower))):
             raise exception
         """
 
+    zero_tensor = torch.zeros(image_ndims, device=image.device, dtype=int)
     if (mode == 'random'):
         if (bbox_labels is None):
-            crop_min_val = 0
-            crop_max_val = np.array(image_shape) - np.array(crop_size)
+            crop_min_val = zero_tensor
+            crop_max_val = image_shape - crop_size
         else:
             """
             |           |                    |            |
@@ -132,23 +135,24 @@ def apply_randomcrop(image, label, crop_size, mode='random', bbox_labels=None, v
                 bound1     = [ 96  96  96]
                 bound2     = [160 160 160]
             """
-            bound1 = np.array(image_shape) - np.array(crop_size)
-            bound2 = np.array(crop_size)
+            bound1 = image_shape - crop_size
+            bound2 = crop_size
 
             # minimum to crop so that it will include bbox_upper
             # the value depends on if bbox_upper > bound2
-            crop_min_val = np.maximum(0,  (bbox_upper - bound2))
+            crop_min_val = torch.maximum(zero_tensor,  (bbox_upper - bound2))
             # maximum to crop so that it will include bbox_lower
-            crop_max_val = np.minimum(bbox_lower, bound1)
-        
-        start_coords = np.random.uniform(low=crop_min_val, high=crop_max_val).astype(int)
-        end_coords   = start_coords + np.array(crop_size)
+            crop_max_val = torch.minimum(bbox_lower, bound1)
+
+        # U[crop_min_val, crop_max_val)            
+        start_coords = ((crop_min_val - crop_max_val) * torch.rand(image_ndims, device=image.device) + crop_max_val).int()
+        end_coords   = start_coords + crop_size
     elif (mode == 'center'):
-        half_crop = np.array(crop_size)/2
+        half_crop = (crop_size/2).int()
         
         if (bbox_labels is None):
             start_center = half_crop
-            end_center = np.array(image_shape) - half_crop
+            end_center = image_shape - half_crop
         else:
             """
             |                     |       |              |       |                   |
@@ -172,58 +176,62 @@ def apply_randomcrop(image, label, crop_size, mode='random', bbox_labels=None, v
             
             # initial values for start_center and end_center
             # where [bbox_lower, bbox_upper] is within [bound1, bound2]
-            start_center = half_crop.copy()  # make a copy for start_center to be modified later
-            end_center = np.array(image_shape) - half_crop
+            start_center = half_crop.clone()  # make a copy for start_center to be modified later
+            end_center = image_shape - half_crop
 
             bound1 = end_center - half_crop
             bound2 = start_center + half_crop
-            if (np.any(bbox_lower < bound1)):
+            if (torch.any(bbox_lower < bound1)):
                 # need to adjust end_center
                 distance = bound1 - bbox_lower
-                end_center -= np.maximum(0,  distance)    
-            if (np.any(bbox_upper > bound2)):
+                end_center -= torch.maximum(zero_tensor,  distance)    
+            if (torch.any(bbox_upper > bound2)):
                 # need to adjust start center                
                 distance = bbox_upper - bound2
-                start_center += np.maximum(0,  distance)
-            
-        center_point = np.random.uniform(low=start_center, high=end_center).astype(int)
-        start_coords = np.maximum(np.array(center_point)-half_crop, 0).astype(int)
-        end_coords   = np.minimum(np.array(center_point)+half_crop, np.array(image_shape)).astype(int)
+                start_center += torch.maximum(zero_tensor,  distance)
+
+        # U[start_center, end_center)
+        center_point = ((start_center - end_center) * torch.rand(image_ndims, device=image.device) + end_center).int()
+        start_coords = torch.maximum(center_point-half_crop, zero_tensor)
+        end_coords   = torch.minimum(center_point+half_crop, image_shape)
                 
+    # Calculate the crop indices
+    crop_idx = torch.concat((start_coords, end_coords)).int()
     if (verbose):
-        dbg_msg = f"apply_randomcrop({mode}) - image_shape: {np.array(image_shape)}, crop_size: {crop_size}, "
+        dbg_msg = f"apply_randomcrop({mode}) - {image_shape.tolist()} => {crop_size.tolist()}, "
         if (bbox_labels is not None):
-            dbg_msg += f"bbox: {bbox_lower} - {bbox_upper}, "
+            dbg_msg += f"bbox: {bbox_lower.tolist()} - {bbox_upper.tolist()}, "
         if (mode == 'center'):
-            dbg_msg += f"(start_center: {start_center}, end_center: {end_center}), center_point: {center_point}, "
+            dbg_msg += f"(start_center: {start_center.tolist()}, end_center: {end_center.tolist()}), center_point: {center_point.tolist()}, "
         else:
-            dbg_msg += f"(crop_min_val: {crop_min_val}, crop_max_val: {crop_max_val}), "
-        dbg_msg += f"start_coords: {start_coords}, end_coords: {end_coords}"
+            dbg_msg += f"(crop_min_val: {crop_min_val.tolist()}, crop_max_val: {crop_max_val.tolist()}), "
+        dbg_msg += f"start_coords: {start_coords.tolist()}, end_coords: {end_coords.tolist()}, "
+        dbg_msg += f"crop indices: {crop_idx.tolist()}"
         print(dbg_msg)
             
     # check if bbox_lower/bbox_upper are inside start_coords/end_coords
-    if (np.any(bbox_lower < start_coords) or np.any(bbox_upper > end_coords)):
-        dbg_msg = f"CROPPING ERROR apply_randomcrop({mode}) - image_shape: {np.array(image_shape)}, crop_size: {crop_size}, "
+    if (torch.any(bbox_lower < start_coords) or torch.any(bbox_upper > end_coords)):
+        dbg_msg = f"***CROPPING ERROR*** apply_randomcrop({mode}) - {image_shape.tolist()} => {crop_size.tolist()}, "
         if (bbox_labels is not None):
-            dbg_msg += f"bbox: {bbox_lower} - {bbox_upper}, "
+            dbg_msg += f"bbox: {bbox_lower.tolist()} - {bbox_upper.tolist()}, "
         if (mode == 'center'):
-            dbg_msg += f"(start_center: {start_center}, end_center: {end_center}), center_point: {center_point}, "
+            dbg_msg += f"(start_center: {start_center.tolist()}, end_center: {end_center.tolist()}), center_point: {center_point.tolist()}, "
         else:
-            dbg_msg += f"(crop_min_val: {crop_min_val}, crop_max_val: {crop_max_val}), "            
-        dbg_msg += f"start_coords: {start_coords}, end_coords: {end_coords}"
+            dbg_msg += f"(crop_min_val: {crop_min_val.tolist()}, crop_max_val: {crop_max_val.tolist()}), "            
+        dbg_msg += f"start_coords: {start_coords.tolist()}, end_coords: {end_coords.tolist()}"
+        dbg_msg += f"crop indices: {crop_idx.tolist()}"
         print(dbg_msg)
         
         """
         # ??? TODO ???
         raise exception
         """
-        
-    slicing = [slice(None)] + [slice(start, end) for start, end in zip(start_coords, end_coords)]
-    cropped_image = image[slicing]
-    cropped_label = label[slicing]
-        
-    return cropped_image, cropped_label
-
+ 
+    return image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]], \
+           label[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (label is not None) else None, \
+           prior[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (prior is not None) else None, \
+           crop_idx
+    
 
 def apply_centercrop(image, crop_size, label=None, prior=None, verbose=False):
     """Applies a crop centered around a specified point or the image center.
@@ -637,7 +645,6 @@ def apply_augmentations(
                     dtype=float
                 )            
 
-    # ??? we are now supporting cropping, randomcrop, randomcrop_center. check to allow only one type of cropping ???
     crop_size = augment_para.get("crop_size", None)    
     if "cropping" in augmentations_to_apply:
         # check if the original image already has crop_size
@@ -666,11 +673,10 @@ def apply_augmentations(
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
 
-    # ??? todo: apply_randomcrop() needs to handle priors ???
     if "randomcrop" in augmentations_to_apply:
         if crop_size is not None:
             bbox_labels = augment_para.get("bbox_labels", None)
-            image_tensor, label_tensor = apply_randomcrop(image_tensor, label_tensor, crop_size, mode='random', bbox_labels=bbox_labels, verbose=verbose)
+            image_tensor, label_tensor, priors_tensor, crop_idx = apply_randomcrop(image_tensor, label_tensor, crop_size, mode='random', bbox_labels=bbox_labels, prior=priors_tensor, verbose=verbose)
             if save_volumes is not None and output_dir is not None:
                 save_framedimage(
                     image_tensor,
@@ -682,14 +688,20 @@ def apply_augmentations(
                     os.path.join(output_dir, save_volumes + "_randomcropped_label.mgz"),
                     original_framedimage=original_label,                    
                 )
+                if (priors_tensor is not None):
+                    save_framedimage(
+                        priors_tensor,
+                        os.path.join(output_dir, save_volumes + "_randomcropped_prior.mgz"),
+                        original_framedimage=original_image,
+                        dtype=float
+                    )                  
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
 
-    # ??? todo: apply_randomcrop() needs to handle priors ???
     if "randomcrop_center" in augmentations_to_apply:
         if crop_size is not None:
             bbox_labels = augment_para.get("bbox_labels", None)
-            image_tensor, label_tensor = apply_randomcrop(image_tensor, label_tensor, crop_size, mode='center', bbox_labels=bbox_labels, verbose=verbose)
+            image_tensor, label_tensor, priors_tensor, crop_idx = apply_randomcrop(image_tensor, label_tensor, crop_size, mode='center', bbox_labels=bbox_labels, prior=priors_tensor, verbose=verbose)
             if save_volumes is not None and output_dir is not None:
                 save_framedimage(
                     image_tensor,
@@ -701,6 +713,13 @@ def apply_augmentations(
                     os.path.join(output_dir, save_volumes + "_randomcropped_center_label.mgz"),
                     original_framedimage=original_label,                    
                 )
+                if (priors_tensor is not None):
+                    save_framedimage(
+                        priors_tensor,
+                        os.path.join(output_dir, save_volumes + "_randomcropped_center_prior.mgz"),
+                        original_framedimage=original_image,
+                        dtype=float
+                    )                
         else:
             raise ValueError("Crop size must be provided when using the 'cropping' augmentation.")
         
@@ -738,7 +757,6 @@ def apply_augmentations(
                 original_framedimage=original_image,                
             )
 
-    # ??? only allow one "bias_field" or "biasFieldCorruption" ???
     if "bias_field" in augmentations_to_apply:
         image_tensor = apply_bias_field(
             image_tensor, voxsize,

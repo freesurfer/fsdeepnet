@@ -124,7 +124,7 @@ def onehot(labels, num_classes, device=None):
         raise ValueError("Onehot encoded label is expected to be 4 or 5 dimensions")
 
 
-def bbox(image, labels):
+def bbox(image, labels, verbose=False):
     """
     calculate label bounding box in the image
 
@@ -136,27 +136,28 @@ def bbox(image, labels):
         lowerbound (1d numpy array), upperbound (1d numpy array)
     """
 
-    image_cpu = image.cpu().squeeze(0)
-    np_vol = image_cpu.detach().numpy()
+    image = image.squeeze(0)
     
     # binarize the image with labels given
-    mask = np.zeros(np_vol.shape).astype(int)
+    mask = torch.zeros(image.shape, dtype=int, device=image.device)
     for label in (labels):
-        label_indices = (np_vol == label)
+        label_indices = (image == label)
         mask[label_indices] = 1
 
     # calculate bounding box coordinates
-    lowerbound = np.zeros(np_vol.ndim).astype(int)
-    upperbound = np.zeros(np_vol.ndim).astype(int)
-    coords = np.where(mask == 1)
+    lowerbound = torch.zeros(image.ndim, dtype=int, device=image.device)
+    upperbound = torch.zeros(image.ndim, dtype=int, device=image.device)
+    coords = torch.where(mask == 1)
     for dim, coord in enumerate(coords):
-        lowerbound[dim] = np.min(coord)
-        upperbound[dim] = np.max(coord)
+        lowerbound[dim] = torch.min(coord)
+        upperbound[dim] = torch.max(coord)
 
     # leave some rooms
-    lowerbound -= 1
-    upperbound += 1
-    
+    lowerbound = lowerbound - 1
+    upperbound = upperbound + 1
+    if (verbose):
+        print(f"bbox(): {lowerbound.tolist()} - {upperbound.tolist()}")
+        
     return lowerbound, upperbound
     
 
@@ -186,7 +187,7 @@ def centroid(label, verbose=False):
 
     centroid = lowerbound + (upperbound - lowerbound)/2
     if (verbose):
-        print(f"label bbox: {lowerbound} - {upperbound}, centroid: {centroid}")    
+        print(f"label centroid: {lowerbound} - {upperbound}, centroid: {centroid}")    
     
     return centroid.int()
 
