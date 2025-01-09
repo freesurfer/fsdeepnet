@@ -10,13 +10,14 @@ import shutil
 
 from torch.utils.data import DataLoader
 
-from freeseg.utils import load_config, DataGenerator
+from freeseg.utils import load_config, DataGenerator, set_deterministic_training
 from freeseg.datasets import load_datasets
 
 
 """
 Usage: test_dataloader.py 
        --config <config.yaml>
+       [--deterministic]
        [--dataset_list_file <dataset_list_file>]
        [--train_root_folder <train_root_folder>]
        [--run_name <--run_name>]
@@ -68,6 +69,8 @@ def main():
         config["dataset"]["dataset_list_file"] = args.dataset_list_file    
     if (args.crop_size is not None):
         config["preprocessing"]["crop_size"] = args.crop_size
+    if (args.deterministic is not None):
+        config["training"]["deterministic"] = args.deterministic         
     if (args.num_workers is not None):
         config["preprocessing"]["num_workers"] = args.num_workers
     if (args.prefetch_factor is not None):
@@ -77,15 +80,21 @@ def main():
     if (args.persistent_workers is not None):
         config["preprocessing"]["persistent_workers"] = args.persistent_workers        
 
+    assert (config["dataset"].get("dataset_list_file", None) is not None), \
+        "no dataset_list_file is available. Use '--dataset_list_file <dataset_list_file>' to specify dataset."
+
     output_folder = os.path.join(train_root_folder, run_name)    # Output folder for current run
     if (not os.path.exists(output_folder)):
         os.makedirs(output_folder)
-
+    
     # save config and dataset_list_file
     shutil.copyfile(args.config, os.path.join(output_folder, "config.yaml"))
     shutil.copyfile(config["dataset"]["dataset_list_file"], os.path.join(output_folder, "dataset_list.yaml"))
 
     # Access updated configuration values
+    deterministic = config["training"]["deterministic"]
+    if (deterministic):
+        set_deterministic_training()    
     crop_size = config["preprocessing"]["crop_size"]
     num_workers = config["preprocessing"].get("num_workers", 0)
     pin_memory = config["preprocessing"].get("pin_memory", False)
@@ -132,6 +141,7 @@ def main():
     logging.info(f"train_root_folder: {train_root_folder}")
     logging.info(f"run_name: {run_name}")
     logging.info(f"crop_size: {crop_size}")
+    logging.info(f"deterministic: {deterministic}")
     logging.info(f"training config: saved as {output_folder}/config.yaml")
     logging.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
 
@@ -167,6 +177,7 @@ def argument_parse():
 
     # input/outputs
     parser.add_argument("--config", type=str, required=True, help="Path to the configuration file")
+    parser.add_argument("--deterministic", action='store_true', help="deterministic training")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
     parser.add_argument("--train_root_folder", type=str, default=None, help="Base folder for saving training outputs")    
     parser.add_argument("--run_name", type=str, default=None, help="Descriptive name for the run (used for naming TensorBoard log directories)")
