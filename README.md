@@ -82,7 +82,8 @@ fspython scripts/freeseg_train.py
          [--write_tensorboard_summary]
          [--perform_evaluation]
          [--best_model_metric <loss|dice>]
-         [--cpu]	 
+         [--cpu]
+	 [--vmp]
 ```
 
 
@@ -103,6 +104,7 @@ fspython scripts/freeseg_predict.py
        	 [--noaddctab]
        	 [--write_posteriors]
        	 [--cpu]
+	 [--vmp]
 
        * Use one of the following options to specify images to segment:
          1. --i <image_path> or 

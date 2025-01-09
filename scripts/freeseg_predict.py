@@ -6,6 +6,7 @@ import torch
 import argparse
 import yaml
 
+from freeseg.utils import print_vm_peak
 from freeseg.prediction import Prediction
 
 
@@ -23,6 +24,7 @@ Usage: freeseg_predict.py
        [--write_posteriors]
        [--cpu]
        [--debug]
+       [--vmp]
 
     * Use one of the following options to specify images to segment:
       1. --i <image_path> or 
@@ -78,6 +80,10 @@ def main():
             write_posteriors=args.write_posteriors,
             device=device,
             debug=args.debug)
+
+    # check memory usage
+    if (args.vmp):
+        print_vm_peak()
     
 
 def argument_parse():
@@ -99,6 +105,7 @@ def argument_parse():
     parser.add_argument("--write_posteriors", action='store_true', help="Save the label posteriors.")
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
     parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
+    parser.add_argument('--vmp', action='store_true', help='Enable printing of vmpeak at the end.')
 
     if len(sys.argv) < 2:
         parser.print_help()

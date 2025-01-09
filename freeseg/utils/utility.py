@@ -1,5 +1,6 @@
 import os
 import random
+import platform
 import numpy as np
 import surfa as sf
 import torch
@@ -230,6 +231,24 @@ def set_deterministic_training(seed=42):
     # torch.utils.deterministic.fill_uninitialized_memory = True  # default if torch.use_deterministic_algorithms(True) is set
     # for CUDA version >= 10.2, see https://docs.nvidia.com/cuda/cublas/index.html#results-reproducibility
     os.environ["CUBLAS_WORKSPACE_CONFIG"]=":4096:8"  # or CUBLAS_WORKSPACE_CONFIG=:16:8
+
+
+def print_vm_peak():
+    """
+    Print the VM peak of the running process. This is only available on linux platforms.
+    """
+    if platform.system() != 'Linux':
+        return
+    procstat = os.path.join('/proc', str(os.getpid()), 'status')
+    fp = open(procstat, 'r')
+    lines = fp.readlines()
+    for line in lines:
+        strs = line.split()
+        if(len(strs) < 3):
+            continue
+        if(strs[0] != 'VmPeak:'):
+            continue
+        print('vmpcma:', int(strs[1]))
 
 
 # ================================================================================================

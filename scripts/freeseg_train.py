@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 
 from freeseg.models import UNet
 from freeseg.training import Training
-from freeseg.utils import load_config, set_deterministic_training
+from freeseg.utils import load_config, set_deterministic_training, print_vm_peak
 from freeseg.datasets import load_datasets
 from freeseg.metrics import WeightedL2Loss, DiceLoss
 
@@ -39,6 +39,7 @@ Usage: freeseg_train.py
        [--pin_memory]
        [--persistent_workers]
        [--debug]
+       [--vmp]
        [--verbose]
 """
 
@@ -210,6 +211,10 @@ def main():
     train(train_loader, config, output_folder, len(unique_classes), ctab,
           label_lookup=label_lookup, checkpoint=checkpoint, validation_loader=validation_loader, device=device, preprocessing_device=preprocessing_device,
           train_dataset_dict=train_dataset_dict, debug=args.debug, weight_init=args.weight_init)
+
+    # check memory usage
+    if (args.vmp):
+        print_vm_peak()
                        
     
 def argument_parse():
@@ -240,6 +245,7 @@ def argument_parse():
     parser.add_argument("--check_augment", action='store_true', help="Reject augmentations not having all the labels")
     parser.add_argument("--weight_init", type=str, help="How to init network weights, 'zeros' or 'xavier_uniform'")
     parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
+    parser.add_argument('--vmp', action='store_true', help='Enable printing of vmpeak at the end.')
     parser.add_argument("--verbose", action='store_true', help="Print debug info to stdout") 
 
     # parse commandline
