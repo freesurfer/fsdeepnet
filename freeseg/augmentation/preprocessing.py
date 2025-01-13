@@ -6,6 +6,14 @@ import torch
 from freeseg import voxynth
 from freeseg.utils import save_framedimage, get_ras_axes, bbox, centroid
 
+VALID_AUGMENTATIONS = ["flipping",
+                       "spatial_transform",
+                       "cropping", "randomcrop",
+                       "randomcrop_center",
+                       "blur_resample",
+                       "bias_field",
+                       "biasFieldCorruption",
+                       "intensityAugmentation"]
 
 def apply_flipping(image, label, aff, left_right_corresponding, flip_prob=0.5):
     """Applies a random left-right flip to image and label volumes."""
@@ -365,10 +373,10 @@ def apply_sampleConditionalGMM(label_map, generation_labels, prior_mean=[25, 225
     # the following is taken from SynthSeg.model_inputs.build_model_inputs()
     # https://github.com/BBillot/SynthSeg/blob/master/SynthSeg/model_inputs.py#L142C1-L149C1
     random_coef = npr.uniform()
-    if random_coef > 0.95:  # reset the background to 0 in 5% of cases
+    if random_coef > 0.95:   # reset the background to 0 in 5% of cases
         means[0] = 0
         stds[0] = 0
-    elif random_coef > 0.7:  # reset the background to low Gaussian in 25% of cases
+    elif random_coef > 0.7:  # reset the background to low Gaussian in 30% of cases
         means[0] = npr.uniform(0, 15)
         stds[0] = npr.uniform(0, 5)
 
@@ -399,8 +407,8 @@ def apply_biasFieldCorruption(image, bias_field_std=.5, bias_scale=.025, prob=0.
     """
     Apply a smooth random bias field to the input tensor by applying the following steps:
 
-    1) sample a value for the standard deviation of a centred normal distribution
-    2) a small-size SVF is sampled from this normal distribution
+    1) sample a value for the standard deviation of a centred normal distribution from U[0, bias_field_std)
+    2) a small-size stationary velocity field (SVF) is sampled from this normal distribution
     3) the small SVF is then resized with trilinear interpolation to image size
     4) it is rescaled to positive values by taking the voxel-wise exponential
     5) it is multiplied to the input tensor.
@@ -422,19 +430,20 @@ def apply_biasFieldCorruption(image, bias_field_std=.5, bias_scale=.025, prob=0.
     image_shape = image.shape[1:]
     
     # sampling shapes, the bias field will be sampled and applied independently for each channel of the input tensor
-    std_shape = [num_channels] + [1] * ndims   # [C, 1, 1, 1]
+    std_shape = [num_channels] + [1] * ndims   # [C, 1, 1(, 1)]
     small_bias_shape = [num_channels] + [math.ceil(image_shape[i] * bias_scale) for i in range(len(image_shape))]  # [C, h, w, (,d)]
 
-    # sample small bias field
-    stddev = bias_field_std * torch.rand(std_shape, device=image.device)              # U(0, bias_field_std)
+    # sample small bias field (step 1 and 2)
+    stddev = bias_field_std * torch.rand(std_shape, device=image.device)   #  U(0, bias_field_std)
     bias_field_tensor = stddev * torch.randn(small_bias_shape, device=image.device)   # N(0, stddev)
     
-    # resize bias field and take exponential    
-    bias_field_tensor = torch.nn.functional.interpolate(bias_field_tensor.unsqueeze(0), image_shape, mode='trilinear')
+    # resize bias field and take exponential (step 3 and 4)
+    mode = "trilinear" if (ndims == 3) else "bilinear"
+    bias_field_tensor = torch.nn.functional.interpolate(bias_field_tensor.unsqueeze(0), image_shape, mode=mode)
     bias_field_tensor = bias_field_tensor.squeeze(0)  # remove the dummy batch dimension
     bias_field_tensor = torch.exp(bias_field_tensor)
 
-    # element-wise multiplication
+    # element-wise multiplication (step 5)
     bf_augmented_image = torch.mul(bias_field_tensor, image)
 
     return bf_augmented_image
@@ -454,9 +463,9 @@ def apply_intensityAugmentation(image, noise_std=0, normalise=True, gamma_std=0,
     Augment the intensities of the input tensor. All channels are augmented separately.
 
     The following steps are applied (all are optional):
-    1) white noise corruption, with a randomly sampled std dev.
+    1) white noise corruption, with a randomly sampled std dev from U[0, noise_std)
     2) min-max normalisation
-    3) gamma augmentation (i.e. voxel-wise exponentiation by a randomly sampled power)
+    3) gamma augmentation (i.e. voxel-wise exponentiation by a randomly sampled power from N(0, gamma_std))
 
     The input tensor is expected to have shape [C, H, W (,D)].
 
@@ -499,7 +508,7 @@ def apply_intensityAugmentation(image, noise_std=0, normalise=True, gamma_std=0,
 
     # apply voxel-wise exponentiation with predefined probability
     if (gamma_std > 0 and np.random.rand() < prob_gamma):
-        gamma = gamma_std * torch.randn(sample_shape, device=image.device)   # N(0, gamma_stddev)
+        gamma = gamma_std * torch.randn(sample_shape, device=image.device)   # N(0, gamma_std)
         image = torch.pow(image, torch.exp(gamma))
 
     return image
@@ -507,8 +516,11 @@ def apply_intensityAugmentation(image, noise_std=0, normalise=True, gamma_std=0,
 
 def check_augmentations(augmentations_to_apply):
     """
-    check duplicated augmentations
+    check if all requested augmentations are valid and any duplicated augmentations
     """
+
+    for augmentation in (augmentations_to_apply):
+        assert (augmentation in VALID_AUGMENTATIONS), f"augmentation '{augmentation}' not supported"
 
     if (("cropping" in augmentations_to_apply) and ("randomcrop" in augmentations_to_apply)):
         raise ValueError("Both 'cropping' and 'randomcrop' are selected. Choose one.")
@@ -591,7 +603,7 @@ def apply_augmentations(
                 original_framedimage=original_image,
                 dtype=float
             )        
-            
+
     if "flipping" in augmentations_to_apply:
         flip_prob = augment_para.get("flip_prob")
         aff = original_image.geom.vox2world.matrix
