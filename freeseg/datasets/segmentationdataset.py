@@ -40,6 +40,7 @@ class SegmentationDataset(Dataset):
 
         assert (self.ndims == 3 or self.ndims == 2), "Model supports 3D or 2D"
         if (self.transform is not None):
+            self.transform = np.unique(self.transform).tolist()
             check_augmentations(self.transform)
 
         self.keep_trainset_in_memory = keep_trainset_in_memory
@@ -64,6 +65,11 @@ class SegmentationDataset(Dataset):
         if (self.haspriors()):
             assert (len(self.label_files) == len(self.priors_files)), "label and priors need to be the same length"
 
+        self.save_volumes = None
+        self.output_dir = self.augment_para.get("augmentation_dir", None)
+        if ((self.output_dir is not None) and (not os.path.exists(self.output_dir))):
+            os.makedirs(self.output_dir)                
+        
 
     def haspriors(self):
         return True if (len(self.priors_files) > 0) else False
@@ -87,11 +93,9 @@ class SegmentationDataset(Dataset):
                 priors_path = self.priors_files[index]        
                 sfprior, priors_tensor, _  = load_framedimage(priors_path, orientation="RAS", device=self.device, ndims=self.ndims)
 
-            # where/whether to save preprocessed data
-            save_volumes = f"{index+1:04d}."+os.path.splitext(os.path.basename(image_path))[0]
-            output_dir = self.augment_para.get("augmentation_dir", None)
-            if ((output_dir is not None) and (not os.path.exists(output_dir))):
-                os.makedirs(output_dir)                
+            if (self.output_dir is not None):
+                # where/whether to save preprocessed data
+                self.save_volumes = f"{index+1:04d}."+os.path.splitext(os.path.basename(image_path))[0]
         else:
             # retrieve preloaded data, saving augmentated volumes will not work when keep_trainset_in_memory=True
             label = None
@@ -120,8 +124,8 @@ class SegmentationDataset(Dataset):
                     self.augment_para,
                     voxsize=voxsize,
                     priors_tensor=priors_tensor,
-                    output_dir=output_dir,
-                    save_volumes=save_volumes + f"_try{trycount}" if (trycount is not None) else save_volumes,
+                    output_dir=self.output_dir,
+                    save_volumes=self.save_volumes + f"_try{trycount}" if (trycount is not None) else self.save_volumes,
                     augmentations_to_apply=self.transform,
                     left_right_corresponding=self.config["dataset"].get(
                         "left_right_corresponding", None
@@ -135,10 +139,10 @@ class SegmentationDataset(Dataset):
                 havealllabels = True                               
                 if (self.check_augment):
                     if (torch.count_nonzero(augmented_label_tensor) < torch.count_nonzero(label_tensor)):
-                        if (output_dir is not None):
-                            out_image = os.path.join(output_dir, save_volumes + f"_rejected{trycount}_image.mgz")
+                        if (self.output_dir is not None):
+                            out_image = os.path.join(self.output_dir, self.save_volumes + f"_rejected{trycount}_image.mgz")
                             save_framedimage(augmented_image_tensor, out_image, original_framedimage=image)
-                            out_label = os.path.join(output_dir, save_volumes + f"_rejected{trycount}_label.mgz")
+                            out_label = os.path.join(self.output_dir, self.save_volumes + f"_rejected{trycount}_label.mgz")
                             save_framedimage(augmented_label_tensor, out_label, original_framedimage=label)
                         havealllabels = False                        
             
@@ -151,20 +155,20 @@ class SegmentationDataset(Dataset):
                     # remove the added batch axis, DataLoader will batch the tensor based on batch_size
                     onehot_augmented_label_tensor = onehot_augmented_label_tensor.squeeze(0)
                     
-                    if (output_dir is not None):
-                        out_image = os.path.join(output_dir, save_volumes + f"_augmented_image.mgz")
+                    if (self.output_dir is not None):
+                        out_image = os.path.join(self.output_dir, self.save_volumes + f"_augmented_image.mgz")
                         save_framedimage(augmented_image_tensor, out_image, original_framedimage=image)
-                        out_label = os.path.join(output_dir, save_volumes + f"_augmented_label.mgz")
+                        out_label = os.path.join(self.output_dir, self.save_volumes + f"_augmented_label.mgz")
                         save_framedimage(augmented_label_tensor, out_label, original_framedimage=label)
-                        out_label_onehot = os.path.join(output_dir, save_volumes + f"_augmented_label_onehot.mgz")
+                        out_label_onehot = os.path.join(self.output_dir, self.save_volumes + f"_augmented_label_onehot.mgz")
                         save_framedimage(onehot_augmented_label_tensor, out_label_onehot, onehotencoded=True)
                         if (augmented_priors_tensor is not None):
-                            out_prior = os.path.join(output_dir, save_volumes + f"_augmented_prior.mgz")
+                            out_prior = os.path.join(self.output_dir, self.save_volumes + f"_augmented_prior.mgz")
                             save_framedimage(augmented_priors_tensor, out_prior, original_framedimage=sfprior, dtype=float)                        
                     break
 
                 trycount = trycount + 1
-                logging.info(f"Reject {save_volumes} augmentation, retry #{trycount} ...")               
+                logging.info(f"Reject {self.save_volumes} augmentation, retry #{trycount} ...")               
 
             if (augmented_priors_tensor is None):
                 # torch.utils.data.DataLoader can't return NoneType, make an empty tensor with 0 elements
