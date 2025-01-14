@@ -303,7 +303,8 @@ def apply_blur_resample(image, voxsize,
                         gamma_scaling_max=0.8,
                         resized_probability=0,
                         resized_one_axis_probability=0,
-                        resized_max_voxsize=2):
+                        resized_max_voxsize=2,
+                        sampling=True):
     """Applies blurring and resampling to the image volume."""
     blur_resampled_image = voxynth.augment.image_augment(
         image,
@@ -317,6 +318,7 @@ def apply_blur_resample(image, voxsize,
         resized_probability=resized_probability,
         resized_one_axis_probability=resized_one_axis_probability,
         resized_max_voxsize=resized_max_voxsize,
+        sampling=sampling,
     )
     return blur_resampled_image
 
@@ -324,7 +326,9 @@ def apply_blur_resample(image, voxsize,
 def apply_bias_field(image, voxsize,
                      bias_field_probability=0.5,
                      bias_field_max_magnitude=0.1,
-                     bias_field_smoothing_range=[1, 2]):
+                     bias_field_smoothing_range=[1, 2],
+                     bias_field_generation_method="blur",
+                     sampling=True):
     """Applies bias field augmentation to the image volume."""
     bf_augmented_image = voxynth.augment.image_augment(
         image,
@@ -332,6 +336,8 @@ def apply_bias_field(image, voxsize,
         bias_field_probability=bias_field_probability,
         bias_field_max_magnitude=bias_field_max_magnitude,
         bias_field_smoothing_range=bias_field_smoothing_range,
+        bias_field_generation_method=bias_field_generation_method,
+        sampling=sampling,
     )
     return bf_augmented_image
 
@@ -403,7 +409,7 @@ def apply_sampleConditionalGMM(label_map, generation_labels, prior_mean=[25, 225
 #    and upscale it to image size with linear interpolation. Then, we take the voxel-wise exponential to ensure the non-negativity of this field.
 #    Finally, we multiply the spatially deformed scan by the obtained bias field to corrupt its intensities (Fig. 1(c)).
 #  "
-def apply_biasFieldCorruption(image, bias_field_std=.5, bias_scale=.025, prob=0.95):
+def apply_biasFieldCorruption(image, bias_field_std=.5, bias_scale=.025, prob=0.95, sampling=True):
     """
     Apply a smooth random bias field to the input tensor by applying the following steps:
 
@@ -417,12 +423,17 @@ def apply_biasFieldCorruption(image, bias_field_std=.5, bias_scale=.025, prob=0.
 
     The bias field is sampled and applied independently for each channel of the input tensor. 
 
-    bias_field_std: max value to sample the standard deviation of a centred normal distribution from range [0, bias_field_std]
+    bias_field_std: if sampling = True,
+                    max value to sample the standard deviation of a centred normal distribution from range [0, bias_field_std];
+                    otherwise, standard deviation of a centred normal distribution
     bias_scale:     ratio between the shape of the input tensor and the shape of the sampled SVF.
     prob:           probability to apply this bias field corruption.
+    sampling:       bool, optional
+                    If True, sample the standard deviation of the Gaussian white noise from the range [0, bias_field_std);
+                    otherwise, use bias_field_std as the standard deviation of a centred normal distribution
     """
 
-    if (not np.random.rand() < prob or bias_field_std <= 0):
+    if (sampling and (not np.random.rand() < prob or bias_field_std <= 0)):
         return image
     
     num_channels = image.shape[0]
@@ -434,7 +445,8 @@ def apply_biasFieldCorruption(image, bias_field_std=.5, bias_scale=.025, prob=0.
     small_bias_shape = [num_channels] + [math.ceil(image_shape[i] * bias_scale) for i in range(len(image_shape))]  # [C, h, w, (,d)]
 
     # sample small bias field (step 1 and 2)
-    stddev = bias_field_std * torch.rand(std_shape, device=image.device)   #  U(0, bias_field_std)
+    # stddev = U(0, bias_field_std) if sampling = True; otherwise stddev = bias_field_std
+    stddev = bias_field_std * torch.rand(std_shape, device=image.device) if (sampling) else bias_field_std
     bias_field_tensor = stddev * torch.randn(small_bias_shape, device=image.device)   # N(0, stddev)
     
     # resize bias field and take exponential (step 3 and 4)
@@ -458,7 +470,7 @@ def apply_biasFieldCorruption(image, bias_field_std=.5, bias_scale=.025, prob=0.
 #     Finally, intensities are rescaled between [0,1] with min-max normalisation.
 #     Additional examples of augmented images are shown in the Supplementary materials (Fig. S1).
 #   "
-def apply_intensityAugmentation(image, noise_std=0, normalise=True, gamma_std=0, prob_noise=0.95, prob_gamma=1):
+def apply_intensityAugmentation(image, noise_std=0, normalise=True, gamma_std=0, prob_noise=0.95, prob_gamma=1, sampling=True):
     """
     Augment the intensities of the input tensor. All channels are augmented separately.
 
@@ -471,13 +483,18 @@ def apply_intensityAugmentation(image, noise_std=0, normalise=True, gamma_std=0,
 
     The noise and gamma are sampled and applied independently for each channel of the input tensor.
 
-    noise_std:  max value to sample the standard deviation of the Gaussian white noise from the range [0, noise_std].
+    noise_std:  if sampling = True,
+                max value to sample the standard deviation of the Gaussian white noise from the range [0, noise_std];
+                otherwise, standard deviation of the Gaussian white noise.
                 Default is 0, where white noise corruption is skipped.
     normalise:  whether to apply min-max normalisation, to normalise between 0 and 1. Default is True.
     gamma_std:  standard deviation of the normal distribution from which we sample gamma.
                 Default is 0, where no gamma augmentation occurs.
     prob_noise: probability to apply noise injection
     prob_gamma: probability to apply gamma augmentation
+    sampling:   bool, optional
+                If True, sample the standard deviation of the Gaussian white noise from the range [0, noise_std);
+                otherwise, use noise_std as the standard deviation of the Gaussian white noise
     """
     
     num_channels = image.shape[0]
@@ -488,7 +505,8 @@ def apply_intensityAugmentation(image, noise_std=0, normalise=True, gamma_std=0,
     
     # add noise with predefined probability
     if (noise_std > 0 and np.random.rand() < prob_noise):
-        noise_stddev = noise_std * torch.rand(sample_shape, device=image.device)   # U(0, noise_std)
+        # noise_stddev = U(0, noise_std) if sampling = True; otherwise noise_stddev = noise_std
+        noise_stddev = noise_std * torch.rand(sample_shape, device=image.device) if (sampling) else noise_std
         noise = noise_stddev * torch.randn(image.shape, device=image.device)       # N(0, noise_stddev)
         image += noise
 
@@ -584,6 +602,7 @@ def apply_augmentations(
         tuple: Augmented image and label tensors.
     """
 
+    sampling_hyperparameters = augment_para.get("sampling_hyperparameters", True)
     verbose = True if augment_para.get("verbose") else False
     if save_volumes is not None and output_dir is not None:
         save_framedimage(
@@ -760,7 +779,8 @@ def apply_augmentations(
             gamma_scaling_max=augment_para.get("gamma_scaling_max", 0.8),
             resized_probability=augment_para.get("resized_probability", 0),
             resized_one_axis_probability=augment_para.get("resized_one_axis_probability", 0),
-            resized_max_voxsize=augment_para.get("resized_max_voxsize", 2)
+            resized_max_voxsize=augment_para.get("resized_max_voxsize", 2),
+            sampling=sampling_hyperparameters,
         )
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
@@ -770,16 +790,19 @@ def apply_augmentations(
             )
 
     if "bias_field" in augmentations_to_apply:
+        bias_field_generation_method = augment_para.get("bias_field_generation_method", "blur")
         image_tensor = apply_bias_field(
             image_tensor, voxsize,
             bias_field_probability=augment_para.get("bias_field_probability", 0.5),
             bias_field_max_magnitude=augment_para.get("bias_field_max_magnitude", 0.1),
-            bias_field_smoothing_range=augment_para.get("bias_field_smoothing_range", [1, 2])
+            bias_field_smoothing_range=augment_para.get("bias_field_smoothing_range", [1, 2]),
+            bias_field_generation_method=bias_field_generation_method,
+            sampling=sampling_hyperparameters,
         )
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
                 image_tensor,
-                os.path.join(output_dir, save_volumes + "_bias_field_augmented_image.mgz"),
+                os.path.join(output_dir, save_volumes + "_bias_field_augmented_image" + f"_{bias_field_generation_method}.mgz"),
                 original_framedimage=original_image,                
             )
 
@@ -787,7 +810,7 @@ def apply_augmentations(
         bias_field_std = augment_para.get("bias_field_max_magnitude", .7)  # SynthSeg
         bias_scale = augment_para.get("bias_field_scale", .025)
         prob = augment_para.get("bias_field_probability", 0.95)
-        image_tensor = apply_biasFieldCorruption(image_tensor, bias_field_std=bias_field_std, bias_scale=bias_scale, prob=prob)
+        image_tensor = apply_biasFieldCorruption(image_tensor, bias_field_std=bias_field_std, bias_scale=bias_scale, prob=prob, sampling=sampling_hyperparameters)
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
                 image_tensor,
@@ -802,7 +825,7 @@ def apply_augmentations(
         ia_prob_noise = augment_para.get("added_noise_probability", 0.95)
         ia_prob_gamma = augment_para.get("gamma_scaling_probability", 1)
         image_tensor = apply_intensityAugmentation(image_tensor, noise_std=ia_noise_std, normalise=ia_normalise, gamma_std=ia_gamma_std,
-                                                   prob_noise=ia_prob_noise, prob_gamma=ia_prob_gamma)
+                                                   prob_noise=ia_prob_noise, prob_gamma=ia_prob_gamma, sampling=sampling_hyperparameters)
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
                 image_tensor,

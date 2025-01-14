@@ -20,6 +20,7 @@ model:
   final_pred_activation: "softmax"
 
 preprocessing:
+  sampling_hyperparameters: True
   verbose: False
   train_augmentations: [
     # "flipping",          # need to define left_right_corresponding
@@ -46,19 +47,25 @@ preprocessing:
   # Ben: voxel size of the vector field - ben_voxelsize=1/nonlin_scale=25 (nonlin_scale=.04)
   # set fwhm=ben_voxelsize
   # gstd=fwhm/sqrt(log(256))=25/sqrt(log(256))=10.62
-  warp_smoothing_range: [10.61, 10.63]
+  warp_smoothing_range: [10.62, 10.62]
   warp_magnitude_range: [0, 3]
   shearing_bounds: 0.015
   
   # blurring and resampling parameters (voxynth)
-  smoothing_probability: 0.25
-  smoothing_max_sigma: 2.0
   added_noise_probability: 1 #0.5
   added_noise_max_sigma: 1.0
   gamma_scaling_probability: 1
-  # uniform distribution between +-gamma_scaling_max (Ben: zero-mean gaussian distribution with fixed std)
-  # Set max to half ben’s FWHM=gstd*sqrt(log(256.0)) ???
   gamma_scaling_max: 0.59
+  # to equate with 'intensityAugmentation',
+  # - set smoothing_probability=0, resized_probability=0,
+  # - gamma_scaling_max is computed as following:
+  #   a. in 'intensityAugmentation',
+  #      gamma is randomly sampled from zero-mean gaussian distribution with fixed std=gamma_scaling_max
+  #   b. here gamma is randomly sampled from uniform distribution between +-gamma_scaling_max
+  #   c. set gamma_scaling_max to FWHM/2 of 'intensityAugmentation'
+  #      gamma_scaling_max=FWHM/2=(gstd*sqrt(log(256.0)))/2=0.59
+  smoothing_probability: 0   #0.25
+  smoothing_max_sigma: 2.0
   resized_probability: 0
   resized_one_axis_probability: 0
   resized_max_voxsize: 2
@@ -66,10 +73,14 @@ preprocessing:
   # bias field parameters (voxynth)
   bias_field_probability: 1 # Ben: turned on if bias_field_std > 0
   bias_field_max_magnitude: 0.5
-  # Ben: voxel size of the bias field - ben_voxelsize=1/bias_scale=40 (bias_scale=.025)
-  # set fwhm=ben_voxelsize
-  # gstd=fwhm/sqrt(log(256))=40/sqrt(log(256))=16.98
-  bias_field_smoothing_range: [16.97, 16.99]
+  bias_field_smoothing_range: [16.98, 16.98]
+  bias_field_generation_method: "blur"   # "blur" or "upsample"
+  # to equate with 'BiasFieldCorruption', bias_field_smoothing_range is computed as following:   
+  # - voxel size of the bias field in 'BiasFieldCorruption':   
+  #     voxel_size=1/bias_scale=40 (bias_field_scale=.025)
+  # - set fwhm=voxelsize
+  # - gstd=fwhm/sqrt(log(256))=40/sqrt(log(256))=16.98
+
 
   # sampleConditionalGMM parameters
   prior_mean: [25, 225]
