@@ -29,8 +29,8 @@ preprocessing:
     "cropping",            # crop around the image cener
     #"randomcrop",         # crop from a randomly selected point
     #"randomcrop_center",  # crop around a randomly selected point
-    "blur_resample",
     "bias_field",
+    "blur_resample",
     ]
   #augmentation_dir: /path/to-save-augmented-data
   #bbox_labels: list of labels to make the bounding box
@@ -39,17 +39,19 @@ preprocessing:
   
   # spatial deformation parameters (voxynth)
   affine_probability: 1.0
-  max_translation: 30  #0.5
-  max_rotation: 20     #5.0
-  max_scaling: 1.2     #1.1
-  warp_probability: 1  #0.25
-  warp_integrations: 7 #1
-  # Ben: voxel size of the vector field - ben_voxelsize=1/nonlin_scale=25 (nonlin_scale=.04)
-  # set fwhm=ben_voxelsize
-  # gstd=fwhm/sqrt(log(256))=25/sqrt(log(256))=10.62
+  max_translation: 30  # mm
+  max_rotation: 20     # angles as degrees
+  max_shearing: 0.015  
+  max_scaling: 1.2     # scaling factor
+  warp_probability: 1
+  warp_integrations: 7
   warp_smoothing_range: [10.62, 10.62]
+  # to equate with hypothalamus/SynthSeg implementation,
+  # - voxel size of the hypothalamus/SynthSeg vector field
+  #   voxelsize=1/nonlin_scale=25 (nonlin_scale=.04)
+  # - set fwhm=voxelsize
+  # - gstd=fwhm/sqrt(log(256))=25/sqrt(log(256))=10.62
   warp_magnitude_range: [0, 3]
-  shearing_bounds: 0.015
   
   # blurring and resampling parameters (voxynth)
   added_noise_probability: 1 #0.5

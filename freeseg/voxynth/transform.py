@@ -132,7 +132,7 @@ def compose_affine(
     translation : Tensor = None,
     rotation : Tensor = None,
     scale : Tensor = None,
-    shear : float or Tensor = None,
+    shear : Tensor = None,
     degrees : bool = True,
     device : torch.device = None) -> Tensor:
     """
@@ -151,7 +151,7 @@ def compose_affine(
     scale : Tensor, optional
         The scaling factor. Can be scalar or vector of size `ndim`.
     shear : Tensor, optional
-        The shearing factor. Must be a scalar value for 2D affine matrices, 
+        The shearing parameters. Must be a scalar value for 2D affine matrices, 
         and a tensor of size 3 for 3D affine matrices.
     degrees : bool, optional
         Whether to interpret the rotation angles as degrees.
@@ -209,8 +209,8 @@ def compose_affine(
         if ndim == 3:
             S[0][1] = shear[0]
             S[0][2] = shear[1]
-            S[1][2] = shear[2]
-            S[1][0] = shear[3]
+            S[1][0] = shear[2]
+            S[1][2] = shear[3]
             S[2][0] = shear[4]
             S[2][1] = shear[5]
         elif ndim == 2:
@@ -272,9 +272,10 @@ def random_affine(
     ndim: int,
     max_translation: float = 0,
     max_rotation: float = 0,
+    max_shearing: float = 0,        
     max_scaling: float = 1,
-    shearing_bounds: float or list = False,
-    device: torch.device = None) -> Tensor:
+    device: torch.device = None,
+    sampling: bool = True) -> Tensor:
     """
     Parameters
     ----------
@@ -286,6 +287,9 @@ def random_affine(
     max_rotation : float
         Range to sample rotation parameters from. Scalar values define the max
         deviation from 0.0 (-max_rotation, max_rotation).
+    max_shearing : float
+        Range to sample shearing parameters from. Scalar values define the max
+        deviation from 0.0 (-max_shearing, max_shearing).
     max_scaling : float
         Max to sample scale parameters from.
         It is converted into a 2-element array defines the (min, max) deviation from 1.0.
@@ -296,38 +300,37 @@ def random_affine(
         vox2vox affine matrix rotating around the image center
     """
 
-    # 
-    translation_range = sorted([-max_translation, max_translation])
-    translation = np.random.uniform(*translation_range, size=ndim)
+    #
+    if (sampling):
+        translation_range = sorted([-max_translation, max_translation])
+        translation = np.random.uniform(*translation_range, size=ndim)
+    else:
+        translation = np.array([max_translation] * ndim)
 
-    # 
-    rotation_range = sorted([-max_rotation, max_rotation])
-    rotation = np.random.uniform(*rotation_range, size=(1 if ndim == 2 else 3))
+    #
+    if (sampling):
+        rotation_range = sorted([-max_rotation, max_rotation])
+        rotation = np.random.uniform(*rotation_range, size=(1 if ndim == 2 else 3))
+    else:
+        rotation = np.array([max_rotation] * (1 if ndim == 2 else 3))
 
     # 
     if max_scaling < 1:
         raise ValueError('max scaling to random affine cannot be less than 1, '
                          'see function doc for more info')
-    inv = np.random.choice([-1, 1], size=ndim)
-    scale = np.random.uniform(1, max_scaling, size=ndim) ** inv
+    if (sampling):
+        inv = np.random.choice([-1, 1], size=ndim)
+        scale = np.random.uniform(1, max_scaling, size=ndim) ** inv
+    else:
+        scale = np.array([2-max_scaling] * ndim)
 
     # Sample shearing factors
-    if shearing_bounds is not False:
-        if isinstance(shearing_bounds, (int, float)):
-            shear = np.random.uniform(
-                -shearing_bounds, shearing_bounds, size=(6 if ndim == 3 else 2)
-            )
-        elif isinstance(shearing_bounds, (list, tuple)):
-            shear = np.random.uniform(
-                *np.transpose(shearing_bounds), size=(6 if ndim == 3 else 2)
-            )
-        else:
-            raise ValueError(
-                'shearing_bounds must be a number, a sequence of length 2, '
-                'or a numpy array of shape (2, n_dims)'
-            )
+    shear_size = 6 if ndim == 3 else 2
+    if (sampling):
+        shearing_range = sorted([-max_shearing, max_shearing])
+        shear = np.random.uniform(*shearing_range, size=shear_size)
     else:
-        shear = None
+        shear = np.array([max_shearing] * shear_size)
 
     # compose from random paramters
     aff = compose_affine(
@@ -544,10 +547,11 @@ def random_transform(
     warp_smoothing_range : List[int] = [10, 20],
     warp_magnitude_range : List[int] = [1, 2],
     voxsize : int = 1,
-    shearing_bounds : float or List[float] = False,
+    max_shearing : float = 0,
     device : torch.device = None,
     isdisp : bool = True,
     perlin_method: str = 'upsample',
+    sampling: bool = True,
     ) -> Tensor:
     """
     generate a randomly sampled transform
@@ -584,8 +588,9 @@ def random_transform(
             max_translation=max_translation,
             max_rotation=max_rotation,
             max_scaling=max_scaling,
-            shearing_bounds=shearing_bounds,
-            device=device)
+            max_shearing=max_shearing,
+            device=device,
+            sampling=sampling)
         trf = affine_to_displacement_field(matrix, meshgrid)
 
     # generate a nonlinear transform

@@ -53,13 +53,14 @@ def apply_spatial_transform(image, label, voxsize,
                             affine_probability=1.0,
                             max_translation=5.0,
                             max_rotation=5.0,
+                            max_shearing=0.015,                            
                             max_scaling=1.1,
                             warp_probability=1.0,
                             warp_integrations=7,
                             warp_smoothing_range=[10, 20],
                             warp_magnitude_range=[1, 2],
-                            shearing_bounds=0.015,
-                            device=None):
+                            device=None,
+                            sampling=True):
     """Applies a random spatial transformation to image and label volumes."""
     if (device is None):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -72,12 +73,13 @@ def apply_spatial_transform(image, label, voxsize,
         affine_probability=affine_probability,
         max_translation=max_translation,
         max_rotation=max_rotation,
+        max_shearing=max_shearing,        
         max_scaling=max_scaling,
         warp_probability=warp_probability,
         warp_integrations=warp_integrations,
         warp_smoothing_range=warp_smoothing_range,
         warp_magnitude_range=warp_magnitude_range,
-        shearing_bounds=shearing_bounds,
+        sampling=sampling,
     )
 
     transformed_image = voxynth.transform.spatial_transform(image, trf)
@@ -558,15 +560,14 @@ def check_augmentations(augmentations_to_apply):
 #   spatial_transform
 #   cropping, randomcrop, or randomcrop_center
 #   sampleConditionalGMM*
-#   blur_resample**
 #   bias_field***
+#   blur_resample**
 #   biasFieldCorruption***
 #   intensityAugmentation**
 #
 # *   need sampleConditionalGMM only when we generate a synthetic image from a label map
 # **  blur_resample or intensityAugmentation
 # *** bias_field or biasFieldCorruption
-# ??? should bias_field happen before blur_resample ???
 def apply_augmentations(
     image_tensor,
     label_tensor,
@@ -649,13 +650,14 @@ def apply_augmentations(
             affine_probability=augment_para.get("affine_probability", 1.0),
             max_translation=augment_para.get("max_translation", 5.0),
             max_rotation=augment_para.get("max_rotation", 5.0),
+            max_shearing=augment_para.get("max_shearing", 0.015),            
             max_scaling=augment_para.get("max_scaling", 1.1),
             warp_probability=augment_para.get("warp_probability", 1.0),
             warp_integrations=augment_para.get("warp_integrations", 7),
             warp_smoothing_range=augment_para.get("warp_smoothing_range", [10, 20]),
             warp_magnitude_range=augment_para.get("warp_magnitude_range", [1, 2]),
-            shearing_bounds=augment_para.get("shearing_bounds", 0.015),
-            device=device
+            device=device,
+            sampling=sampling_hyperparameters,
         )
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
