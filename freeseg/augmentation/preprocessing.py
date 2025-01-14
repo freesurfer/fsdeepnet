@@ -10,8 +10,8 @@ VALID_AUGMENTATIONS = ["flipping",
                        "spatial_transform",
                        "cropping", "randomcrop",
                        "randomcrop_center",
-                       "blur_resample",
                        "bias_field",
+                       "blur_resample",                       
                        "biasFieldCorruption",
                        "intensityAugmentation"]
 
@@ -308,7 +308,7 @@ def apply_blur_resample(image, voxsize,
     """Applies blurring and resampling to the image volume."""
     blur_resampled_image = voxynth.augment.image_augment(
         image,
-        normalize=True,
+        normalize=False, # Do not min/max normalize the image before augmentation
         smoothing_probability=smoothing_probability,
         smoothing_max_sigma=smoothing_max_sigma,
         added_noise_probability=added_noise_probability,
@@ -768,27 +768,6 @@ def apply_augmentations(
                 original_framedimage=original_image,                
             )
 
-    if "blur_resample" in augmentations_to_apply:
-        image_tensor = apply_blur_resample(
-            image_tensor, voxsize,
-            smoothing_probability=augment_para.get("smoothing_probability", 0.5),
-            smoothing_max_sigma=augment_para.get("smoothing_max_sigma", 2.0),
-            added_noise_probability=augment_para.get("added_noise_probability", 0.5),
-            added_noise_max_sigma=augment_para.get("added_noise_max_sigma", 0.05),
-            gamma_scaling_probability=augment_para.get("gamma_scaling_probability", 0.5),
-            gamma_scaling_max=augment_para.get("gamma_scaling_max", 0.8),
-            resized_probability=augment_para.get("resized_probability", 0),
-            resized_one_axis_probability=augment_para.get("resized_one_axis_probability", 0),
-            resized_max_voxsize=augment_para.get("resized_max_voxsize", 2),
-            sampling=sampling_hyperparameters,
-        )
-        if save_volumes is not None and output_dir is not None:
-            save_framedimage(
-                image_tensor,
-                os.path.join(output_dir, save_volumes + "_blur_resampled_image.mgz"),
-                original_framedimage=original_image,                
-            )
-
     if "bias_field" in augmentations_to_apply:
         bias_field_generation_method = augment_para.get("bias_field_generation_method", "blur")
         image_tensor = apply_bias_field(
@@ -818,6 +797,27 @@ def apply_augmentations(
                 original_framedimage=original_image,                
             )
             
+    if "blur_resample" in augmentations_to_apply:
+        image_tensor = apply_blur_resample(
+            image_tensor, voxsize,
+            smoothing_probability=augment_para.get("smoothing_probability", 0.5),
+            smoothing_max_sigma=augment_para.get("smoothing_max_sigma", 2.0),
+            added_noise_probability=augment_para.get("added_noise_probability", 0.5),
+            added_noise_max_sigma=augment_para.get("added_noise_max_sigma", 0.05),
+            gamma_scaling_probability=augment_para.get("gamma_scaling_probability", 0.5),
+            gamma_scaling_max=augment_para.get("gamma_scaling_max", 0.8),
+            resized_probability=augment_para.get("resized_probability", 0),
+            resized_one_axis_probability=augment_para.get("resized_one_axis_probability", 0),
+            resized_max_voxsize=augment_para.get("resized_max_voxsize", 2),
+            sampling=sampling_hyperparameters,
+        )
+        if save_volumes is not None and output_dir is not None:
+            save_framedimage(
+                image_tensor,
+                os.path.join(output_dir, save_volumes + "_blur_resampled_image.mgz"),
+                original_framedimage=original_image,                
+            )
+
     if "intensityAugmentation" in augmentations_to_apply:
         ia_noise_std = augment_para.get("added_noise_max_sigma", 1.0)  # default is 0 for SynthSeg, no white noise added
         ia_normalise = augment_para.get("normalize", True)
