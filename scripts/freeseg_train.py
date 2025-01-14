@@ -107,6 +107,9 @@ def main():
     if (args.persistent_workers is not None):
         config["preprocessing"]["persistent_workers"] = args.persistent_workers        
 
+    dataset_list_file = config["dataset"].get("dataset_list_file", None)
+    assert (dataset_list_file is not None), "Use '--dataset_list_file <dataset.yaml>' or 'dataset_list_file' in config.yaml to specify the dataset"
+
     crop_size = config["preprocessing"]["crop_size"]
     nb_levels = config["model"]["nb_levels"]
     assert (np.all(np.array(crop_size) % (2**(nb_levels-1)) == 0)), f"crop_size {crop_size} needs to be divisible by 2^{nb_levels-1}"

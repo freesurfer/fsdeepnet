@@ -86,7 +86,8 @@ def main():
             assert (config["dataset"].get("dataset_list_file", None) is not None), \
                 "No input images are available. Use '--dataset_list_file <dataset_list_file>' or " \
                 "'--image <im1 im2 ...> --label <lb1 lb2 ...>' to specify dataset."
-        shutil.copyfile(config["dataset"]["dataset_list_file"], os.path.join(output_folder, "dataset_list.yaml"))
+        if (config["dataset"].get("dataset_list_file", None) is not None):
+            shutil.copyfile(config["dataset"]["dataset_list_file"], os.path.join(output_folder, "dataset_list.yaml"))
         
     # create training dataset with the desired augmentations specified
     labels_segmentation = sorted(config["dataset"]["expected_classes"])
