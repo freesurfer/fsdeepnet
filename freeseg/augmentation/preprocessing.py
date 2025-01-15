@@ -57,6 +57,7 @@ def apply_spatial_transform(image, label, voxsize,
                             max_scaling=1.1,
                             warp_probability=1.0,
                             warp_integrations=7,
+                            warp_generation_method='upsample',
                             warp_smoothing_range=[10, 20],
                             warp_magnitude_range=[1, 2],
                             device=None,
@@ -67,6 +68,7 @@ def apply_spatial_transform(image, label, voxsize,
 
     #print(f"apply_spatial_transform() - image.get_device() = {image.get_device()}, label.get_device() = {label.get_device()}, device = {device}")
 
+    # voxsize is default to 1
     trf = voxynth.transform.random_transform(
         shape=image.shape[1:],
         device=device,
@@ -79,6 +81,7 @@ def apply_spatial_transform(image, label, voxsize,
         warp_integrations=warp_integrations,
         warp_smoothing_range=warp_smoothing_range,
         warp_magnitude_range=warp_magnitude_range,
+        perlin_method=warp_generation_method,
         sampling=sampling,
     )
 
@@ -643,6 +646,7 @@ def apply_augmentations(
 
     # ??? spatial_transform always happens for hypothalamus
     if "spatial_transform" in augmentations_to_apply:
+        warp_generation_method = augment_para.get("warp_generation_method", "upsample")
         image_tensor, label_tensor, priors_tensor = apply_spatial_transform(
             image_tensor, label_tensor, voxsize,
             priors=priors_tensor,
@@ -653,6 +657,7 @@ def apply_augmentations(
             max_scaling=augment_para.get("max_scaling", 1.1),
             warp_probability=augment_para.get("warp_probability", 1.0),
             warp_integrations=augment_para.get("warp_integrations", 7),
+            warp_generation_method=warp_generation_method,
             warp_smoothing_range=augment_para.get("warp_smoothing_range", [10, 20]),
             warp_magnitude_range=augment_para.get("warp_magnitude_range", [1, 2]),
             device=device,
@@ -661,18 +666,18 @@ def apply_augmentations(
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
                 image_tensor,
-                os.path.join(output_dir, save_volumes + "_transformed_image.mgz"),
+                os.path.join(output_dir, save_volumes + "_transformed_image" + f"_{warp_generation_method}.mgz"),
                 original_framedimage=original_image,                
             )
             save_framedimage(
                 label_tensor,
-                os.path.join(output_dir, save_volumes + "_transformed_label.mgz"),
+                os.path.join(output_dir, save_volumes + "_transformed_label" + f"_{warp_generation_method}.mgz"),
                 original_framedimage=original_label,                
             )
             if (priors_tensor is not None):
                 save_framedimage(
                     priors_tensor,
-                    os.path.join(output_dir, save_volumes + "_transformed_prior.mgz"),
+                    os.path.join(output_dir, save_volumes + "_transformed_prior" + f"_{warp_generation_method}.mgz"),
                     original_framedimage=original_image,
                     dtype=float
                 )            
