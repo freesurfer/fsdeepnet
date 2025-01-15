@@ -68,7 +68,7 @@ def main():
         
     # Access updated configuration values
     crop_size = config["preprocessing"]["crop_size"]
-    deterministic = config["training"]["deterministic"]
+    deterministic = config["training"].get("deterministic", False)
     if (deterministic):
         # ??? todo: for multi-process dataloader, use worker_init_fn() and generator to preserve reproducibility
         #           see https://pytorch.org/docs/stable/notes/randomness.html
@@ -112,6 +112,7 @@ def main():
     logging.info(f"batch_size: {config['training']['batch_size']}")
     logging.info(f"crop_size: {crop_size}")
     logging.info(f"deterministic: {deterministic}")
+    logging.info(f"sampling_hyperparameters: {config['preprocessing'].get('sampling_hyperparameters', True)}")
     
     if (args.augment):
         logging.info("Perform data augmentation ...")        

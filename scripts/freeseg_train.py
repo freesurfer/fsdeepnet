@@ -116,7 +116,7 @@ def main():
     ndims = config["model"]["ndims"]
     assert (ndims == len(crop_size)), f"crop_size {crop_size} is not for {ndims}D"
 
-    deterministic = config["training"]["deterministic"]
+    deterministic = config["training"].get("deterministic", False)
     if (deterministic):
         # ??? todo: for multi-process dataloader, use worker_init_fn() and generator to preserve reproducibility
         #           see https://pytorch.org/docs/stable/notes/randomness.html
@@ -183,6 +183,7 @@ def main():
     logging.info(f"Preprocessing prefetch_factor: {prefetch_factor}")
     logging.info(f"Preprocessing persistent_workers: {persistent_workers}")
     logging.info(f"Preprocessing check_augment: {args.check_augment}")
+    logging.info(f"Preprocessing sampling_hyperparameters: {config['preprocessing'].get('sampling_hyperparameters', True)}")
 
     if (checkpoint is not None):
         logging.info(f"resume training from model: {checkpoint}")

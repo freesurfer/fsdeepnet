@@ -310,7 +310,6 @@ def apply_blur_resample(image, voxsize,
     """Applies blurring and resampling to the image volume."""
     blur_resampled_image = voxynth.augment.image_augment(
         image,
-        normalize=False, # Do not min/max normalize the image before augmentation
         smoothing_probability=smoothing_probability,
         smoothing_max_sigma=smoothing_max_sigma,
         added_noise_probability=added_noise_probability,
@@ -472,7 +471,7 @@ def apply_biasFieldCorruption(image, bias_field_std=.5, bias_scale=.025, prob=0.
 #     Finally, intensities are rescaled between [0,1] with min-max normalisation.
 #     Additional examples of augmented images are shown in the Supplementary materials (Fig. S1).
 #   "
-def apply_intensityAugmentation(image, noise_std=0, normalise=True, gamma_std=0, prob_noise=0.95, prob_gamma=1, sampling=True):
+def apply_intensityAugmentation(image, noise_std=0, normalize=True, gamma_std=0, prob_noise=0.95, prob_gamma=1, sampling=True):
     """
     Augment the intensities of the input tensor. All channels are augmented separately.
 
@@ -489,7 +488,7 @@ def apply_intensityAugmentation(image, noise_std=0, normalise=True, gamma_std=0,
                 max value to sample the standard deviation of the Gaussian white noise from the range [0, noise_std];
                 otherwise, standard deviation of the Gaussian white noise.
                 Default is 0, where white noise corruption is skipped.
-    normalise:  whether to apply min-max normalisation, to normalise between 0 and 1. Default is True.
+    normalize:  whether to apply min-max normalisation, to normalise between 0 and 1. Default is True.
     gamma_std:  standard deviation of the normal distribution from which we sample gamma.
                 Default is 0, where no gamma augmentation occurs.
     prob_noise: probability to apply noise injection
@@ -512,8 +511,8 @@ def apply_intensityAugmentation(image, noise_std=0, normalise=True, gamma_std=0,
         noise = noise_stddev * torch.randn(image.shape, device=image.device)       # N(0, noise_stddev)
         image += noise
 
-    # normalise
-    if (normalise):
+    # normalize
+    if (normalize):
         # simple min and max
         axis = tuple(dim for dim in range(1, ndims+1)) # axis=(H, W (,D))
         m = torch.amin(image, dim=axis) # [C, 1]
@@ -522,7 +521,7 @@ def apply_intensityAugmentation(image, noise_std=0, normalise=True, gamma_std=0,
         m = torch.reshape(m, sample_shape) # [C, 1, 1 (,1)]
         M = torch.reshape(M, sample_shape) # [C, 1, 1 (,1)]
 
-        # normalise
+        # normalize
         image = torch.clip(image, min=m, max=M)
         image = (image - m) / (M - m + torch.finfo(torch.float32).eps)
 
@@ -822,11 +821,11 @@ def apply_augmentations(
 
     if "intensityAugmentation" in augmentations_to_apply:
         ia_noise_std = augment_para.get("added_noise_max_sigma", 1.0)  # default is 0 for SynthSeg, no white noise added
-        ia_normalise = augment_para.get("normalize", True)
+        ia_normalize = augment_para.get("normalize", True)
         ia_gamma_std = augment_para.get("gamma_scaling_max", 0.5)
         ia_prob_noise = augment_para.get("added_noise_probability", 0.95)
         ia_prob_gamma = augment_para.get("gamma_scaling_probability", 1)
-        image_tensor = apply_intensityAugmentation(image_tensor, noise_std=ia_noise_std, normalise=ia_normalise, gamma_std=ia_gamma_std,
+        image_tensor = apply_intensityAugmentation(image_tensor, noise_std=ia_noise_std, normalize=ia_normalize, gamma_std=ia_gamma_std,
                                                    prob_noise=ia_prob_noise, prob_gamma=ia_prob_gamma, sampling=sampling_hyperparameters)
         if save_volumes is not None and output_dir is not None:
             save_framedimage(
