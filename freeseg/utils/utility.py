@@ -1,4 +1,5 @@
 import os
+import subprocess
 import random
 import platform
 import numpy as np
@@ -249,6 +250,14 @@ def print_vm_peak():
         if(strs[0] != 'VmPeak:'):
             continue
         print('vmpcma:', int(strs[1]))
+
+
+def gpu_report(gpu_index):
+    result = subprocess.run(["nvidia-smi", "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu", "--format=csv,noheader"], capture_output=True, text=True)
+    result = result.stdout.splitlines()[gpu_index]
+    index, name, utilization, mem_used, mem_total, temp = result.split(",")
+    report = f"GPU {index}: {name}" + f"  - Utilization: {utilization}" + f"  - Memory Usage: {mem_used} / {mem_total}" + f"  - Temperature: {temp}"
+    return report
 
 
 # ================================================================================================

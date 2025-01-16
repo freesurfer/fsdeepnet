@@ -58,7 +58,13 @@ def main():
 
     if (args.cpu):
         os.environ["CUDA_VISIBLE_DEVICES"]=""
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+        gpu_index = torch.cuda.current_device()
+    else:
+        device = torch.device("cpu")
+        gpu_index = None
     preprocessing_device = device
 
     checkpoint = args.checkpoint
@@ -176,7 +182,7 @@ def main():
         best_model_metric = config["training"]["best_model_metric"]
         validation_loader = DataLoader(validation_dataset, batch_size=config["training"]["batch_size"], shuffle=False)
 
-    logging.info("Training Device: {}".format(device))
+    logging.info("Training Device: {}".format(device) + (f' (GPU index: {gpu_index})' if (gpu_index is not None) else ''))
     logging.info("Preprocessing Device: {}".format(preprocessing_device))
     logging.info(f"Preprocessing pin_memory: {pin_memory}")
     logging.info(f"Preprocessing num_workers: {num_workers}")
@@ -213,7 +219,7 @@ def main():
     }
 
     train(train_loader, config, output_folder, len(unique_classes), ctab,
-          label_lookup=label_lookup, checkpoint=checkpoint, validation_loader=validation_loader, device=device, preprocessing_device=preprocessing_device,
+          label_lookup=label_lookup, checkpoint=checkpoint, validation_loader=validation_loader, device=device, preprocessing_device=preprocessing_device, gpu_index=gpu_index,
           train_dataset_dict=train_dataset_dict, debug=args.debug, weight_init=args.weight_init)
 
     # check memory usage
@@ -259,7 +265,7 @@ def argument_parse():
 
 
 def train(train_loader, config, train_output_folder, num_labels, ctab, label_lookup=None, checkpoint=None,
-          validation_loader=None, device=None, preprocessing_device=None, train_dataset_dict=None, debug=False, weight_init=None):
+          validation_loader=None, device=None, preprocessing_device=None, gpu_index=None, train_dataset_dict=None, debug=False, weight_init=None):
     # create the model to train
     model_arch_dict = config["model"]
     model_arch_dict["num_channels"] = config["dataset"]["expected_num_channels"]
@@ -292,6 +298,7 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
                        best_model_metric=config["training"]["best_model_metric"],
                        write_tensorboard_summary=config["training"].get("write_tensorboard_summary", False),
                        device=device,
+                       gpu_index=gpu_index,
                        preprocessing_device=preprocessing_device,
                        debug=debug)
                        

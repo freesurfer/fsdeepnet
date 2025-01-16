@@ -10,7 +10,7 @@ from torchvision.utils import make_grid
 
 from freeseg.checkpoint import Checkpoint
 from freeseg.metrics import DiceScore
-from freeseg.utils import remap_labels, DataGenerator, save_framedimage
+from freeseg.utils import remap_labels, DataGenerator, save_framedimage, gpu_report
 
 
 class Training:
@@ -39,6 +39,7 @@ class Training:
                  best_model_metric="dice",                 
                  write_tensorboard_summary=False,
                  device=None,
+                 gpu_index=None,
                  preprocessing_device=None,
                  debug=False):
         """
@@ -75,12 +76,15 @@ class Training:
         self._inverse_label_mapping = train_dataset_dict["inverse_label_mapping"]
 
         self._device = device
+        self._gpu_index = gpu_index
         self._preprocessing_device = preprocessing_device
         if (self._device is None):
             self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if (self._preprocessing_device is None):
             self._preprocessing_device = self._device
-
+        if (self._gpu_index is None and torch.cuda.is_available()):
+            self._gpu_index = torch.cuda.current_device()
+            
         self._input_generator = DataGenerator(train_loader, self._preprocessing_device)        
 
         self._summary_writer = None
@@ -158,6 +162,8 @@ class Training:
 
         # training loop
         for epoch in range(start_epoch, epochs):
+            if (self._gpu_index is not None):
+                logging.info(gpu_report(self._gpu_index))
             logging.info(f"Epoch {epoch+1:3d}/{epochs:<3d}")
             (train_loss, train_dices)  = self._train_one_epoch(optimizer, loss_fn, epoch, steps_per_epoch,
                                                                metric_type=metric_type)
