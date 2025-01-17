@@ -183,7 +183,7 @@ def main():
         validation_loader = DataLoader(validation_dataset, batch_size=config["training"]["batch_size"], shuffle=False)
 
     logging.info("Training Device: {}".format(device) + (f' (GPU index: {gpu_index})' if (gpu_index is not None) else ''))
-    logging.info("Preprocessing Device: {}".format(preprocessing_device))
+    logging.info("Preprocessing Device: {}".format(preprocessing_device) + (f' (GPU index: {gpu_index})' if (gpu_index is not None) else ''))
     logging.info(f"Preprocessing pin_memory: {pin_memory}")
     logging.info(f"Preprocessing num_workers: {num_workers}")
     logging.info(f"Preprocessing prefetch_factor: {prefetch_factor}")
