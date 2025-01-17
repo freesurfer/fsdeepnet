@@ -315,14 +315,14 @@ def random_affine(
         rotation = np.array([max_rotation] * (1 if ndim == 2 else 3))
 
     # 
-    if max_scaling < 1:
-        raise ValueError('max scaling to random affine cannot be less than 1, '
-                         'see function doc for more info')
-    if (sampling):
+    if (sampling):    
+        if max_scaling < 1:
+            raise ValueError('max scaling to random affine cannot be less than 1, '
+                             'see function doc for more info')
         inv = np.random.choice([-1, 1], size=ndim)
         scale = np.random.uniform(1, max_scaling, size=ndim) ** inv
     else:
-        scale = np.array([2-max_scaling] * ndim)
+        scale = np.array(max_scaling * ndim)
 
     # Sample shearing factors
     shear_size = 6 if ndim == 3 else 2
@@ -440,7 +440,7 @@ def random_displacement_field(
 
 def displacement_field_to_coords(disp, meshgrid=None) -> Tensor:
     """
-    Compute the absolute crs field scaled to range [-1, 1].
+    Convert the displacement crs to absolute crs scaled to range [-1, 1].
 
     Parameters:
     -----------
@@ -509,7 +509,7 @@ def spatial_transform(
 
     # 
     if isdisp:
-        # compute the absolute crs field scaled to range [-1, 1]
+        # convert the displacement crs to absolute crs scaled to range [-1, 1]
         trf = displacement_field_to_coords(trf, meshgrid=meshgrid)
 
     # 
@@ -525,7 +525,7 @@ def spatial_transform(
     # 
     image = image.unsqueeze(0)
     trf = trf.unsqueeze(0)
-    # trf is in the range of [-1, 1]
+    # trf is an absolute crs field in the range of [-1, 1]
     interped = torch.nn.functional.grid_sample(image, trf, align_corners=True, mode=method)
     interped = interped.squeeze(0)
 
