@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import sys
 import torch
 import logging
 import argparse
@@ -54,6 +55,8 @@ logging.basicConfig(
 
 
 def main():
+    logging.info(' '.join(sys.argv))
+
     args = argument_parse()
 
     if (args.cpu):

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import sys
 import csv
 import yaml
 import argparse
@@ -88,6 +89,8 @@ def create_dataset_file(data_folder, output_file=None, ignore_prior=False,
 
 
 if __name__ == "__main__":
+    print(' '.join(sys.argv))
+
     parser = argparse.ArgumentParser(
         description="Create and split image segmentation dataset file."
     )

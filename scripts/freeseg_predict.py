@@ -33,6 +33,8 @@ Usage: freeseg_predict.py
 """
 
 def main():
+    print(' '.join(sys.argv))
+
     args = argument_parse()
     
     if (args.cpu):

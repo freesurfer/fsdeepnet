@@ -16,6 +16,8 @@ Usage: freeseg_evaluate.py
 """
 
 def main():
+    print(' '.join(sys.argv))
+
     args = argument_parse()
 
     labels_segmentation = None
