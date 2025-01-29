@@ -1,12 +1,12 @@
 import os
 import glob
+import importlib
 from time import time
 import numpy as np
 import torch
 import surfa as sf
 
 from freeseg.checkpoint import Checkpoint
-from freeseg.models import UNet
 from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot, centroid
 from freeseg.augmentation import apply_centercrop
 
@@ -63,9 +63,11 @@ class Prediction:
         the_model_name = checkpoint.model_arch_dict.get("name", None)
         assert the_model_name is not None, "Model name is not available."
 
-        model_creation_string = the_model_name + "(checkpoint.model_arch_dict)"
-        self._model = eval(model_creation_string)
-        self._model = self._model.to(self._device)
+        module_name = '.'.join(the_model_name.split('.')[:-1])
+        py_class = the_model_name.split('.')[-1]        
+        py_module = importlib.import_module(module_name if (module_name) else 'freeseg.models.unet')
+        model_class = getattr(py_module, py_class, None)
+        self._model = model_class(checkpoint.model_arch_dict).to(self._device)
 
         self._nb_levels = checkpoint.model_arch_dict["nb_levels"]
         self._ndims = checkpoint.model_arch_dict["ndims"]

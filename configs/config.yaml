@@ -5,7 +5,7 @@ dataset:
   expected_num_channels: 1
 
 model:
-  name: UNet
+  name: freeseg.models.unet.UNet
   nb_levels: 3
   nb_features: 24 
   feat_mult: 2

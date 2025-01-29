@@ -2,6 +2,7 @@
 
 import os
 import sys
+import importlib
 import torch
 import logging
 import argparse
@@ -11,7 +12,6 @@ import shutil
 
 from torch.utils.data import DataLoader
 
-from freeseg.models import UNet
 from freeseg.training import Training
 from freeseg.utils import load_config, set_deterministic_training, print_vm_peak
 from freeseg.datasets import load_datasets
@@ -280,8 +280,11 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
     the_model_name = model_arch_dict.get("name", None)
     assert the_model_name is not None, "Model name is not available."
 
-    model_creation_string = the_model_name + "(model_arch_dict)"
-    model = eval(model_creation_string).to(device)
+    module_name = '.'.join(the_model_name.split('.')[:-1])
+    py_class = the_model_name.split('.')[-1]        
+    py_module = importlib.import_module(module_name if (module_name) else 'freeseg.models.unet')
+    model_class = getattr(py_module, py_class, None)
+    model = model_class(model_arch_dict).to(device)    
    
     # print Model Architecture
     # from torchinfo import summary
