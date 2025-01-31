@@ -13,7 +13,7 @@ import shutil
 from torch.utils.data import DataLoader
 
 from freeseg.training import Training
-from freeseg.utils import load_config, set_deterministic_training, print_vm_peak
+from freeseg.utils import load_config, set_deterministic_training, print_vm_peak, config_logger
 from freeseg.datasets import load_datasets
 from freeseg.metrics import WeightedL2Loss, DiceLoss
 
@@ -42,21 +42,10 @@ Usage: freeseg_train.py
        [--debug]
        [--vmp]
        [--verbose]
+       [--logfile <logfile>]
 """
 
-# Configure logging settings
-logging.basicConfig(
-    level=logging.INFO,  # Set the log level (e.g., DEBUG, INFO, WARNING, ERROR)
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(),  # Print to terminal
-    ],
-)
-
-
 def main():
-    logging.info(' '.join(sys.argv))
-
     args = argument_parse()
 
     if (args.cpu):
@@ -124,6 +113,16 @@ def main():
     assert (np.all(np.array(crop_size) % (2**(nb_levels-1)) == 0)), f"crop_size {crop_size} needs to be divisible by 2^{nb_levels-1}"
     ndims = config["model"]["ndims"]
     assert (ndims == len(crop_size)), f"crop_size {crop_size} is not for {ndims}D"
+
+    # setup and configure logging
+    train_folder = os.path.join(train_root_folder, run_name)
+    os.makedirs(train_folder, exist_ok=True)
+    logfile = args.logfile if (args.logfile) else os.path.join(train_folder, 'freeseg_train.log')
+    format = "%(asctime)s [%(levelname)s] %(message)s"
+    config_logger(logfile, logging.DEBUG, format)
+
+    # print the command
+    logging.info(' '.join(sys.argv))
 
     deterministic = config["training"].get("deterministic", False)
     if (deterministic):
@@ -257,9 +256,10 @@ def argument_parse():
     parser.add_argument("--best_model_metric", type=str, default=None, choices=["loss", "dice"], help="Metric for saving the best model (loss or dice)")
     parser.add_argument("--check_augment", action='store_true', help="Reject augmentations not having all the labels")
     parser.add_argument("--weight_init", type=str, help="How to init network weights, 'zeros' or 'xavier_uniform'")
-    parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
     parser.add_argument('--vmp', action='store_true', help='Enable printing of vmpeak at the end.')
-    parser.add_argument("--verbose", action='store_true', help="Print debug info to stdout") 
+    parser.add_argument('--logfile', type=str, help='Set logfile (default is freeseg_train.log)')
+    parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")    
+    parser.add_argument("--verbose", action='store_true', help="Print debug info to stdout")
 
     # parse commandline
     args = parser.parse_args()

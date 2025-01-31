@@ -34,8 +34,8 @@ Usage: test_dataloader.py
 
 # Configure logging settings
 logging.basicConfig(
-    level=logging.INFO,  # Set the log level (e.g., DEBUG, INFO, WARNING, ERROR)
-    format="%(asctime)s - %(levelname)s - %(message)s",
+    level=logging.DEBUG,  # Set the log level (e.g., DEBUG, INFO, WARNING, ERROR)
+    format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.StreamHandler(),  # Print to terminal
     ],

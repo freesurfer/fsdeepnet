@@ -1,4 +1,5 @@
 import os
+import logging
 import numpy as np
 import numpy.random as npr
 import math
@@ -220,7 +221,7 @@ def apply_randomcrop(image, label, crop_size, mode='random', bbox_labels=None, p
             dbg_msg += f"(crop_min_val: {crop_min_val.tolist()}, crop_max_val: {crop_max_val.tolist()}), "
         dbg_msg += f"start_coords: {start_coords.tolist()}, end_coords: {end_coords.tolist()}, "
         dbg_msg += f"crop indices: {crop_idx.tolist()}"
-        print(dbg_msg)
+        logging.debug(dbg_msg)
             
     # check if bbox_lower/bbox_upper are inside start_coords/end_coords
     if (torch.any(bbox_lower < start_coords) or torch.any(bbox_upper > end_coords)):
@@ -233,7 +234,7 @@ def apply_randomcrop(image, label, crop_size, mode='random', bbox_labels=None, p
             dbg_msg += f"(crop_min_val: {crop_min_val.tolist()}, crop_max_val: {crop_max_val.tolist()}), "            
         dbg_msg += f"start_coords: {start_coords.tolist()}, end_coords: {end_coords.tolist()}"
         dbg_msg += f"crop indices: {crop_idx.tolist()}"
-        print(dbg_msg)
+        logging.debug(dbg_msg)
         
         """
         # ??? TODO ???
@@ -291,7 +292,7 @@ def apply_centercrop(image, crop_size, label=None, prior=None, verbose=False):
     end_coords = torch.minimum(center_point + crop_half, image_shape)
     crop_idx = torch.concat((start_coords, end_coords))
     if (verbose):
-        print(f"adjusted crop center: {center_point.tolist()}, crop indices: {crop_idx.tolist()}")
+        logging.debug(f"adjusted crop center: {center_point.tolist()}, crop indices: {crop_idx.tolist()}")
  
     return image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]], \
            label[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (label is not None) else None, \

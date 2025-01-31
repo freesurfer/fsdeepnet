@@ -1,4 +1,5 @@
 import os
+import logging
 import glob
 import importlib
 from time import time
@@ -82,10 +83,10 @@ class Prediction:
         self._label_mapping = checkpoint.train_dataset_dict.get("label_mapping", None)
         self._inverse_label_mapping = checkpoint.train_dataset_dict.get("inverse_label_mapping", None)
         if (self._label_mapping is None):
-            print(f"compute label_mapping ...")
+            logging.info(f"compute label_mapping ...")
             self._label_mapping = {label:i for i, label in enumerate(self._labels_segmentation)}
         if (self._inverse_label_mapping is None):
-            print(f"compute inverse_label_mapping ...")
+            logging.info(f"compute inverse_label_mapping ...")
             self._inverse_label_mapping = {v: k for k, v in self._label_mapping.items()}
         
 
@@ -217,7 +218,7 @@ class Prediction:
 
             list_predictions.append(path_images[i])
             if (debug):
-                print("[DEBUG] output re-oriented image/prior ...")
+                logging.debug("output re-oriented image/prior ...")
                 out_reoriented_image = os.path.join(out_debug_dir, f"{i+1:04d}."+os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.reoriented.RAS.mgz"
                 save_framedimage(image_tensor, out_reoriented_image, original_framedimage=sfimage)
                 if (path_priors is not None):
@@ -257,7 +258,7 @@ class Prediction:
                     if (path_labels is not None):
                         crop = 'centroidcropped'
 
-                    print(f"[DEBUG] output {crop} image/label ...")
+                    logging.debug(f"output {crop} image/label ...")
                     out_cropped_image = os.path.join(out_debug_dir, f"{i+1:04d}."+os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.RAS.mgz"
                     save_framedimage(image_tensor_cropped, out_cropped_image, original_framedimage=sfimage)
                     out_cropped_image = os.path.join(out_debug_dir, f"{i+1:04d}."+os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.mgz"
@@ -305,9 +306,9 @@ class Prediction:
                         original_framedimage=sfimage,
                         orientation=orig_orientation,
                         labels=label_lookup if (addctab) else None)
-            print(f"output segmentation {out_segmentations[i]}")
+            logging.info(f"output segmentation {out_segmentations[i]}")
             if (debug):
-                print("[DEBUG] output cropped prediction ...")
+                logging.debug("output cropped prediction ...")
                 seg_noreshape = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(out_segmentations[i]))[0])+f".cropped.mgz"
                 save_framedimage(segmentation_cropped, seg_noreshape,
                             original_framedimage=sfimage, 
@@ -321,7 +322,7 @@ class Prediction:
                 #posteriors = movedim(1, -1)  # move channel to last axis
                 save_framedimage(posteriors, out_posteriors, original_framedimage=sfimage, 
                                  orientation=orig_orientation, onehotencoded=True, dtype=float)
-                print(f"output posteriors {out_posteriors}")
+                logging.info(f"output posteriors {out_posteriors}")
         # end of segmentation loop
 
         # evaluate
@@ -331,7 +332,8 @@ class Prediction:
 
             path_dice = os.path.join(os.path.dirname(out_segmentations[0]), 'dices.npy')
 
-            print(f"\nEvaluating segmentations ...")
+            logging.info("")  # empty line
+            logging.info(f"Evaluating segmentations ...")
             eval = Evaluation(self._labels_segmentation)                
             if (isinstance(path_gt, list)):
                 eval.evaluate(path_gt, out_segmentations, path_dice=path_dice)

@@ -1,4 +1,5 @@
 import os
+import logging
 import glob
 import numpy as np
 import surfa as sf
@@ -121,7 +122,7 @@ class Evaluation:
         # output dices.dat as subject x nlabels        
         path_dicedat = os.path.join(os.path.dirname(path_dice),os.path.splitext(os.path.basename(path_dice))[0])+'.dat'
         np.savetxt(path_dicedat, np.transpose(dice_coefs))
-        print(f"\noutput evaluation dices as {path_dice} and {path_dicedat}")
+        logging.info(f"\noutput evaluation dices as {path_dice} and {path_dicedat}")
 
 
     # evaluate single segmentation and its ground truth

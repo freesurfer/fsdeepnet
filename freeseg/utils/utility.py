@@ -1,4 +1,5 @@
 import os
+import logging
 import subprocess
 import random
 import platform
@@ -160,7 +161,7 @@ def bbox(image, labels, verbose=False):
     lowerbound = lowerbound - 1
     upperbound = upperbound + 1
     if (verbose):
-        print(f"bbox(): {lowerbound.tolist()} - {upperbound.tolist()}")
+        logging.debug(f"bbox(): {lowerbound.tolist()} - {upperbound.tolist()}")
         
     return lowerbound, upperbound
     
@@ -191,7 +192,7 @@ def centroid(label, verbose=False):
 
     centroid = lowerbound + (upperbound - lowerbound)/2
     if (verbose):
-        print(f"label centroid: {lowerbound.tolist()} - {upperbound.tolist()}, centroid: {centroid.tolist()}")    
+        logging.debug(f"label centroid: {lowerbound.tolist()} - {upperbound.tolist()}, centroid: {centroid.tolist()}")    
     
     return centroid.int()
 
@@ -211,21 +212,21 @@ def DataGenerator(dataloader, device=None):
 # https://pytorch.org/docs/stable/notes/randomness.html
 # ??? todo: for multi-process dataloader, use worker_init_fn() and generator to preserve reproducibility
 def set_deterministic_training(seed=42):
-    print("[INFO] set deterministic training")
-    print("\tSet Random Seed")
+    logging.info("set deterministic training")
+    logging.info("\tSet Random Seed")
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
 
     if (torch.cuda.is_available()):
-        print("\tControl CUDA Randomness")
+        logging.info("\tControl CUDA Randomness")
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
     # https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html
-    print("\tUse Deterministic Algorithms")
+    logging.info("\tUse Deterministic Algorithms")
     # operations that do not have a deterministic implementation will throw a warning instead of an error
     torch.use_deterministic_algorithms(True, warn_only=True)
     # fill the uninitialized memory with a known value
@@ -249,17 +250,35 @@ def print_vm_peak():
             continue
         if(strs[0] != 'VmPeak:'):
             continue
-        print('vmpcma:', int(strs[1]))
+        logging.info('vmpcma:', int(strs[1]))
 
 
 def gpu_report(gpu_index):
     result = subprocess.run(["nvidia-smi", "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu", "--format=csv,noheader"], capture_output=True, text=True)
     result = result.stdout.splitlines()[gpu_index]
     index, name, utilization, mem_used, mem_total, temp = result.split(",")
-    report = f"GPU {index}: {name}" + f"  - Utilization: {utilization}" + f"  - Memory Usage: {mem_used} / {mem_total}" + f"  - Temperature: {temp}"
-    return report
+    logging.info(f"GPU {index}: {name}" + f"  - Utilization: {utilization}" + f"  - Memory Usage: {mem_used} / {mem_total}" + f"  - Temperature: {temp}")
 
 
+def config_logger(logfile, level, format, consolefmt=None):
+    """
+    Setup logging to log messages to both console and file with different message formats and in differing circumstances
+    """
+    consolefmt = consolefmt if (consolefmt is not None) else format
+    
+    logging.basicConfig(filename=logfile, level=level, format=format)
+
+    # define a Handler which writes INFO messages or higher to the sys.stderr
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    # set a format which is simpler for console use
+    formatter = logging.Formatter(consolefmt)
+    # tell the handler to use this format
+    console.setFormatter(formatter)
+    # add the handler to the root logger
+    logging.getLogger('').addHandler(console)
+
+    
 # ================================================================================================
 #                                        Lab2Im Utilities
 # ================================================================================================

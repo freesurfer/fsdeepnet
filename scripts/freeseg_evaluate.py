@@ -4,6 +4,7 @@ import sys
 import numpy as np
 import argparse
 
+from freeseg.utils import config_logger
 from freeseg.evaluation import Evaluation
 
 """
@@ -13,12 +14,16 @@ Usage: freeseg_evaluate.py
        [--segmentation_labels <segmentation_labels.npy>]
        [--evaluation_labels <label1 label2 ...>]
        [--path_dice <path_dice>]
+       [--logfile <logfile>]
 """
 
 def main():
-    print(' '.join(sys.argv))
-
     args = argument_parse()
+
+    # setup and configure logging
+    config_logger(args.logfile, logging.DEBUG, "%(asctime)s [%(levelname)s] %(message)s")
+    # print the command
+    logging.info(' '.join(sys.argv))
 
     labels_segmentation = None
     if (args.segmentation_labels is not None):
@@ -43,6 +48,7 @@ def argument_parse():
     parser.add_argument("--gt", type=str, required=True, help="Path to ground truth (folder) for dice evaluation.")
     parser.add_argument("--seg", type=str, required=True, help="Path to segmentation (folder) for dice evaluation.")
     parser.add_argument("--path_dice", type=str, help="Path to dice scores output.")
+    parser.add_argument('--logfile', type=str, default='freeseg_evaluate.log', help='Set logfile (default is freeseg_evaluate.log)')
 
     # parse commandline
     args = parser.parse_args()

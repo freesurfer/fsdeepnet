@@ -164,7 +164,7 @@ class Training:
         loss_dice_avg = np.zeros((epochs-start_epoch, ncols))        
         for epoch in range(start_epoch, epochs):
             if (self._gpu_index is not None):
-                logging.info(gpu_report(self._gpu_index))
+                gpu_report(self._gpu_index)
             logging.info(f"Epoch {epoch+1:3d}/{epochs:<3d}")
             (train_loss, train_dices)  = self._train_one_epoch(optimizer, loss_fn, epoch, steps_per_epoch,
                                                                metric_type=metric_type)
@@ -322,7 +322,7 @@ class Training:
             if (self._debug and step == steps_per_epoch-1):
                 # begin of debugging volumes output
                 # output augmented images/labels/priors, onehot encoded labels, posteriors, prediciton from each batch (batch_size x [C, H, W(, D)])
-                print(f"[DEBUG] output augmented images/labels, onehot encoded labels, posteriors, prediciton ...")                
+                logging.debug(f"output augmented images/labels, onehot encoded labels, posteriors, prediciton ...")                
                 for n, idx in enumerate(dataset_indices):
                     out_image = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.augmented_image.mgz")
                     save_framedimage(images[n], out_image)

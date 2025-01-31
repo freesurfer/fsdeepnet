@@ -1,3 +1,4 @@
+import logging
 import torch
 import torch.nn as nn
 
@@ -101,7 +102,7 @@ class UNet(nn.Module):
         num_channels = model_arch_dict.get("num_channels", None)
         if (num_channels is None):
             # backward compatible - read older models with model_arch_dict["input_shape"] saved instead
-            print(f"this is an older model file w/ 'input_shape' saved insted of 'num_channels'")
+            logging.warning(f"this is an older model file w/ 'input_shape' saved insted of 'num_channels'")
             input_shape = model_arch_dict["input_shape"]
             num_channels = input_shape[0]
         ndims = model_arch_dict["ndims"]
@@ -128,7 +129,7 @@ class UNet(nn.Module):
         if (add_priors):
             classifier_weight_init = "zeros"
         """
-        print(f"[INFO] UNet: encoder/decoder weight_init={weight_init}, classifier weight_init={classifier_weight_init}")
+        logging.info(f"UNet: encoder/decoder weight_init={weight_init}, classifier weight_init={classifier_weight_init}")
 
         super().__init__()
 
@@ -268,7 +269,7 @@ class UNet(nn.Module):
         # Benjamin's add_prior implementation (https://github.com/BBillot/SynthSeg/blob/master/ext/neuron/models.py#L501)
         # priors are added to the softmax output, then takes softmax again        
         if (self.add_priors and priors is not None and priors.numel() != 0):
-            #print(f"[DEBUG] UNet.forward(): add priors")
+            #logging.debug(f"UNet.forward(): add priors")
             x = torch.add(x, priors)
             if self.final_pred_activation == 'softmax':
                 x = nn.functional.softmax(x, dim=1)

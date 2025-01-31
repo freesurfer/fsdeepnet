@@ -84,6 +84,9 @@ fspython scripts/freeseg_train.py
          [--best_model_metric <loss|dice>]
          [--cpu]
 	 [--vmp]
+	 [--logfile <logfile>]
+
+       * default logfile is 'freeseg_train.log'
 ```
 
 
@@ -105,11 +108,13 @@ fspython scripts/freeseg_predict.py
        	 [--write_posteriors]
        	 [--cpu]
 	 [--vmp]
+	 [--logfile <logfile>]
 
        * Use one of the following options to specify images to segment:
          1. --i <image_path> or 
          2. --dataset_list_file <dataset.yaml> --cohort <train|validation|test>
        * Options --i <image_path> and --dataset_list_file <dataset.yaml> are mutually exclusive.
+       * default logfile is 'freeseg_predict.log'
 ```
 
 7. Run the evaluation script to compute dice between ground truth and segmentation
@@ -120,7 +125,9 @@ fspython scripts/freeseg_evaluate.py
          [--segmentation_labels <segmentation_labels.npy>]
          [--evaluation_labels <label1 label2 ...>]
          [--path_dice <path_dice>]
+	 [--logfile <logfile>]
 
        * specify labels for dice evaluation using either --segmentation_labels <segmentation_labels.npy> or --evaluation_labels <label1 label2 ...>.
        * <segmentation_labels.npy> can be found in the training output directory.
+       * default logfile is 'freeseg_evaluate.log'
 ```
