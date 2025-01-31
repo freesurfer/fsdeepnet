@@ -111,14 +111,13 @@ class Training:
 
 
     def _setup_training_directory(self, train_output_folder):
-        self._best_model_dir = os.path.join(train_output_folder, "best_models")  # Folder for best models
-        self._checkpoint_dir = os.path.join(train_output_folder, "checkpoints")  # Folder for checkpoints
-        self._dice_dir = os.path.join(self._checkpoint_dir, "dices")             # Folder for training/validation dices
-        
+        self._best_model_dir = train_output_folder
+        self._checkpoint_dir = train_output_folder
+        self._dice_dir = os.path.join(self._checkpoint_dir, "dices")             # Folder for training/validation dices        
+
         os.makedirs(self._best_model_dir, exist_ok=True)
         os.makedirs(self._checkpoint_dir, exist_ok=True)
         os.makedirs(self._dice_dir, exist_ok=True)
-
         if (self._debug):
             self._debug_dir = os.path.join(train_output_folder, "debug")
             os.makedirs(self._debug_dir, exist_ok=True)
@@ -161,6 +160,8 @@ class Training:
             self._model_checkpoint = None  # the checkpoint will only be used once in the training
 
         # training loop
+        ncols = 2 if (self._validation_loader is None) else 4
+        loss_dice_avg = np.zeros((epochs-start_epoch, ncols))        
         for epoch in range(start_epoch, epochs):
             if (self._gpu_index is not None):
                 logging.info(gpu_report(self._gpu_index))
@@ -179,12 +180,13 @@ class Training:
             np.savetxt(f_dice_dat, np.transpose(np.squeeze(train_dices)))
     
             if (self._validation_loader is None):
+                loss_dice_avg[epoch-start_epoch] = np.array((train_loss, train_dice_avg))                
                 logging.info(
                     f"Epoch [{epoch+1}/{epochs}], "
                     f"Train Loss: {train_loss:.4f}, "
                     f"Train Dice Avg: {train_dice_avg:.4f}"
                 )
-        
+
                 # model dict
                 checkpoint_dict = {
                     "epoch": epoch,
@@ -197,7 +199,7 @@ class Training:
                 # Save checkpoints every steps_per_epoch steps
                 checkpoint_path = os.path.join(
                     self._checkpoint_dir,
-                    f"{metric_type}_{epoch+1:03d}_train_loss{train_loss:.4f}_train_dice{train_dice_avg:.4f}.pth",
+                    f"{metric_type}_{epoch+1:03d}.pth",
                 )
                 logging.info(f"Epoch {epoch+1}: saving model to {checkpoint_path}")
                 self._checkpoint.save(checkpoint_path, checkpoint_dict)
@@ -214,6 +216,7 @@ class Training:
                 # Save in text format as nsubjects x nlabels
                 np.savetxt(f_dice_dat, np.transpose(np.squeeze(validation_dices)))
 
+                loss_dice_avg[epoch-start_epoch] = np.array((train_loss, train_dice_avg, validation_loss, validation_dice_avg))                
                 logging.info(
                     f"Epoch [{epoch+1}/{epochs}], "
                     f"Train Loss: {train_loss:.4f}, "
@@ -234,7 +237,7 @@ class Training:
                 # Save checkpoints every steps_per_epoch steps
                 checkpoint_path = os.path.join(
                     self._checkpoint_dir,
-                    f"{metric_type}_{epoch+1:03d}_val_loss{validation_loss:.4f}_val_dice{validation_dice_avg:.4f}.pth",
+                    f"{metric_type}_{epoch+1:03d}.pth",
                 )
                 logging.info(f"Epoch {epoch+1}: saving model to {checkpoint_path}")
                 self._checkpoint.save(checkpoint_path, checkpoint_dict)                
@@ -245,19 +248,25 @@ class Training:
                         best_validation_loss = validation_loss
                         checkpoint_path = os.path.join(
                             self._best_model_dir,
-                            f"best_model_epoch{epoch+1}_val_loss{validation_loss:.4f}_val_dice{validation_dice_avg:.4f}.pth",
+                            f"best_loss_model_{metric_type}_{epoch+1:03d}.pth",
                         )
+                        logging.info(f"Epoch {epoch+1}: best {self._best_model_metric} model saved: {checkpoint_path}")
                         self._checkpoint.save(checkpoint_path, checkpoint_dict)
                 elif self._best_model_metric == "dice":
                     if validation_dice_avg > best_validation_dice:
                         best_validation_dice = validation_dice_avg
                         checkpoint_path = os.path.join(
                             self._best_model_dir,
-                            f"best_model_epoch{epoch+1}_val_loss{validation_loss:.4f}_val_dice{validation_dice_avg:.4f}.pth",
+                            f"best_dice_model_{metric_type}_{epoch+1:03d}.pth",
                         )
+                        logging.info(f"Epoch {epoch+1}: best {self._best_model_metric} model saved: {checkpoint_path}")
                         self._checkpoint.save(checkpoint_path, checkpoint_dict)
             # End of perform evaluation
         # End of training loop
+        
+        f_loss_dice_avg_dat = os.path.join(self._checkpoint_dir, f"train_validation_avg_{metric_type}_epoch{start_epoch}-{epochs}.dat")
+        # Save in text format as nepoch x 2
+        np.savetxt(f_loss_dice_avg_dat, loss_dice_avg)
 
             
     def _train_one_epoch(self, optimizer, loss_fn, epoch, steps_per_epoch, metric_type='dice'):
