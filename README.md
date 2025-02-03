@@ -70,13 +70,12 @@ validation:
 ```bash
 fspython scripts/freeseg_train.py
          --config <config.yaml>
+         [--train_output_folder <train_output_folder>]	 
 	 [--keep_trainset_in_memory]
          [--deterministic]
          [--checkpoint <checkpoint>]
          [--ctab <ctab>]
-         [--dataset_list_file <dataset_list_file>]	 
-         [--train_root_folder <train_root_folder>]
-         [--run_name <--run_name>]
+         [--dataset_list_file <dataset_list_file>]
 	 [--model_name <model_classname>]
          [--crop_size <W H (D)>]
          [--write_tensorboard_summary]

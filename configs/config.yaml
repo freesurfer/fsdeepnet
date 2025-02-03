@@ -115,8 +115,7 @@ training:
   dice_epochs: 100
   wl2_epochs: 5
   steps_per_epoch: 1000
-  train_root_folder: new_runs/tensorboard_logs   # Common parent directory for training output
-  #run_name: Descriptive name for the run, default is run_YYYYMMDD_HHMMSS
+  train_output_folder: new_runs/tensorboard_logs   # Common parent directory for training output
   batch_size: 1
   learning_rate: 0.0001
   pre_train_learning_rate: 0.0001

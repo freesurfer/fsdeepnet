@@ -20,14 +20,13 @@ from freeseg.metrics import WeightedL2Loss, DiceLoss
 """
 Usage: freeseg_train.py 
        --config <config.yaml>
+       [--train_output_folder <train_output_folder>]
        [--keep_trainset_in_memory]
        [--deterministic]
        [--model_name <model_classname>]
        [--check_augment]
        [--dataset_list_file <dataset_list_file>]
        [--ctab <ctab>]
-       [--train_root_folder <train_root_folder>]
-       [--run_name <--run_name>]
        [--checkpoint <checkpoint>]
        [--crop_size <W H D>]
        [--batch_size <n>]
@@ -66,18 +65,6 @@ def main():
     config = load_config(args.config)
 
     # overwrite config with command line options
-    # train_root_folder and run_name are set to default
-    train_root_folder = args.train_root_folder
-    if (train_root_folder is None):
-        train_root_folder = config.get("training", {}).get("train_root_folder", "new_runs/tensorboard_logs")
-    config["training"]["train_root_folder"] = train_root_folder
-
-    run_name  = args.run_name
-    if (run_name is None):
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        run_name = config.get("training", {}).get("run_name", f"run_{timestamp}")
-    config["training"]["run_name"] = run_name
-
     if (args.verbose):
         config["preprocessing"]["verbose"] = args.verbose
     if (args.model_name is not None):
@@ -86,6 +73,8 @@ def main():
         config["dataset"]["dataset_list_file"] = args.dataset_list_file
     if (args.crop_size is not None):
         config["preprocessing"]["crop_size"] = args.crop_size
+    if (args.train_output_folder is not None):
+        config["training"]["train_output_folder"] = args.train_output_folder
     if (args.deterministic is not None):
         config["training"]["deterministic"] = args.deterministic
     if (args.batch_size is not None):
@@ -105,6 +94,8 @@ def main():
     if (args.persistent_workers is not None):
         config["preprocessing"]["persistent_workers"] = args.persistent_workers        
 
+    train_output_folder = config["training"].get("train_output_folder", None)
+    assert (train_output_folder is not None), "Use '--train_output_folder <>' or 'train_output_folder' in config.yaml to specify training output directory"
     dataset_list_file = config["dataset"].get("dataset_list_file", None)
     assert (dataset_list_file is not None), "Use '--dataset_list_file <dataset.yaml>' or 'dataset_list_file' in config.yaml to specify the dataset"
 
@@ -115,9 +106,9 @@ def main():
     assert (ndims == len(crop_size)), f"crop_size {crop_size} is not for {ndims}D"
 
     # setup and configure root and main logger
-    train_folder = os.path.join(train_root_folder, run_name)
-    os.makedirs(train_folder, exist_ok=True)
-    logfile = args.logfile if (args.logfile) else os.path.join(train_folder, 'freeseg_train.log')
+    train_output_folder = os.path.abspath(train_output_folder)    
+    os.makedirs(train_output_folder, exist_ok=True)
+    logfile = args.logfile if (args.logfile) else os.path.join(train_output_folder, 'freeseg_train.log')
     config_logger(logfile=logfile)
     mainlogger = logging.getLogger(__name__)
     mainlogger.addHandler(logging.StreamHandler())
@@ -140,7 +131,7 @@ def main():
     config.update(config_updates)
     """
 
-    output_folder = os.path.join(train_root_folder, run_name)    # Output folder for current run
+    output_folder = train_output_folder
     if (not os.path.exists(output_folder)):
         os.makedirs(output_folder)
 
@@ -198,8 +189,7 @@ def main():
 
     if (checkpoint is not None):
         mainlogger.info(f"resume training from model: {checkpoint}")
-    mainlogger.info(f"train_root_folder: {train_root_folder}")
-    mainlogger.info(f"run_name: {run_name}")
+    mainlogger.info(f"train_output_folder: {train_output_folder}")
     mainlogger.info(f"batch_size: {config['training']['batch_size']}")
     mainlogger.info(f"crop_size: {crop_size}")
     mainlogger.info(f"color table: {ctab}")
@@ -249,8 +239,7 @@ def argument_parse():
     parser.add_argument("--keep_trainset_in_memory", action='store_true', help="Keep preloaded training data in memory")
     parser.add_argument("--deterministic", action='store_true', help="deterministic training")
     parser.add_argument("--ctab", type=str, help="Path to the lookup table")
-    parser.add_argument("--train_root_folder", type=str, default=None, help="Base folder for saving training outputs")    
-    parser.add_argument("--run_name", type=str, default=None, help="Descriptive name for the run (used for naming TensorBoard log directories)")
+    parser.add_argument("--train_output_folder", type=str, default=None, help="Folder for saving training outputs")    
     parser.add_argument("--checkpoint", type=str, help="Path to a checkpoint file to resume training from")
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
     parser.add_argument("--num_workers", type=int, help="Number of Dataloader workers")
