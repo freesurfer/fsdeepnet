@@ -37,10 +37,16 @@ Usage: freeseg_predict.py
 def main():
     args = argument_parse()
     
-    # setup and configure logging
-    config_logger(args.logfile, logging.DEBUG, "%(asctime)s [%(levelname)s] %(message)s")
+    # setup and configure root and main logger
+    logfile = args.logfile if (args.logfile is not None) else os.path.join(os.getcwd(), "freeseg_predict.log")
+    config_logger(logfile=logfile, mode='w')
+    mainlogger = logging.getLogger(__name__)
+    mainlogger.addHandler(logging.StreamHandler())
+                          
     # print the command
-    logging.info(' '.join(sys.argv))    
+    mainlogger.info("")
+    mainlogger.info("CWD: " + os.getcwd())
+    mainlogger.info(' '.join(sys.argv))    
 
     if (args.cpu):
         os.environ["CUDA_VISIBLE_DEVICES"]=""
@@ -53,7 +59,7 @@ def main():
     assert ((args.i is not None) or (args.dataset_list_file is not None)), \
         "Use --i or --dataset_list_file to specify images to segment"
     if ((args.dataset_list_file is not None) and (args.cohort is None)):
-        logging.error("Use --cohort <train|validation|test> which dataset to segment")
+        mainlogger.error("Use --cohort <train|validation|test> which dataset to segment")
         return
 
     path_images = args.i
@@ -76,7 +82,11 @@ def main():
         assert (len(path_images) == len(path_gt)), "image and label need to be the same length"
         if (path_priors is not None):
             assert (len(path_images) == len(path_priors)), "images and priors need to be the same length"
-    
+
+    mainlogger.info("prediction in progress ...")
+    if (logfile is not None):
+        mainlogger.info(f"prediction log can be found in {logfile}")
+
     predict(path_images, args.o, args.checkpoint,
             crop_size=args.crop_size,
             ctab=args.ctab,
@@ -91,6 +101,8 @@ def main():
     # check memory usage
     if (args.vmp):
         print_vm_peak()
+
+    mainlogger.info("Done!")
     
 
 def argument_parse():
@@ -110,7 +122,7 @@ def argument_parse():
     parser.add_argument("--gt", type=str, help="Path to ground truth folder for dice evaluation.")
     parser.add_argument("--noaddctab", action="store_true", help="Do not embed colortable into seg output")
     parser.add_argument("--write_posteriors", action='store_true', help="Save the label posteriors.")
-    parser.add_argument('--logfile', type=str, default='freeseg_predict.log', help='Set logfile (default is freeseg_predict.log)')
+    parser.add_argument('--logfile', type=str, help='Set logfile (default is ./freeseg_predict.log)')
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
     parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
     parser.add_argument('--vmp', action='store_true', help='Enable printing of vmpeak at the end.')

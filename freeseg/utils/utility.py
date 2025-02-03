@@ -260,25 +260,26 @@ def gpu_report(gpu_index):
     logging.info(f"GPU {index}: {name}" + f"  - Utilization: {utilization}" + f"  - Memory Usage: {mem_used} / {mem_total}" + f"  - Temperature: {temp}")
 
 
-def config_logger(logfile, level, format, consolefmt=None):
+def config_logger(logfile=None, mode='a', level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s"):
     """
-    Setup logging to log messages to both console and file with different message formats and in differing circumstances
+    Setup python logging module.
+    - Log messages to sys.stderr only if there is no logfile specified.
+    - append to exisiting logfile by default, 'mode' is as described in https://docs.python.org/3/library/functions.html#filemodes
     """
-    consolefmt = consolefmt if (consolefmt is not None) else format
-    
-    logging.basicConfig(filename=logfile, level=level, format=format)
+    logging.basicConfig(filename=logfile, filemode=mode, level=level, format=format)
 
-    # define a Handler which writes INFO messages or higher to the sys.stderr
-    console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
-    # set a format which is simpler for console use
-    formatter = logging.Formatter(consolefmt)
-    # tell the handler to use this format
-    console.setFormatter(formatter)
-    # add the handler to the root logger
-    logging.getLogger('').addHandler(console)
+    if (logfile is None):
+        # define a Handler which writes messages to the sys.stderr
+        console = logging.StreamHandler()
+        console.setLevel(level)
+        # set a format which is simpler for console use
+        formatter = logging.Formatter(consolefmt)
+        # tell the handler to use this format
+        console.setFormatter(formatter)
+        # add the handler to the root logger
+        logging.getLogger('').addHandler(console)
 
-    
+
 # ================================================================================================
 #                                        Lab2Im Utilities
 # ================================================================================================

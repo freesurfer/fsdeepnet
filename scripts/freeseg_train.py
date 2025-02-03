@@ -114,15 +114,18 @@ def main():
     ndims = config["model"]["ndims"]
     assert (ndims == len(crop_size)), f"crop_size {crop_size} is not for {ndims}D"
 
-    # setup and configure logging
+    # setup and configure root and main logger
     train_folder = os.path.join(train_root_folder, run_name)
     os.makedirs(train_folder, exist_ok=True)
     logfile = args.logfile if (args.logfile) else os.path.join(train_folder, 'freeseg_train.log')
-    format = "%(asctime)s [%(levelname)s] %(message)s"
-    config_logger(logfile, logging.DEBUG, format)
+    config_logger(logfile=logfile)
+    mainlogger = logging.getLogger(__name__)
+    mainlogger.addHandler(logging.StreamHandler())
 
     # print the command
-    logging.info(' '.join(sys.argv))
+    mainlogger.info("")
+    mainlogger.info("CWD: " + os.getcwd())
+    mainlogger.info(' '.join(sys.argv))
 
     deterministic = config["training"].get("deterministic", False)
     if (deterministic):
@@ -184,28 +187,32 @@ def main():
         best_model_metric = config["training"]["best_model_metric"]
         validation_loader = DataLoader(validation_dataset, batch_size=config["training"]["batch_size"], shuffle=False)
 
-    logging.info("Training Device: {}".format(device) + (f' (GPU index: {gpu_index})' if (gpu_index is not None) else ''))
-    logging.info("Preprocessing Device: {}".format(preprocessing_device) + (f' (GPU index: {gpu_index})' if (gpu_index is not None) else ''))
-    logging.info(f"Preprocessing pin_memory: {pin_memory}")
-    logging.info(f"Preprocessing num_workers: {num_workers}")
-    logging.info(f"Preprocessing prefetch_factor: {prefetch_factor}")
-    logging.info(f"Preprocessing persistent_workers: {persistent_workers}")
-    logging.info(f"Preprocessing check_augment: {args.check_augment}")
-    logging.info(f"Preprocessing sampling_hyperparameters: {config['preprocessing'].get('sampling_hyperparameters', True)}")
+    mainlogger.info("Training Device: {}".format(device) + (f' (GPU index: {gpu_index})' if (gpu_index is not None) else ''))
+    mainlogger.info("Preprocessing Device: {}".format(preprocessing_device) + (f' (GPU index: {gpu_index})' if (gpu_index is not None) else ''))
+    mainlogger.info(f"Preprocessing pin_memory: {pin_memory}")
+    mainlogger.info(f"Preprocessing num_workers: {num_workers}")
+    mainlogger.info(f"Preprocessing prefetch_factor: {prefetch_factor}")
+    mainlogger.info(f"Preprocessing persistent_workers: {persistent_workers}")
+    mainlogger.info(f"Preprocessing check_augment: {args.check_augment}")
+    mainlogger.info(f"Preprocessing sampling_hyperparameters: {config['preprocessing'].get('sampling_hyperparameters', True)}")
 
     if (checkpoint is not None):
-        logging.info(f"resume training from model: {checkpoint}")
-    logging.info(f"train_root_folder: {train_root_folder}")
-    logging.info(f"run_name: {run_name}")
-    logging.info(f"batch_size: {config['training']['batch_size']}")
-    logging.info(f"crop_size: {crop_size}")
-    logging.info(f"color table: {ctab}")
-    logging.info(f"keep_trainset_in_memory: {args.keep_trainset_in_memory}")
-    logging.info(f"deterministic: {deterministic}")
+        mainlogger.info(f"resume training from model: {checkpoint}")
+    mainlogger.info(f"train_root_folder: {train_root_folder}")
+    mainlogger.info(f"run_name: {run_name}")
+    mainlogger.info(f"batch_size: {config['training']['batch_size']}")
+    mainlogger.info(f"crop_size: {crop_size}")
+    mainlogger.info(f"color table: {ctab}")
+    mainlogger.info(f"keep_trainset_in_memory: {args.keep_trainset_in_memory}")
+    mainlogger.info(f"deterministic: {deterministic}")
     if (perform_evaluation):
-        logging.info(f"best_model_metric: {best_model_metric}")
-    logging.info(f"training config: saved as {output_folder}/config.yaml")
-    logging.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
+        mainlogger.info(f"best_model_metric: {best_model_metric}")
+    mainlogger.info(f"training config: saved as {output_folder}/config.yaml")
+    mainlogger.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
+    mainlogger.info("")
+    mainlogger.info("training in progress ...")
+    if (logfile is not None):
+        mainlogger.info(f"training log can be found in {logfile}")
 
     # save label_mapping/inverse_label_mapping in train_dataset_dict
     train_dataset_dict = {
@@ -227,6 +234,8 @@ def main():
     # check memory usage
     if (args.vmp):
         print_vm_peak()
+
+    mainlogger.info("Done!")
                        
     
 def argument_parse():
@@ -258,7 +267,7 @@ def argument_parse():
     parser.add_argument("--weight_init", type=str, help="How to init network weights, 'zeros' or 'xavier_uniform'")
     parser.add_argument('--vmp', action='store_true', help='Enable printing of vmpeak at the end.')
     parser.add_argument('--logfile', type=str, help='Set logfile (default is freeseg_train.log)')
-    parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")    
+    parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
     parser.add_argument("--verbose", action='store_true', help="Print debug info to stdout")
 
     # parse commandline

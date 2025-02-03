@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import sys
 import logging
 import numpy as np
@@ -21,10 +22,16 @@ Usage: freeseg_evaluate.py
 def main():
     args = argument_parse()
 
-    # setup and configure logging
-    config_logger(args.logfile, logging.DEBUG, "%(asctime)s [%(levelname)s] %(message)s")
+    # setup and configure root and main logger
+    logfile = args.logfile if (args.logfile is not None) else os.path.join(os.getcwd(), "freeseg_evaluate.log")
+    config_logger(logfile=logfile, mode='w')
+    mainlogger = logging.getLogger(__name__)
+    mainlogger.addHandler(logging.StreamHandler())
+
     # print the command
-    logging.info(' '.join(sys.argv))
+    mainlogger.info("")
+    mainlogger.info("CWD: " + os.getcwd())
+    mainlogger.info(' '.join(sys.argv))
 
     labels_segmentation = None
     if (args.segmentation_labels is not None):
@@ -34,9 +41,13 @@ def main():
 
     assert labels_segmentation is not None, 'please specify labels for dice evaluation using either --segmentation_labels <segmentation_labels.npy> or --evaluation_labels <label1 label2 ...>'
         
+    mainlogger.info("evaluattion in progress ...")
+    if (logfile is not None):
+        mainlogger.info(f"evaluattion log can be found in {logfile}")
 
     # evaluate() expects labels_segmentation as a list [] or 1D numpy array
     evaluate(labels_segmentation, args.gt, args.seg, args.path_dice)
+    mainlogger.info("Done!")
 
 
 def argument_parse():
@@ -49,7 +60,7 @@ def argument_parse():
     parser.add_argument("--gt", type=str, required=True, help="Path to ground truth (folder) for dice evaluation.")
     parser.add_argument("--seg", type=str, required=True, help="Path to segmentation (folder) for dice evaluation.")
     parser.add_argument("--path_dice", type=str, help="Path to dice scores output.")
-    parser.add_argument('--logfile', type=str, default='freeseg_evaluate.log', help='Set logfile (default is freeseg_evaluate.log)')
+    parser.add_argument('--logfile', type=str, help='Set logfile (default is ./freeseg_evaluate.log)')
 
     # parse commandline
     args = parser.parse_args()
