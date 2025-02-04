@@ -91,7 +91,7 @@ def image_augment(
     bias_field_smoothing_range: Tuple, optional
         The range of perlin noise smoothing to generate the bias field.
     bias_field_generation_method: str, optional
-        Method to generate the bias field. Can be 'blur' or 'upsample'.
+        Method to generate the bias field. Can be 'blur' or 'upsample' (default).
     background_noise_probability: float, optional
         The probability of synthesizing perline noise in the background. Otherwise,
         the background will be set to zero.
@@ -124,7 +124,8 @@ def image_augment(
     resized_max_voxsize: float, optional
         The maximum voxel size for the 'resized' downsampling step.
     sampling: bool, optional
-        If True, sample a value from given max; otherwise use given max as selected value
+        If True (default), sample a value from uniform distribution from given max;
+        otherwise use given max as selected value
 
     Returns
     -------

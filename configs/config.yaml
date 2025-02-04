@@ -64,7 +64,7 @@ preprocessing:
   added_noise_max_sigma: 1.0
   gamma_scaling_probability: 1
   gamma_scaling_max: 0.59
-  # to equate with Augment2.IntensityAugmentation',
+  # to equate with augment2.IntensityAugmentation',
   # - set smoothing_probability=0, resized_probability=0,
   # - gamma_scaling_max is computed as following:
   #   a. in 'intensityAugmentation',
@@ -83,7 +83,7 @@ preprocessing:
   bias_field_max_magnitude: 0.5
   bias_field_smoothing_range: [16.98, 16.98]
   bias_field_generation_method: "blur"   # "blur" or "upsample"
-  # to equate with Augment2.BiasFieldCorruption, bias_field_smoothing_range is computed as following:
+  # to equate with augment2.BiasFieldCorruption, bias_field_smoothing_range is computed as following:
   # 1. bias_field_generation_method: "blur"
   #    - voxel size of the bias field in 'BiasFieldCorruption':   
   #      voxel_size=1/bias_scale=40 (bias_field_scale=.025)
