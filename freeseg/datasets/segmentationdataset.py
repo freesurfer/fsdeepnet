@@ -5,11 +5,10 @@ import torch
 import yaml
 from torch.utils.data import Dataset
 
-from freeseg.augmentation import check_augmentations, apply_augmentations
-from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot
+from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot, get_class
 
 class SegmentationDataset(Dataset):
-    def __init__(self, config, dataset_dict=None, image=None, label=None, priors=None, transform=None, device=None, check_augment=False, keep_trainset_in_memory=False):
+    def __init__(self, config, augmentation_class=None, dataset_dict=None, image=None, label=None, priors=None, transform=None, device=None, check_augment=False, keep_trainset_in_memory=False):
         """
         SegmentationDataset Constructor
 
@@ -21,6 +20,7 @@ class SegmentationDataset(Dataset):
           Input label map(s)
         """
 
+        assert (augmentation_class is not None), "Must provide an data augmentation class"
         assert ((dataset_dict is not None) or (image is not None and label is not None)), \
             "Must provide input image/label using 'dataset_dict' or 'image/label'"
 
@@ -30,7 +30,7 @@ class SegmentationDataset(Dataset):
         self.config = config
         self.augment_para = config["preprocessing"]
         self.augment_para["num_channels"] = self.num_channels  # needed in sampleConditionalGMM 
-        self.transform = transform
+        self.transform = []
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -39,9 +39,6 @@ class SegmentationDataset(Dataset):
         self.check_augment = check_augment
 
         assert (self.ndims == 3 or self.ndims == 2), "Model supports 3D or 2D"
-        if (self.transform is not None):
-            self.transform = np.unique(self.transform).tolist()
-            check_augmentations(self.transform)
 
         self.keep_trainset_in_memory = keep_trainset_in_memory
         self.images = []
@@ -68,7 +65,25 @@ class SegmentationDataset(Dataset):
         self.save_volumes = None
         self.output_dir = self.augment_para.get("augmentation_dir", None)
         if ((self.output_dir is not None) and (not os.path.exists(self.output_dir))):
-            os.makedirs(self.output_dir)                
+            os.makedirs(self.output_dir)
+
+        # create data augment object
+        module_name = '.'.join(augmentation_class.split('.')[:-1])
+        module_name = module_name if (module_name) else 'freeseg.augmentation.augmentbase'
+        py_class = augmentation_class.split('.')[-1]        
+        augment_class = get_class(module_name, py_class)
+        self.data_augment = augment_class(self.augment_para,
+                                          left_right_corresponding=self.config["dataset"].get("left_right_corresponding", None),
+                                          generation_labels=self.config["dataset"].get("expected_classes"),
+                                          output_dir=self.output_dir,
+                                          device=self.device)
+        if (transform is not None):
+            # remove duplicates but keep the order
+            for t in transform:
+                t_lower = t.lower()
+                if t_lower not in self.transform:
+                    self.transform.append(t_lower)
+            self.data_augment.check_augmentations(self.transform)
         
 
     def haspriors(self):
@@ -115,23 +130,17 @@ class SegmentationDataset(Dataset):
                 # extract voxsizes to match {image_tensor.ndim-1}D data
                 # make it writeable or voxynth.augment.image_augment() will complain non-writable numpy array
                 voxsize = np.copy(image.geom.voxsize[:image_tensor.ndim-1])
-                augmented_image_tensor, augmented_label_tensor, augmented_priors_tensor = apply_augmentations(
-                    image_tensor,
-                    label_tensor,
-                    image,
-                    label,
-                    self.config["dataset"].get("expected_classes"),
-                    self.augment_para,
-                    voxsize=voxsize,
-                    priors_tensor=priors_tensor,
-                    output_dir=self.output_dir,
-                    save_volumes=self.save_volumes + f"_try{trycount}" if (trycount is not None) else self.save_volumes,
-                    augmentations_to_apply=self.transform,
-                    left_right_corresponding=self.config["dataset"].get(
-                        "left_right_corresponding", None
-                    ),
-                    device=self.device
-                )
+                augmented_image_tensor, augmented_label_tensor, augmented_priors_tensor = \
+                    self.data_augment.apply_augmentations(
+                        image_tensor,
+                        label_tensor,
+                        image,
+                        label,
+                        voxsize=voxsize,
+                        priors_tensor=priors_tensor,
+                        save_volumes=self.save_volumes + f"_try{trycount}" if (trycount is not None) else self.save_volumes,
+                        augmentations_to_apply=self.transform,
+                    )
                 
                 # ??? (2024-11-22) the logic is not working ???
                 # check if augmented label contains all the labels                             
@@ -255,6 +264,7 @@ class SegmentationDataset(Dataset):
 
 def load_datasets(
     config,
+    dataaugment,
     train_augmentations=None,
     validation_augmentations=None,
     test_augmentations=None,
@@ -273,6 +283,7 @@ def load_datasets(
     if (dataset is not None):
         train_dataset = SegmentationDataset(
             config,
+            dataaugment,
             dataset_dict=dataset,            
             transform=train_augmentations,
             device=device,
@@ -285,6 +296,7 @@ def load_datasets(
     if (dataset is not None):
         validation_dataset = SegmentationDataset(
             config,
+            dataaugment,
             dataset_dict=dataset,            
             transform=validation_augmentations,
             device=device
@@ -295,6 +307,7 @@ def load_datasets(
     if (dataset is not None):
         test_dataset = SegmentationDataset(
             config,
+            dataaugment,
             dataset_dict=dataset,            
             transform=test_augmentations,
             device=device

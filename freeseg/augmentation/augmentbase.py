@@ -29,6 +29,9 @@ class AugmentBase:
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.verbose = True if self.hyperparameters.get("verbose") else False
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augmentbase.AugmentBase' constructor")
 
         # set up augmentations
         self.flip = Flip(self.hyperparameters, device=self.device, left_right_corresponding=self.left_right_corresponding)
@@ -38,7 +41,7 @@ class AugmentBase:
         self.centercrop = CenterCrop(self.hyperparameters, device=self.device)
         self.biasfieldcorruption = BiasFieldCorruption(self.hyperparameters, device=self.device)
         self.intensityaugmentation = IntensityAugmentation(self.hyperparameters, device=self.device)
-        self.sampleconditionalGMM = SampleConditionalGMM(self.hyperparameters, self.generation_labels, device=self.device)
+        self.sampleconditionalgmm = SampleConditionalGMM(self.hyperparameters, self.generation_labels, device=self.device)
 
 
     def check_augmentations(self, augmentations_to_apply):
@@ -47,7 +50,8 @@ class AugmentBase:
         """
 
         for augmentation in (augmentations_to_apply):
-            assert (augmentation in self.valid_augmentations), f"augmentation '{augmentation}' not supported"
+            assert (augmentation in self.valid_augmentations), \
+                f"Unknown augmentation '{augmentation}'. Supported augmentations {self.valid_augmentations}. "
 
         if (("centercrop" in augmentations_to_apply) and ("randomcrop" in augmentations_to_apply)):
             raise ValueError("Both 'centercrop' and 'randomcrop' are selected. Choose one.")
@@ -88,7 +92,7 @@ class AugmentBase:
         for idx, augment_name in enumerate(augmentations_to_apply):
             augment = getattr(self, augment_name, None)
             if (augment is None):
-                logging.warning(f"WARN: augmentation '{augment_name}' not support, skip")
+                logging.warning(f"augmentation '{augment_name}' not support, skip")
                 continue
             
             aff = original_image.geom.vox2world.matrix            
@@ -127,6 +131,7 @@ class Flip(nn.Module):
 
         self.left_right_corresponding = left_right_corresponding
         self.flip_prob = hyperparameters.get("flip_prob", 0.5)
+        self.verbose = True if hyperparameters.get("verbose") else False
 
     # ??? todo: flip priors ???        
     def forward(self, image, label, aff):
@@ -138,6 +143,8 @@ class Flip(nn.Module):
         
         assert aff is not None, 'aff should not be None when applying flipping'
         assert self.left_right_corresponding is not None, 'left_right_corresponding should not be None when applying flipping'
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augmentbase.Flip'")
 
         ndims = len(image.shape[1:])
         
@@ -181,11 +188,14 @@ class SpatialTransform(nn.Module):
         self.warp_smoothing_range = hyperparameters.get("warp_smoothing_range", [10, 20])
         self.warp_magnitude_range = hyperparameters.get("warp_magnitude_range", [1, 2])
         self.sampling = hyperparameters.get("sampling_hyperparameters", True)
+        self.verbose = True if hyperparameters.get("verbose") else False
 
     def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
         """Applies a random spatial transformation to image and label volumes."""
 
-        #print(f"apply_spatial_transform() - image.get_device() = {image.get_device()}, label.get_device() = {label.get_device()}, device = {device}")
+        #logging.info(f"apply_spatial_transform() - image.get_device() = {image.get_device()}, label.get_device() = {label.get_device()}, device = {device}")
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augmentbase.SpatialTransform'")
 
         # voxsize is default to 1
         trf = voxynth.transform.random_transform(
@@ -238,6 +248,9 @@ class RandomCrop(nn.Module):
                   handle batch > 1 ???
         """
 
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augmentbase.RandomCrop'")
+        
         # assuming image and label have the same dimensions
         image_shape = torch.tensor(image.shape[1:], device=image.device)
         image_ndims = len(image_shape)
@@ -403,6 +416,9 @@ class CenterCrop(nn.Module):
             numpy array:  The indices where the image is cropped.
         """    
 
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augmentbase.CenterCrop'")
+        
         # input image is non-batched tensor
         image_shape = torch.tensor(image.shape[1:], device=image.device)
         #crop_size = torch.tensor(crop_size, device=image.device)
@@ -459,9 +475,13 @@ class IntensityAugmentation(nn.Module):
         #self.resized_one_axis_probability = hyperparameters.get("resized_one_axis_probability", 0)
         #self.resized_max_voxsize = hyperparameters.get("resized_max_voxsize", 2)
         self.sampling = hyperparameters.get("sampling_hyperparameters", True)
+        self.verbose = True if hyperparameters.get("verbose") else False
             
     def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
         """Applies blurring and resampling to the image volume."""
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augmentbase.IntensityAugmentation'")
+        
         blur_resampled_image = voxynth.augment.image_augment(
             image,
             added_noise_probability=self.added_noise_probability,
@@ -485,9 +505,13 @@ class BiasFieldCorruption(nn.Module):
         self.bias_field_smoothing_range = hyperparameters.get("bias_field_smoothing_range", [1, 2])
         self.bias_field_generation_method =hyperparameters.get("bias_field_generation_method", "blur")
         self.sampling = hyperparameters.get("sampling_hyperparameters", True)
+        self.verbose = True if hyperparameters.get("verbose") else False
         
     def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
         """Applies bias field augmentation to the image volume."""
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augmentbase.BiasFieldCorruption'")
+        
         bf_augmented_image = voxynth.augment.image_augment(
             image,
             voxsize=voxsize,
@@ -504,8 +528,6 @@ class BiasFieldCorruption(nn.Module):
 # (https://www.sciencedirect.com/science/article/pii/S1361841523000506)
 class SampleConditionalGMM(nn.Module):
     def __init__(self, hyperparameters, generation_labels, device=None):
-        assert (generation_labels is not None), 'generation_labels is needed for sampleConditionalGMM'
-        
         super().__init__()
         self.device = device
         if (self.device is None):
@@ -516,6 +538,7 @@ class SampleConditionalGMM(nn.Module):
         self.prior_distribution = hyperparameters.get("prior_distribution", "uniform")  # 'normal'
         self.prior_mean = hyperparameters.get("prior_mean", [25, 225])
         self.prior_std = hyperparameters.get("prior_std", [5, 25])
+        self.verbose = True if hyperparameters.get("verbose") else False
 
     def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
         """
@@ -531,6 +554,11 @@ class SampleConditionalGMM(nn.Module):
         sampled_image: output tensor [num_channels, H, W (,D)]
         """    
 
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augmentbase.SampleConditionalGMM'")
+        
+        assert (self.generation_labels is not None), 'generation_labels is needed for sampleConditionalGMM'
+        
         # sample means and stds of Gaussian distributions of the GMM
         num_classes = len(self.generation_labels)
         prior_shape = (self.num_channels, num_classes)

@@ -10,4 +10,5 @@ from .utility import set_deterministic_training
 from .utility import print_vm_peak
 from .utility import gpu_report
 from .utility import config_logger
+from .utility import get_class
 from .utility import get_ras_axes

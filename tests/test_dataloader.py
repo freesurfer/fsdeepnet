@@ -20,8 +20,7 @@ Usage: test_dataloader.py
        --config <config.yaml>
        [--deterministic]
        [--dataset_list_file <dataset_list_file>]
-       [--train_root_folder <train_root_folder>]
-       [--run_name <--run_name>]
+       [--train_output_folder <train_output_folder>]
        [--crop_size <W H D>]
        [--cpu]
        [--num_workers <num_workers>]
@@ -43,6 +42,7 @@ logging.basicConfig(
 
 
 def main():
+    logging.info("CWD: " + os.getcwd())
     logging.info(' '.join(sys.argv))
 
     args = argument_parse()
@@ -56,22 +56,12 @@ def main():
     config = load_config(args.config)
 
     # overwrite config with command line options
-    # train_root_folder and run_name are set to default
-    train_root_folder = args.train_root_folder
-    if (train_root_folder is None):
-        train_root_folder = config.get("training", {}).get("train_root_folder", "new_runs/tensorboard_logs")
-    config["training"]["train_root_folder"] = train_root_folder
-
-    run_name  = args.run_name
-    if (run_name is None):
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        run_name = config.get("training", {}).get("run_name", f"run_{timestamp}")
-    config["training"]["run_name"] = run_name
-
     if (args.dataset_list_file is not None):
         config["dataset"]["dataset_list_file"] = args.dataset_list_file    
     if (args.crop_size is not None):
         config["preprocessing"]["crop_size"] = args.crop_size
+    if (args.train_output_folder is not None):
+        config["training"]["train_output_folder"] = args.train_output_folder
     if (args.deterministic is not None):
         config["training"]["deterministic"] = args.deterministic         
     if (args.num_workers is not None):
@@ -83,10 +73,12 @@ def main():
     if (args.persistent_workers is not None):
         config["preprocessing"]["persistent_workers"] = args.persistent_workers        
 
+    train_output_folder = config["training"].get("train_output_folder", None)
+    assert (train_output_folder is not None), "Use '--train_output_folder <>' or 'train_output_folder' in config.yaml to specify training output directory"
     assert (config["dataset"].get("dataset_list_file", None) is not None), \
         "no dataset_list_file is available. Use '--dataset_list_file <dataset_list_file>' to specify dataset."
 
-    output_folder = os.path.join(train_root_folder, run_name)    # Output folder for current run
+    output_folder = os.path.abspath(train_output_folder)
     if (not os.path.exists(output_folder)):
         os.makedirs(output_folder)
     
@@ -117,10 +109,10 @@ def main():
     labels_segmentation = sorted(config["dataset"]["expected_classes"])
     label_mapping = {label:i for i, label in enumerate(labels_segmentation)}
     inverse_label_mapping = {v: k for k, v in label_mapping.items()}
-    config["dataset"]["label_mapping"] = label_mapping    
-    train_dataset, _, _ = load_datasets(
-        config, config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"), device=preprocessing_device
-    )
+    config["dataset"]["label_mapping"] = label_mapping
+    augmentation_class = config["preprocessing"].get("augmentation_class", "freeseg.augmentation.augmentbase.AugmentBase")
+    train_dataset, _, _ = load_datasets(config, augmentation_class,
+                                        config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"), device=preprocessing_device)
 
     # Create training DataLoader
     train_loader = DataLoader(train_dataset, batch_size=config["training"]["batch_size"], shuffle=True,
@@ -136,13 +128,14 @@ def main():
     
     logging.info("Training Device: {}".format(device))
     logging.info("Preprocessing Device: {}".format(preprocessing_device))
+    logging.info(f"Preprocessing augmentation_class: {augmentation_class}")
+    logging.info(f"Preprocessing train_augmentations: {config['preprocessing'].get('train_augmentations')}")
     logging.info(f"Preprocessing pin_memory: {pin_memory}")
     logging.info(f"Preprocessing num_workers: {num_workers}")
     logging.info(f"Preprocessing prefetch_factor: {prefetch_factor}")
     logging.info(f"Preprocessing persistent_workers: {persistent_workers}")
 
-    logging.info(f"train_root_folder: {train_root_folder}")
-    logging.info(f"run_name: {run_name}")
+    logging.info(f"train_output_folder: {output_folder}")
     logging.info(f"crop_size: {crop_size}")
     logging.info(f"deterministic: {deterministic}")
     logging.info(f"training config: saved as {output_folder}/config.yaml")
@@ -182,8 +175,7 @@ def argument_parse():
     parser.add_argument("--config", type=str, required=True, help="Path to the configuration file")
     parser.add_argument("--deterministic", action='store_true', help="deterministic training")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
-    parser.add_argument("--train_root_folder", type=str, default=None, help="Base folder for saving training outputs")    
-    parser.add_argument("--run_name", type=str, default=None, help="Descriptive name for the run (used for naming TensorBoard log directories)")
+    parser.add_argument("--train_output_folder", type=str, default=None, help="Base folder for saving training outputs")    
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
     parser.add_argument("--num_workers", type=int, help="Number of Dataloader workers")
     parser.add_argument("--prefetch_factor", type=int, help="Number of batches loaded in advance by each worker")

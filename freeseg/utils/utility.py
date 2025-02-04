@@ -1,4 +1,5 @@
 import os
+import importlib
 import logging
 import subprocess
 import random
@@ -278,6 +279,11 @@ def config_logger(logfile=None, mode='a', level=logging.DEBUG, format="%(asctime
         console.setFormatter(formatter)
         # add the handler to the root logger
         logging.getLogger('').addHandler(console)
+
+
+def get_class(module, py_class):
+    py_module = importlib.import_module(module)
+    return getattr(py_module, py_class, None)
 
 
 # ================================================================================================

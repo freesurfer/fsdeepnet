@@ -20,24 +20,25 @@ model:
   final_pred_activation: "softmax"
 
 preprocessing:
+  augmentation_class: freeseg.augmentation.augmentbase.AugmentBase   # or freeseg.augmentation.augment2.Augment2
   sampling_hyperparameters: True
   verbose: False
   train_augmentations: [
-    # "flipping",          # need to define left_right_corresponding
-    "spatial_transform",
+    # "flip",          # need to define left_right_corresponding
+    "spatialtransform",
     # only one type of cropping should be listed
-    "cropping",            # crop around the image cener
+    "centercrop",            # crop around the image cener
     #"randomcrop",         # crop from a randomly selected point
-    #"randomcrop_center",  # crop around a randomly selected point
-    "bias_field",
-    "blur_resample",
+    #"randomcentercrop",  # crop around a randomly selected point
+    "biasfieldcorruption",
+    "intensityaugmentation",
     ]
   #augmentation_dir: /path/to-save-augmented-data
   #bbox_labels: list of labels to make the bounding box
   flip_prob: 0.5
   crop_size: [160, 160, 160]
   
-  # spatial deformation parameters (voxynth)
+  # spatialtransform parameters (AugmentBase)
   affine_probability: 1.0
   max_translation: 30  # mm
   max_rotation: 20     # angles as degrees
@@ -58,12 +59,12 @@ preprocessing:
   #    warp_smoothing_range=1/nonlin_scale=25 (nonlin_scale=.04)
 
   
-  # blurring and resampling parameters (voxynth)
+  # intensityaugmentation parameters (AugmentBase)
   added_noise_probability: 1 #0.5
   added_noise_max_sigma: 1.0
   gamma_scaling_probability: 1
   gamma_scaling_max: 0.59
-  # to equate with 'intensityAugmentation',
+  # to equate with Augment2.IntensityAugmentation',
   # - set smoothing_probability=0, resized_probability=0,
   # - gamma_scaling_max is computed as following:
   #   a. in 'intensityAugmentation',
@@ -77,12 +78,12 @@ preprocessing:
   resized_one_axis_probability: 0
   resized_max_voxsize: 2
   
-  # bias field parameters (voxynth)
+  # biasfieldcorruption parameters (AugmentBase)
   bias_field_probability: 1 # Ben: turned on if bias_field_std > 0
   bias_field_max_magnitude: 0.5
   bias_field_smoothing_range: [16.98, 16.98]
   bias_field_generation_method: "blur"   # "blur" or "upsample"
-  # to equate with 'BiasFieldCorruption', bias_field_smoothing_range is computed as following:
+  # to equate with Augment2.BiasFieldCorruption, bias_field_smoothing_range is computed as following:
   # 1. bias_field_generation_method: "blur"
   #    - voxel size of the bias field in 'BiasFieldCorruption':   
   #      voxel_size=1/bias_scale=40 (bias_field_scale=.025)
@@ -92,23 +93,10 @@ preprocessing:
   #    bias_field_smoothing_range=1/bias_scale=40 (bias_field_scale=.025)
 
 
-  # sampleConditionalGMM parameters
+  # sampleConditionalGMM parameters (AugmentBase)
   prior_mean: [25, 225]
   prior_std: [5, 25]
   prior_distribution: "uniform"
-
-  # ***parameters under section 'bias field parameters (voxynth)' will be overwritten
-  # biasFieldCorruption parameters
-  bias_field_probability: 0.95
-  bias_field_max_magnitude: 0.7
-  bias_field_scale: 0.025  
-
-  # ***parameters under section 'blurring and resampling parameters (voxynth)' will be overwritten
-  # intensityAugmentation parameters
-  added_noise_probability: 0.95
-  added_noise_max_sigma: 1.0
-  gamma_scaling_probability: 1
-  gamma_scaling_max: 0.5
 
 training:
   deterministic: False

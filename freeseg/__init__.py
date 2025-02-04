@@ -8,7 +8,8 @@ from .models import unet
 
 from .datasets import segmentationdataset
 
-from .augmentation import preprocessing
+from .augmentation import augmentbase
+from .augmentation import augment2
 
 from .utils import utility
 

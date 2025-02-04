@@ -1,15 +1,14 @@
 import os
 import logging
 import glob
-import importlib
 from time import time
 import numpy as np
 import torch
 import surfa as sf
 
 from freeseg.checkpoint import Checkpoint
-from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot, centroid
-from freeseg.augmentation import apply_centercrop
+from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot, centroid, get_class
+from freeseg.augmentation.augmentbase import CenterCrop
 
 class Prediction:
     """
@@ -65,9 +64,9 @@ class Prediction:
         assert the_model_name is not None, "Model name is not available."
 
         module_name = '.'.join(the_model_name.split('.')[:-1])
+        module_name = module_name if (module_name) else 'freeseg.models.unet'
         py_class = the_model_name.split('.')[-1]        
-        py_module = importlib.import_module(module_name if (module_name) else 'freeseg.models.unet')
-        model_class = getattr(py_module, py_class, None)
+        model_class = get_class(module_name, py_class)
         self._model = model_class(checkpoint.model_arch_dict).to(self._device)
 
         self._nb_levels = checkpoint.model_arch_dict["nb_levels"]
@@ -206,6 +205,9 @@ class Prediction:
 
         list_predictions = list()  # make an empty list
 
+        # create CenterCrop object
+        apply_centercrop = CenterCrop({"crop_size": self._crop_size}, device=self._device)
+
         # perform segmentation
         for i in range(len(path_images)):
             ### preprocessing ###
@@ -249,7 +251,7 @@ class Prediction:
                 # crop the images
                 # apply_centercrop() expects input image_tensor to be non-batched, output image_tensor_cropped is non-batched
                 (image_tensor_cropped, label_tensor_cropped, prior_tensor_cropped, crop_idx) = \
-                    apply_centercrop(image_tensor_cropped, self._crop_size, label=label_tensor, prior=prior_tensor_cropped)
+                    apply_centercrop(image_tensor_cropped, label=label_tensor, prior=prior_tensor_cropped)
                 image_tensor_cropped = image_tensor_cropped.to(self._device).float()
 
                 if (debug):

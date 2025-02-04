@@ -1,4 +1,5 @@
 import os
+import logging
 import numpy as np
 import numpy.random as npr
 import math
@@ -14,9 +15,15 @@ class Augment2(AugmentBase):
                  generation_labels=None,
                  output_dir=None,                 
                  device=None):
+        super().__init__(hyperparameters,
+                         left_right_corresponding=left_right_corresponding,
+                         generation_labels=generation_labels,
+                         output_dir=output_dir,                 
+                         device=device)
+
         valid_augmentations = ["biasfieldcorruption",
                                "intensityaugmentation",]
-        self.valid_augmentations = self.valid_augmentations.extend(valid_augmentations)
+        self.valid_augmentations.extend(valid_augmentations)
         # remove duplicates
         self.valid_augmentations = list(set(self.valid_augmentations))
 
@@ -27,9 +34,12 @@ class Augment2(AugmentBase):
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.verbose = True if self.hyperparameters.get("verbose") else False
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augment2.Augment2' constructor")        
 
         # set up augmentations
-        self.biasfieldcorruption = BiasFieldCorruption(self.hyperparameter, device=self.device)
+        self.biasfieldcorruption = BiasFieldCorruption(self.hyperparameters, device=self.device)
         self.intensityaugmentation = IntensityAugmentation(self.hyperparameters, device=self.device)
 
 
@@ -52,6 +62,7 @@ class BiasFieldCorruption(nn.Module):
         self.bias_scale = hyperparameters.get("bias_field_scale", .025)
         self.prob = hyperparameters.get("bias_field_probability", 0.95)
         self.sampling = hyperparameters.get("sampling_hyperparameters", True)
+        self.verbose = True if hyperparameters.get("verbose") else False        
 
     def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
         """
@@ -77,6 +88,9 @@ class BiasFieldCorruption(nn.Module):
                         otherwise, use bias_field_std as the standard deviation of a centred normal distribution
         """
 
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augment2.BiasFieldCorruption'")
+        
         if (self.sampling and (not np.random.rand() < self.prob or self.bias_field_std <= 0)):
             return image
     
@@ -127,6 +141,7 @@ class IntensityAugmentation(nn.Module):
         self.prob_noise = hyperparameters.get("added_noise_probability", 0.95)
         self.prob_gamma = hyperparameters.get("gamma_scaling_probability", 1)
         self.sampling = hyperparameters.get("sampling_hyperparameters", True)
+        self.verbose = True if hyperparameters.get("verbose") else False        
 
     def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
         """
@@ -154,7 +169,10 @@ class IntensityAugmentation(nn.Module):
                     If True, sample the standard deviation of the Gaussian white noise from the range [0, noise_std);
                     otherwise, use noise_std as the standard deviation of the Gaussian white noise
         """
-    
+
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augment2.IntensityAugmentation'")
+        
         num_channels = image.shape[0]
         ndims = image.ndim - 1
 

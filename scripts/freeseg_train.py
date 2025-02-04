@@ -2,7 +2,6 @@
 
 import os
 import sys
-import importlib
 import torch
 import logging
 import argparse
@@ -13,7 +12,7 @@ import shutil
 from torch.utils.data import DataLoader
 
 from freeseg.training import Training
-from freeseg.utils import load_config, set_deterministic_training, print_vm_peak, config_logger
+from freeseg.utils import load_config, set_deterministic_training, print_vm_peak, config_logger, get_class
 from freeseg.datasets import load_datasets
 from freeseg.metrics import WeightedL2Loss, DiceLoss
 
@@ -96,8 +95,7 @@ def main():
 
     train_output_folder = config["training"].get("train_output_folder", None)
     assert (train_output_folder is not None), "Use '--train_output_folder <>' or 'train_output_folder' in config.yaml to specify training output directory"
-    dataset_list_file = config["dataset"].get("dataset_list_file", None)
-    assert (dataset_list_file is not None), "Use '--dataset_list_file <dataset.yaml>' or 'dataset_list_file' in config.yaml to specify the dataset"
+    assert (config["dataset"].get("dataset_list_file", None) is not None), "Use '--dataset_list_file <dataset.yaml>' or 'dataset_list_file' in config.yaml to specify the dataset"
 
     crop_size = config["preprocessing"]["crop_size"]
     nb_levels = config["model"]["nb_levels"]
@@ -106,15 +104,16 @@ def main():
     assert (ndims == len(crop_size)), f"crop_size {crop_size} is not for {ndims}D"
 
     # setup and configure root and main logger
-    train_output_folder = os.path.abspath(train_output_folder)    
-    os.makedirs(train_output_folder, exist_ok=True)
-    logfile = args.logfile if (args.logfile) else os.path.join(train_output_folder, 'freeseg_train.log')
+    output_folder = os.path.abspath(train_output_folder)    
+    if (not os.path.exists(output_folder)):
+        os.makedirs(output_folder)
+    logfile = args.logfile if (args.logfile) else os.path.join(output_folder, 'freeseg_train.log')
     config_logger(logfile=logfile)
     mainlogger = logging.getLogger(__name__)
     mainlogger.addHandler(logging.StreamHandler())
 
     # print the command
-    mainlogger.info("")
+    mainlogger.info("=======")
     mainlogger.info("CWD: " + os.getcwd())
     mainlogger.info(' '.join(sys.argv))
 
@@ -131,15 +130,12 @@ def main():
     config.update(config_updates)
     """
 
-    output_folder = train_output_folder
-    if (not os.path.exists(output_folder)):
-        os.makedirs(output_folder)
-
     # save config and dataset_list_file
     shutil.copyfile(args.config, os.path.join(output_folder, "config.yaml"))
     shutil.copyfile(config["dataset"]["dataset_list_file"], os.path.join(output_folder, "dataset_list.yaml"))
 
     # Access updated configuration values
+    augmentation_class = config["preprocessing"].get("augmentation_class", "freeseg.augmentation.augmentbase.AugmentBase")
     num_workers = config["preprocessing"].get("num_workers", 0)
     pin_memory = config["preprocessing"].get("pin_memory", False)
     persistent_workers = config["preprocessing"].get("persistent_workers", False)
@@ -158,7 +154,8 @@ def main():
     label_mapping = {label:i for i, label in enumerate(labels_segmentation)}
     inverse_label_mapping = {v: k for k, v in label_mapping.items()}
     config["dataset"]["label_mapping"] = label_mapping
-    train_dataset, validation_dataset, _ = load_datasets(config, config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"),
+    train_dataset, validation_dataset, _ = load_datasets(config, augmentation_class,
+                                                         config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"),
                                                          device=preprocessing_device, check_augment=args.check_augment, keep_trainset_in_memory=args.keep_trainset_in_memory)
 
     # Create training DataLoader
@@ -180,6 +177,8 @@ def main():
 
     mainlogger.info("Training Device: {}".format(device) + (f' (GPU index: {gpu_index})' if (gpu_index is not None) else ''))
     mainlogger.info("Preprocessing Device: {}".format(preprocessing_device) + (f' (GPU index: {gpu_index})' if (gpu_index is not None) else ''))
+    mainlogger.info(f"Preprocessing augmentation_class: {augmentation_class}")
+    mainlogger.info(f"Preprocessing train_augmentations: {config['preprocessing'].get('train_augmentations')}")
     mainlogger.info(f"Preprocessing pin_memory: {pin_memory}")
     mainlogger.info(f"Preprocessing num_workers: {num_workers}")
     mainlogger.info(f"Preprocessing prefetch_factor: {prefetch_factor}")
@@ -189,7 +188,8 @@ def main():
 
     if (checkpoint is not None):
         mainlogger.info(f"resume training from model: {checkpoint}")
-    mainlogger.info(f"train_output_folder: {train_output_folder}")
+    mainlogger.info(f"model: {config['model'].get('name')}")        
+    mainlogger.info(f"train_output_folder: {output_folder}")
     mainlogger.info(f"batch_size: {config['training']['batch_size']}")
     mainlogger.info(f"crop_size: {crop_size}")
     mainlogger.info(f"color table: {ctab}")
@@ -279,9 +279,9 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
     assert the_model_name is not None, "Model name is not available."
 
     module_name = '.'.join(the_model_name.split('.')[:-1])
+    module_name = module_name if (module_name) else 'freeseg.models.unet'
     py_class = the_model_name.split('.')[-1]        
-    py_module = importlib.import_module(module_name if (module_name) else 'freeseg.models.unet')
-    model_class = getattr(py_module, py_class, None)
+    model_class = get_class(module_name, py_class)
     model = model_class(model_arch_dict).to(device)    
    
     # print Model Architecture
