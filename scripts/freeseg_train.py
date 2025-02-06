@@ -12,7 +12,7 @@ import shutil
 from torch.utils.data import DataLoader
 
 from freeseg.training import Training
-from freeseg.utils import load_config, set_deterministic_training, print_vm_peak, config_logger, get_class
+from freeseg.utils import load_config, set_deterministic_training, print_vm_peak, config_logger, get_class, remove_duplicates
 from freeseg.datasets import load_datasets
 from freeseg.metrics import WeightedL2Loss, DiceLoss
 
@@ -136,6 +136,8 @@ def main():
 
     # Access updated configuration values
     augmentation_class = config["preprocessing"].get("augmentation_class", "freeseg.augmentation.augmentbase.AugmentBase")
+    train_augmentations = remove_duplicates(config["preprocessing"].get("train_augmentations"))
+    evaluation_augmentations = remove_duplicates(config["evaluation"].get("evaluation_augmentations"))    
     num_workers = config["preprocessing"].get("num_workers", 0)
     pin_memory = config["preprocessing"].get("pin_memory", False)
     persistent_workers = config["preprocessing"].get("persistent_workers", False)
@@ -155,7 +157,7 @@ def main():
     inverse_label_mapping = {v: k for k, v in label_mapping.items()}
     config["dataset"]["label_mapping"] = label_mapping
     train_dataset, validation_dataset, _ = load_datasets(config, augmentation_class,
-                                                         config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"),
+                                                         train_augmentations, evaluation_augmentations,
                                                          device=preprocessing_device, check_augment=args.check_augment, keep_trainset_in_memory=args.keep_trainset_in_memory)
 
     # Create training DataLoader

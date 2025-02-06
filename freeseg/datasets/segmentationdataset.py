@@ -5,7 +5,7 @@ import torch
 import yaml
 from torch.utils.data import Dataset
 
-from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot, get_class
+from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot, get_class, remove_duplicates
 
 class SegmentationDataset(Dataset):
     def __init__(self, config, augmentation_class=None, dataset_dict=None, image=None, label=None, priors=None, transform=None, device=None, check_augment=False, keep_trainset_in_memory=False):
@@ -30,7 +30,7 @@ class SegmentationDataset(Dataset):
         self.config = config
         self.augment_para = config["preprocessing"]
         self.augment_para["num_channels"] = self.num_channels  # needed in sampleConditionalGMM 
-        self.transform = []
+        self.transform = remove_duplicates(transform)
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -77,12 +77,7 @@ class SegmentationDataset(Dataset):
                                           generation_labels=self.config["dataset"].get("expected_classes"),
                                           output_dir=self.output_dir,
                                           device=self.device)
-        if (transform is not None):
-            # remove duplicates but keep the order
-            for t in transform:
-                t_lower = t.lower()
-                if t_lower not in self.transform:
-                    self.transform.append(t_lower)
+        if (self.transform is not None):
             self.data_augment.check_augmentations(self.transform)
         
 

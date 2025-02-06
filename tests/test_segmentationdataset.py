@@ -8,7 +8,7 @@ import argparse
 import numpy as np
 import shutil
 
-from freeseg.utils import load_config, set_deterministic_training
+from freeseg.utils import load_config, set_deterministic_training, remove_duplicates
 from freeseg.datasets import load_datasets, SegmentationDataset
 
 """
@@ -99,15 +99,17 @@ def main():
     inverse_label_mapping = {v: k for k, v in label_mapping.items()}
     config["dataset"]["label_mapping"] = label_mapping
     augmentation_class = config["preprocessing"].get("augmentation_class", "freeseg.augmentation.augmentbase.AugmentBase")
+    train_augmentations = remove_duplicates(config["preprocessing"].get("train_augmentations"))
+    evaluation_augmentations = remove_duplicates(config["evaluation"].get("evaluation_augmentations"))
     if (args.image is not None and args.label is not None):
         logging.info("Loading dataset: SegmentationDataset(...)")
         train_dataset = SegmentationDataset(config, augmentation_class,
                                             image=args.image, label=args.label, priors=args.priors,
-                                            transform=config["preprocessing"].get("train_augmentations"), device=preprocessing_device, check_augment=args.check_augment)
+                                            transform=train_augmentations, device=preprocessing_device, check_augment=args.check_augment)
     else:
         logging.info("Loading dataset: load_dataset(...)")
         train_dataset, _, _ = load_datasets(config, augmentation_class,
-            config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"), device=preprocessing_device, check_augment=args.check_augment)    
+            train_augmentations, evaluation_augmentations, device=preprocessing_device, check_augment=args.check_augment)    
 
     sample_input_shape, unique_classes, label_lookup = train_dataset.preload()
     input_shape = sample_input_shape[1:]
@@ -115,7 +117,7 @@ def main():
     logging.info("Training Device: {}".format(device))
     logging.info("Preprocessing Device: {}".format(preprocessing_device))
     logging.info(f"Preprocessing augmentation_class: {augmentation_class}")
-    logging.info(f"Preprocessing train_augmentations: {config['preprocessing'].get('train_augmentations')}")
+    logging.info(f"Preprocessing train_augmentations: {train_augmentations}")
     logging.info(f"batch_size: {config['training']['batch_size']}")
     logging.info(f"crop_size: {crop_size}")
     logging.info(f"deterministic: {deterministic}")

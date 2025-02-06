@@ -286,6 +286,20 @@ def get_class(module, py_class):
     return getattr(py_module, py_class, None)
 
 
+def remove_duplicates(inlist, lowercase=True):
+    if (inlist is None):
+        return None
+
+    # remove duplicates but keep the order
+    outlist = []
+    for t in inlist:
+        t_lower = t.lower()
+        if t_lower not in outlist:
+            outlist.append(t_lower)
+
+    return outlist
+
+                    
 # ================================================================================================
 #                                        Lab2Im Utilities
 # ================================================================================================
