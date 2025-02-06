@@ -53,6 +53,10 @@ class AugmentBase:
             assert (augmentation in self.valid_augmentations), \
                 f"Unknown augmentation '{augmentation}'. Supported augmentations {self.valid_augmentations}. "
 
+        if ("flip" in augmentations_to_apply):
+            assert self.left_right_corresponding is not None, "left_right_corresponding is required for augmentation 'flip'"
+        if ("sampleConditionalgmm" in augmentations_to_apply):
+            assert (self.generation_labels is not None), "generation_labels is required for augmentation 'sampleConditionalGMM'"
         if (("centercrop" in augmentations_to_apply) and ("randomcrop" in augmentations_to_apply)):
             raise ValueError("Both 'centercrop' and 'randomcrop' are selected. Choose one.")
         if (("centercrop" in augmentations_to_apply) and ("randomcentercrop" in augmentations_to_apply)):
