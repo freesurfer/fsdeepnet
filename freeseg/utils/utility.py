@@ -281,9 +281,20 @@ def config_logger(logfile=None, mode='a', level=logging.DEBUG, format="%(asctime
         logging.getLogger('').addHandler(console)
 
 
-def get_class(module, py_class):
+def get_class(qualified_class_name, default_module):
+    """
+    retrieve python class from given module
+    if 'qualified_class_name' doesn't have the module component, use default_module
+    """
+    module = '.'.join(qualified_class_name.split('.')[:-1])
+    module = module if (module) else default_module
+    class_name = qualified_class_name.split('.')[-1]
+
     py_module = importlib.import_module(module)
-    return getattr(py_module, py_class, None)
+    py_class = getattr(py_module, class_name, None)
+    assert (py_class is not None), f"Couldn't get attr '{class_name}' from {py_module}"
+
+    return py_class
 
 
 def remove_duplicates(inlist, lowercase=True):

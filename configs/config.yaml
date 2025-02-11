@@ -107,6 +107,8 @@ training:
   batch_size: 1
   learning_rate: 0.0001
   pre_train_learning_rate: 0.0001
+  wl2_metrics: freeseg.metrics.WeightedL2Loss
+  metrics_class: freeseg.metrics.DiceLoss
   # define label index to be excluded from dice computation, 0=background
   # we compute background dice so it is set to empty []
   write_tensorboard_summary: False  # whether to output tensorboard logs

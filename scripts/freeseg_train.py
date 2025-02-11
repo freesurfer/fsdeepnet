@@ -43,6 +43,9 @@ Usage: freeseg_train.py
        [--logfile <logfile>]
 """
 
+mainlogger = logging.getLogger(__name__)
+mainlogger.addHandler(logging.StreamHandler())
+
 def main():
     args = argument_parse()
 
@@ -109,8 +112,6 @@ def main():
         os.makedirs(output_folder)
     logfile = args.logfile if (args.logfile) else os.path.join(output_folder, 'freeseg_train.log')
     config_logger(logfile=logfile)
-    mainlogger = logging.getLogger(__name__)
-    mainlogger.addHandler(logging.StreamHandler())
 
     # print the command
     mainlogger.info("=======")
@@ -180,7 +181,7 @@ def main():
     mainlogger.info("Training Device: {}".format(device) + (f' (GPU index: {gpu_index})' if (gpu_index is not None) else ''))
     mainlogger.info("Preprocessing Device: {}".format(preprocessing_device) + (f' (GPU index: {gpu_index})' if (gpu_index is not None) else ''))
     mainlogger.info(f"Preprocessing augmentation_class: {augmentation_class}")
-    mainlogger.info(f"Preprocessing train_augmentations: {config['preprocessing'].get('train_augmentations')}")
+    mainlogger.info(f"Preprocessing train_augmentations: {train_augmentations}")
     mainlogger.info(f"Preprocessing pin_memory: {pin_memory}")
     mainlogger.info(f"Preprocessing num_workers: {num_workers}")
     mainlogger.info(f"Preprocessing prefetch_factor: {prefetch_factor}")
@@ -190,7 +191,11 @@ def main():
 
     if (checkpoint is not None):
         mainlogger.info(f"resume training from model: {checkpoint}")
-    mainlogger.info(f"model: {config['model'].get('name')}")        
+    mainlogger.info(f"model: {config['model'].get('name')}")
+    if (config["training"].get("wl2_epochs", 0) > 0):
+        mainlogger.info(f"wl2_metrics: {config['training'].get('wl2_metrics', 'freeseg.metrics.WeightedL2Loss')}")
+    if (config["training"].get("dice_epochs", 0) > 0):
+        mainlogger.info(f"metrics_class: {config['training'].get('metrics_class', 'freeseg.metrics.DiceLoss')}")
     mainlogger.info(f"train_output_folder: {output_folder}")
     mainlogger.info(f"batch_size: {config['training']['batch_size']}")
     mainlogger.info(f"crop_size: {crop_size}")
@@ -202,9 +207,8 @@ def main():
     mainlogger.info(f"training config: saved as {output_folder}/config.yaml")
     mainlogger.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
     mainlogger.info("")
-    mainlogger.info("training in progress ...")
     if (logfile is not None):
-        mainlogger.info(f"training log can be found in {logfile}")
+        mainlogger.info(f"training log: {logfile}")
 
     # save label_mapping/inverse_label_mapping in train_dataset_dict
     train_dataset_dict = {
@@ -280,10 +284,7 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
     the_model_name = model_arch_dict.get("name", None)
     assert the_model_name is not None, "Model name is not available."
 
-    module_name = '.'.join(the_model_name.split('.')[:-1])
-    module_name = module_name if (module_name) else 'freeseg.models.unet'
-    py_class = the_model_name.split('.')[-1]        
-    model_class = get_class(module_name, py_class)
+    model_class = get_class(the_model_name, "freeseg.models.unet")
     model = model_class(model_arch_dict).to(device)    
    
     # print Model Architecture
@@ -308,24 +309,32 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
                        preprocessing_device=preprocessing_device,
                        debug=debug)
                        
-    # train wl2 epochs (??? todo: make this optional ???)
-    wl2_loss_fn = WeightedL2Loss()
-    trainer.train_model(lr=config["training"]["pre_train_learning_rate"],
-                        epochs=config["training"]["wl2_epochs"],
-                        steps_per_epoch=config["training"]["steps_per_epoch"],
-                        metric_type='wl2',
-                        loss_fn=wl2_loss_fn)
+    # train wl2 epochs
+    wl2_epochs = config["training"].get("wl2_epochs", 0)
+    if (wl2_epochs > 0):
+        wl2_metrics = get_class(config["training"].get("wl2_metrics", "freeseg.metrics.WeightedL2Loss"), "freeseg.metrics")
+        mainlogger.info(f"training {wl2_epochs} wl2 epochs: {wl2_metrics} ...")
+        wl2_loss_fn = wl2_metrics()
+        trainer.train_model(lr=config["training"]["pre_train_learning_rate"],
+                            epochs=wl2_epochs,
+                            steps_per_epoch=config["training"]["steps_per_epoch"],
+                            metric_type='wl2',
+                            loss_fn=wl2_loss_fn)
                        
     # train dice epochs
-    dice_loss_fn = DiceLoss(
-        num_classes=num_labels,
-        dice_type="soft"
-    )                   
-    trainer.train_model(lr=config["training"]["pre_train_learning_rate"],
-                        epochs=config["training"]["dice_epochs"],
-                        steps_per_epoch=config["training"]["steps_per_epoch"],
-                        metric_type='dice',
-                        loss_fn=dice_loss_fn)                   
+    dice_epochs = config["training"].get("dice_epochs", 0)
+    if (dice_epochs > 0):
+        metrics_class = get_class(config["training"].get("metrics_class", "freeseg.metrics.DiceLoss"), "freeseg.metrics")
+        mainlogger.info(f"training {dice_epochs} epochs: {metrics_class} ...")
+        dice_loss_fn = metrics_class(
+            num_classes=num_labels,
+            dice_type="soft"
+        )                   
+        trainer.train_model(lr=config["training"]["pre_train_learning_rate"],
+                            epochs=dice_epochs,
+                            steps_per_epoch=config["training"]["steps_per_epoch"],
+                            metric_type='dice',
+                            loss_fn=dice_loss_fn)                   
 
 
 # execute script

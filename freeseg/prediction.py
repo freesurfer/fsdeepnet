@@ -63,10 +63,7 @@ class Prediction:
         the_model_name = checkpoint.model_arch_dict.get("name", None)
         assert the_model_name is not None, "Model name is not available."
 
-        module_name = '.'.join(the_model_name.split('.')[:-1])
-        module_name = module_name if (module_name) else 'freeseg.models.unet'
-        py_class = the_model_name.split('.')[-1]        
-        model_class = get_class(module_name, py_class)
+        model_class = get_class(the_model_name, "freeseg.models.unet")
         self._model = model_class(checkpoint.model_arch_dict).to(self._device)
 
         self._nb_levels = checkpoint.model_arch_dict["nb_levels"]

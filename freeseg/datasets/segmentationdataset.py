@@ -68,10 +68,7 @@ class SegmentationDataset(Dataset):
             os.makedirs(self.output_dir)
 
         # create data augment object
-        module_name = '.'.join(augmentation_class.split('.')[:-1])
-        module_name = module_name if (module_name) else 'freeseg.augmentation.augmentbase'
-        py_class = augmentation_class.split('.')[-1]        
-        augment_class = get_class(module_name, py_class)
+        augment_class = get_class(augmentation_class, "freeseg.augmentation.augmentbase")
         self.data_augment = augment_class(self.augment_para,
                                           left_right_corresponding=self.config["dataset"].get("left_right_corresponding", None),
                                           generation_labels=self.config["dataset"].get("expected_classes"),
