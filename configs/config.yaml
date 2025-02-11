@@ -103,14 +103,12 @@ training:
   dice_epochs: 100
   wl2_epochs: 5
   steps_per_epoch: 1000
-  train_output_folder: new_runs/tensorboard_logs   # Common parent directory for training output
+  train_output_folder: /path/training-output-directory
   batch_size: 1
   learning_rate: 0.0001
   pre_train_learning_rate: 0.0001
   wl2_metrics: freeseg.metrics.WeightedL2Loss
-  metrics_class: freeseg.metrics.DiceLoss
-  # define label index to be excluded from dice computation, 0=background
-  # we compute background dice so it is set to empty []
+  model_metrics: freeseg.metrics.DiceLoss
   write_tensorboard_summary: False  # whether to output tensorboard logs
   perform_evaluation: False         # whether to perform evaluation after each epoch
   best_model_metric: dice           # metric to pick best model when perform_evaluation=True  

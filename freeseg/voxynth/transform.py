@@ -314,8 +314,8 @@ def random_affine(
     else:
         rotation = np.array([max_rotation] * (1 if ndim == 2 else 3))
 
-    # 
-    if (sampling):    
+    #
+    if (sampling):
         if max_scaling < 1:
             raise ValueError('max scaling to random affine cannot be less than 1, '
                              'see function doc for more info')

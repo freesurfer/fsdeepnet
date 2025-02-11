@@ -195,7 +195,7 @@ def main():
     if (config["training"].get("wl2_epochs", 0) > 0):
         mainlogger.info(f"wl2_metrics: {config['training'].get('wl2_metrics', 'freeseg.metrics.WeightedL2Loss')}")
     if (config["training"].get("dice_epochs", 0) > 0):
-        mainlogger.info(f"metrics_class: {config['training'].get('metrics_class', 'freeseg.metrics.DiceLoss')}")
+        mainlogger.info(f"model_metrics: {config['training'].get('model_metrics', 'freeseg.metrics.DiceLoss')}")
     mainlogger.info(f"train_output_folder: {output_folder}")
     mainlogger.info(f"batch_size: {config['training']['batch_size']}")
     mainlogger.info(f"crop_size: {crop_size}")
@@ -324,9 +324,9 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
     # train dice epochs
     dice_epochs = config["training"].get("dice_epochs", 0)
     if (dice_epochs > 0):
-        metrics_class = get_class(config["training"].get("metrics_class", "freeseg.metrics.DiceLoss"), "freeseg.metrics")
-        mainlogger.info(f"training {dice_epochs} epochs: {metrics_class} ...")
-        dice_loss_fn = metrics_class(
+        model_metrics = get_class(config["training"].get("model_metrics", "freeseg.metrics.DiceLoss"), "freeseg.metrics")
+        mainlogger.info(f"training {dice_epochs} epochs: {model_metrics} ...")
+        dice_loss_fn = model_metrics(
             num_classes=num_labels,
             dice_type="soft"
         )                   

@@ -1,5 +1,5 @@
 # freeseg
-A generic deep-learning pipeline to accompany freesurfer adjacent models.
+A generic pyTorch deep-learning pipeline to accompany freesurfer adjacent models.
 
 
 ## Get Started
@@ -27,28 +27,28 @@ fspython scripts/freeseg_create_data_list.py -d data/pgland_cropped/ -o "pgland_
 Note: this is a simple script to help create your ```dataset_list.yaml``` file. It may not cover your specific use-case. But as long as your ```dataset_list.yaml``` file looks like the following, you should be good to go:
 ```yaml
 test:
-- image_filepath: path/to/test_image1
-  label_filepath: path/to/test_segmentation1
-- image_filepath: path/to/test_image2
-  label_filepath: path/to/test_segmentation2
+- image_filepath: /path/test_image1
+  label_filepath: /path/test_segmentation1
+- image_filepath: /path/test_image2
+  label_filepath: /path/test_segmentation2
 ...
 train:
-- image_filepath: path/to/train_image1
-  label_filepath: path/to/train_segmentation1
-- image_filepath: path/to/train_image2
-  label_filepath: path/to/train_segmentation2
+- image_filepath: /path/train_image1
+  label_filepath: /path/train_segmentation1
+- image_filepath: /path/train_image2
+  label_filepath: /path/train_segmentation2
 ...
 validation:
-- image_filepath: path/to/validation_image1
-  label_filepath: path/to/validation_segmentation1
-- image_filepath: path/to/validation_image2
-  label_filepath: path/to/validation_segmentation2
+- image_filepath: /path/validation_image1
+  label_filepath: /path/validation_segmentation1
+- image_filepath: /path/validation_image2
+  label_filepath: /path/validation_segmentation2
 ...
 
   * To train the network with priors, the dataset_list.yaml needs to have 3 entries for each subject:
-      image_filepath: path/to/image1
-      label_filepath: path/to/segmentation1
-      prior_filepath: path/to/prior1
+      image_filepath: /path/image1
+      label_filepath: /path/segmentation1
+      prior_filepath: /path/prior1
 
   * The input data directory is expected to be arranged as following, Place images, labels, and priors under their corresponding directories with same filename for each subject.
       data_folder/
@@ -60,7 +60,7 @@ validation:
 ```
 
 4. Edit your config.yaml file as per your dataset and model requirements etc.
-   Use configs/config/yaml as an example.
+   Use configs/config.yaml as an example.
 
 
 ## Training the Model

@@ -3,6 +3,7 @@ from setuptools import setup
 requirements = [
     'torch',
     'torchvision<0.17',  # to satisfy torch 2.1.2
+    #'pynvml',
     #'voxynth@git+https://github.com/dalcalab/voxynth.git@main'
 ]
 
