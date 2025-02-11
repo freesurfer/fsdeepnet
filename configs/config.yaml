@@ -25,7 +25,7 @@ preprocessing:
   verbose: False
   train_augmentations: [
     # "flip",          # need to define left_right_corresponding
-    "spatialtransform",
+    "spatialdeformation",
     # only one type of cropping should be listed
     "centercrop",            # crop around the image cener
     #"randomcrop",         # crop from a randomly selected point

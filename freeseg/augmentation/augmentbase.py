@@ -15,7 +15,7 @@ class AugmentBase:
                  output_dir=None,                 
                  device=None):
         self.valid_augmentations_base = ["flip",
-                                         "spatialtransform",
+                                         "spatialdeformation",
                                          "randomcrop", "randomcentercrop", "centercrop",
                                          "biasfieldcorruption",
                                          "intensityaugmentation",
@@ -35,7 +35,7 @@ class AugmentBase:
 
         # set up augmentations
         self.flip = Flip(self.hyperparameters, device=self.device, left_right_corresponding=self.left_right_corresponding)
-        self.spatialtransform = SpatialTransform(self.hyperparameters, device=self.device)
+        self.spatialdeformation = SpatialDeformation(self.hyperparameters, device=self.device)
         self.randomcrop = RandomCrop(self.hyperparameters, device=self.device, mode='random')
         self.randomcentercrop = RandomCrop(self.hyperparameters, device=self.device, mode='center')
         self.centercrop = CenterCrop(self.hyperparameters, device=self.device)
@@ -173,7 +173,7 @@ class Flip(nn.Module):
         return flipped_image, flipped_label
 
 
-class SpatialTransform(nn.Module):
+class SpatialDeformation(nn.Module):
     def __init__(self, hyperparameters, device=None):
         super().__init__()
 
@@ -197,9 +197,8 @@ class SpatialTransform(nn.Module):
     def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
         """Applies a random spatial transformation to image and label volumes."""
 
-        #logging.info(f"apply_spatial_transform() - image.get_device() = {image.get_device()}, label.get_device() = {label.get_device()}, device = {device}")
         if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentbase.SpatialTransform'")
+            logging.debug(f"'freeseg.augmentation.augmentbase.SpatialDeformation'")
 
         # voxsize is default to 1
         trf = voxynth.transform.random_transform(
