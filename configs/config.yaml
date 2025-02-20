@@ -115,9 +115,9 @@ training:
 
 evaluation:
   evaluation_augmentations: [
-    "cropping",
+    "centercrop",
     ]
   test_augmentations: [
-    "cropping",
+    "centercrop",
   ]
   batch_size: 1
