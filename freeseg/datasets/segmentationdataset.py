@@ -40,6 +40,16 @@ class SegmentationDataset(Dataset):
 
         assert (self.ndims == 3 or self.ndims == 2), "Model supports 3D or 2D"
 
+        self.save_volumes = None
+        self.output_dir = self.augment_para.get("augmentation_dir", None)
+        if ((self.output_dir is not None) and (not os.path.exists(self.output_dir))):
+            os.makedirs(self.output_dir)        
+        if (keep_trainset_in_memory and self.output_dir is not None):
+            logging.error(f"'--keep_trainset_in_memory' doesn't work with saving augmentation volumes") 
+            raise ValueError("'--keep_trainset_in_memory' doesn't work with saving augmentation volumes")
+        if (check_augment):
+            raise ValueError("'--check_augment' is experimental. It is not working yet. ")
+
         self.keep_trainset_in_memory = keep_trainset_in_memory
         self.images = []
         self.image_tensors , self.label_tensors, self.prior_tensors = [], [], []
@@ -61,11 +71,6 @@ class SegmentationDataset(Dataset):
         assert (len(self.image_files) == len(self.label_files)), "image and label need to be the same length"
         if (self.haspriors()):
             assert (len(self.label_files) == len(self.priors_files)), "label and priors need to be the same length"
-
-        self.save_volumes = None
-        self.output_dir = self.augment_para.get("augmentation_dir", None)
-        if ((self.output_dir is not None) and (not os.path.exists(self.output_dir))):
-            os.makedirs(self.output_dir)
 
         # create data augment object
         augment_class = get_class(augmentation_class, "freeseg.augmentation.augmentbase")
@@ -104,11 +109,11 @@ class SegmentationDataset(Dataset):
                 # where/whether to save preprocessed data
                 self.save_volumes = f"{index+1:04d}."+os.path.splitext(os.path.basename(image_path))[0]
         else:
-            # retrieve preloaded data, saving augmentated volumes will not work when keep_trainset_in_memory=True
+            # retrieve preloaded data
+            # saving augmentated volumes will not work when keep_trainset_in_memory=True
+            # because the input volume names are not available
             label = None
             sfprior = None
-            save_volumes = None
-            output_dir = None
             image = self.images[index]            
             image_tensor  = self.image_tensors[index]
             label_tensor  = self.label_tensors[index]
@@ -130,7 +135,7 @@ class SegmentationDataset(Dataset):
                         label,
                         voxsize=voxsize,
                         priors_tensor=priors_tensor,
-                        save_volumes=self.save_volumes + f"_try{trycount}" if (trycount is not None) else self.save_volumes,
+                        save_volumes=(self.save_volumes + f"_try{trycount}") if (trycount is not None) else self.save_volumes,
                         augmentations_to_apply=self.transform,
                     )
                 

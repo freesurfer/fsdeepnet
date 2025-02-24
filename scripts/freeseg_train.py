@@ -23,7 +23,6 @@ Usage: freeseg_train.py
        [--keep_trainset_in_memory]
        [--deterministic]
        [--model_name <model_classname>]
-       [--check_augment]
        [--dataset_list_file <dataset_list_file>]
        [--ctab <ctab>]
        [--checkpoint <checkpoint>]
