@@ -359,10 +359,10 @@ class RandomCrop(nn.Module):
         # Calculate the crop indices
         crop_idx = torch.concat((start_coords, end_coords)).int()
         if (self.verbose):
-            dbg_msg = f"apply_randomcrop({mode}) - {image_shape.tolist()} => {self.crop_size.tolist()}, "
+            dbg_msg = f"apply_randomcrop({self.mode}) - {image_shape.tolist()} => {self.crop_size.tolist()}, "
             if (self.bbox_labels is not None):
                 dbg_msg += f"bbox: {bbox_lower.tolist()} - {bbox_upper.tolist()}, "
-            if (mode == 'center'):
+            if (self.mode == 'center'):
                 dbg_msg += f"(start_center: {start_center.tolist()}, end_center: {end_center.tolist()}), center_point: {center_point.tolist()}, "
             else:
                 dbg_msg += f"(crop_min_val: {crop_min_val.tolist()}, crop_max_val: {crop_max_val.tolist()}), "
@@ -372,10 +372,10 @@ class RandomCrop(nn.Module):
             
         # check if bbox_lower/bbox_upper are inside start_coords/end_coords
         if (torch.any(bbox_lower < start_coords) or torch.any(bbox_upper > end_coords)):
-            dbg_msg = f"***CROPPING ERROR*** apply_randomcrop({mode}) - {image_shape.tolist()} => {self.crop_size.tolist()}, "
+            dbg_msg = f"***CROPPING ERROR*** apply_randomcrop({self.mode}) - {image_shape.tolist()} => {self.crop_size.tolist()}, "
             if (self.bbox_labels is not None):
                 dbg_msg += f"bbox: {bbox_lower.tolist()} - {bbox_upper.tolist()}, "
-            if (mode == 'center'):
+            if (self.mode == 'center'):
                 dbg_msg += f"(start_center: {start_center.tolist()}, end_center: {end_center.tolist()}), center_point: {center_point.tolist()}, "
             else:
                 dbg_msg += f"(crop_min_val: {crop_min_val.tolist()}, crop_max_val: {crop_max_val.tolist()}), "            
@@ -387,11 +387,17 @@ class RandomCrop(nn.Module):
             # ??? TODO ???
             raise exception
             """
- 
-        return image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]], \
-           label[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (label is not None) else None, \
-           prior[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (prior is not None) else None, \
-           crop_idx
+
+        if (image_ndims == 3):
+            return image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]], \
+                   label[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (label is not None) else None, \
+                   prior[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (prior is not None) else None, \
+                   crop_idx
+        else:
+            return image[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]], \
+                   label[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (label is not None) else None, \
+                   prior[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (prior is not None) else None, \
+                   crop_idx
     
 
 class CenterCrop(nn.Module):
@@ -454,11 +460,18 @@ class CenterCrop(nn.Module):
         crop_idx = torch.concat((start_coords, end_coords))
         if (self.verbose):
             logging.debug(f"adjusted crop center: {center_point.tolist()}, crop indices: {crop_idx.tolist()}")
- 
-        return image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]], \
-               label[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (label is not None) else None, \
-               prior[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (prior is not None) else None, \
-               crop_idx
+
+        ndims = len(image.shape[1:])
+        if (ndims == 3):
+            return image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]], \
+                   label[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (label is not None) else None, \
+                   prior[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (prior is not None) else None, \
+                   crop_idx
+        else:
+            return image[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]], \
+                   label[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (label is not None) else None, \
+                   prior[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (prior is not None) else None, \
+                   crop_idx
 
 
 class IntensityAugmentation(nn.Module):
