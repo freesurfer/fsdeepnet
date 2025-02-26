@@ -113,9 +113,9 @@ def main():
     config_logger(logfile=logfile)
 
     # print the command
-    mainlogger.info("=======")
+    mainlogger.info("=====================")
     mainlogger.info("CWD: " + os.getcwd())
-    mainlogger.info(' '.join(sys.argv))
+    mainlogger.info("CMD: " + ' '.join(sys.argv))
 
     deterministic = config["training"].get("deterministic", False)
     if (deterministic):
@@ -178,6 +178,19 @@ def main():
         validation_loader = DataLoader(validation_dataset, batch_size=config["training"]["batch_size"], shuffle=False)
 
     mainlogger.info("Training Device: {}".format(device) + (f' (GPU index: {gpu_index})' if (gpu_index is not None) else ''))
+    if (checkpoint is not None):
+        mainlogger.info(f"resume training from model: {checkpoint}")
+    mainlogger.info(f"model: {config['model'].get('name')}")
+    if (config["training"].get("wl2_epochs", 0) > 0):
+        mainlogger.info(f"wl2_epochs: {config['training'].get('wl2_epochs')}")
+        mainlogger.info(f"wl2_metrics: {config['training'].get('wl2_metrics', 'freeseg.metrics.WeightedL2Loss')}")
+    if (config["training"].get("dice_epochs", 0) > 0):
+        mainlogger.info(f"dice_epochs: {config['training'].get('dice_epochs')}")
+        mainlogger.info(f"model_metrics: {config['training'].get('model_metrics', 'freeseg.metrics.DiceLoss')}")
+    mainlogger.info(f"keep_trainset_in_memory: {args.keep_trainset_in_memory}")
+    mainlogger.info(f"deterministic: {deterministic}")
+    if (perform_evaluation):
+        mainlogger.info(f"best_model_metric: {best_model_metric}")
     mainlogger.info("Preprocessing Device: {}".format(preprocessing_device) + (f' (GPU index: {gpu_index})' if (gpu_index is not None) else ''))
     mainlogger.info(f"Preprocessing augmentation_class: {augmentation_class}")
     mainlogger.info(f"Preprocessing train_augmentations: {train_augmentations}")
@@ -185,24 +198,13 @@ def main():
     mainlogger.info(f"Preprocessing num_workers: {num_workers}")
     mainlogger.info(f"Preprocessing prefetch_factor: {prefetch_factor}")
     mainlogger.info(f"Preprocessing persistent_workers: {persistent_workers}")
-    mainlogger.info(f"Preprocessing check_augment: {args.check_augment}")
+    #mainlogger.info(f"Preprocessing check_augment: {args.check_augment}")
     mainlogger.info(f"Preprocessing sampling_hyperparameters: {config['preprocessing'].get('sampling_hyperparameters', True)}")
 
-    if (checkpoint is not None):
-        mainlogger.info(f"resume training from model: {checkpoint}")
-    mainlogger.info(f"model: {config['model'].get('name')}")
-    if (config["training"].get("wl2_epochs", 0) > 0):
-        mainlogger.info(f"wl2_metrics: {config['training'].get('wl2_metrics', 'freeseg.metrics.WeightedL2Loss')}")
-    if (config["training"].get("dice_epochs", 0) > 0):
-        mainlogger.info(f"model_metrics: {config['training'].get('model_metrics', 'freeseg.metrics.DiceLoss')}")
-    mainlogger.info(f"train_output_folder: {output_folder}")
     mainlogger.info(f"batch_size: {config['training']['batch_size']}")
     mainlogger.info(f"crop_size: {crop_size}")
     mainlogger.info(f"color table: {ctab}")
-    mainlogger.info(f"keep_trainset_in_memory: {args.keep_trainset_in_memory}")
-    mainlogger.info(f"deterministic: {deterministic}")
-    if (perform_evaluation):
-        mainlogger.info(f"best_model_metric: {best_model_metric}")
+    mainlogger.info(f"train_output_folder: {output_folder}")        
     mainlogger.info(f"training config: saved as {output_folder}/config.yaml")
     mainlogger.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
     mainlogger.info("")

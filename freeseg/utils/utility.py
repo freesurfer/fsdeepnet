@@ -247,11 +247,9 @@ def print_vm_peak():
     lines = fp.readlines()
     for line in lines:
         strs = line.split()
-        if(len(strs) < 3):
-            continue
-        if(strs[0] != 'VmPeak:'):
-            continue
-        logging.info('vmpcma:', int(strs[1]))
+        if (strs[0] == "VmPeak:"):
+            logging.info(f"VmPeak: {strs[1]} {strs[2]}")
+            break
 
 
 def gpu_report(gpu_index):
