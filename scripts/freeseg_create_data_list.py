@@ -26,6 +26,37 @@ Usage: freeseg_create_data_list.py
     * images, labels, priors are placed under their corresponding directories with same filename for each subject.
 """
 
+def main():
+    print(' '.join(sys.argv))
+
+    parser = argparse.ArgumentParser(
+        description="Create and split image segmentation dataset file."
+    )
+    parser.add_argument("-d", "--data_folder", required=True, help="Path to the data folder.")
+    parser.add_argument(
+        "-o",
+        "--output_file",
+        help="Path to the output file (optional, defaults to 'dataset_list.yaml').",
+    )
+    parser.add_argument("--ignore_prior", action='store_true', help="Don't include priors in output dataset yaml")
+    parser.add_argument(
+        "--train_ratio", type=float, default=0.7, help="Ratio of the training dataset."
+    )
+    parser.add_argument(
+        "--val_ratio", type=float, default=0.15, help="Ratio of the validation dataset."
+    )
+    parser.add_argument("--test_ratio", type=float, default=0.15, help="Ratio of the test dataset.")
+    args = parser.parse_args()
+
+    create_dataset_file(
+        args.data_folder,
+        args.output_file,
+        args.ignore_prior,
+        train_ratio=args.train_ratio,
+        val_ratio=args.val_ratio,
+        test_ratio=args.test_ratio,
+    )
+
 def create_dataset_file(data_folder, output_file=None, ignore_prior=False,
                         train_ratio=0.7, val_ratio=0.15, test_ratio=0.15):
     images, labels = [], []
@@ -89,32 +120,4 @@ def create_dataset_file(data_folder, output_file=None, ignore_prior=False,
 
 
 if __name__ == "__main__":
-    print(' '.join(sys.argv))
-
-    parser = argparse.ArgumentParser(
-        description="Create and split image segmentation dataset file."
-    )
-    parser.add_argument("-d", "--data_folder", required=True, help="Path to the data folder.")
-    parser.add_argument(
-        "-o",
-        "--output_file",
-        help="Path to the output file (optional, defaults to 'dataset_list.yaml').",
-    )
-    parser.add_argument("--ignore_prior", action='store_true', help="Don't include priors in output dataset yaml")
-    parser.add_argument(
-        "--train_ratio", type=float, default=0.7, help="Ratio of the training dataset."
-    )
-    parser.add_argument(
-        "--val_ratio", type=float, default=0.15, help="Ratio of the validation dataset."
-    )
-    parser.add_argument("--test_ratio", type=float, default=0.15, help="Ratio of the test dataset.")
-    args = parser.parse_args()
-
-    create_dataset_file(
-        args.data_folder,
-        args.output_file,
-        args.ignore_prior,
-        train_ratio=args.train_ratio,
-        val_ratio=args.val_ratio,
-        test_ratio=args.test_ratio,
-    )
+    main()
