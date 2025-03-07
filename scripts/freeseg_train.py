@@ -122,7 +122,7 @@ def main():
         # ??? todo: for multi-process dataloader, use worker_init_fn() and generator to preserve reproducibility
         #           see https://pytorch.org/docs/stable/notes/randomness.html
         set_deterministic_training()
-    
+
     """
     # yaml has nested structure, the update doesn't update value in nested structure
     # Update configuration with command-line arguments
@@ -159,6 +159,10 @@ def main():
     train_dataset, validation_dataset, _ = load_datasets(config, augmentation_class,
                                                          train_augmentations, evaluation_augmentations,
                                                          device=preprocessing_device, check_augment=args.check_augment, keep_trainset_in_memory=args.keep_trainset_in_memory)
+    perform_evaluation = config["training"].get("perform_evaluation", False)
+    if (perform_evaluation and validation_dataset is None):
+        mainlogger.error(f"No 'validation' set in {config['dataset']['dataset_list_file']} to perform evaluation")
+        return
 
     # Create training DataLoader
     train_loader = DataLoader(train_dataset, batch_size=config["training"]["batch_size"], shuffle=True,
@@ -172,7 +176,6 @@ def main():
     
     # create validation DataLoader
     validation_loader = None
-    perform_evaluation = config["training"].get("perform_evaluation", False)
     if (perform_evaluation):
         best_model_metric = config["training"]["best_model_metric"]
         validation_loader = DataLoader(validation_dataset, batch_size=config["training"]["batch_size"], shuffle=False)
@@ -189,6 +192,7 @@ def main():
         mainlogger.info(f"model_metrics: {config['training'].get('model_metrics', 'freeseg.metrics.DiceLoss')}")
     mainlogger.info(f"keep_trainset_in_memory: {args.keep_trainset_in_memory}")
     mainlogger.info(f"deterministic: {deterministic}")
+    mainlogger.info(f"perform_evaluation: {perform_evaluation}")    
     if (perform_evaluation):
         mainlogger.info(f"best_model_metric: {best_model_metric}")
     mainlogger.info("Preprocessing Device: {}".format(preprocessing_device) + (f' (GPU index: {gpu_index})' if (gpu_index is not None) else ''))
