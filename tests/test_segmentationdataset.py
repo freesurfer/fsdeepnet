@@ -8,7 +8,8 @@ import argparse
 import numpy as np
 import shutil
 
-from freeseg.utils import load_config, set_deterministic_training, remove_duplicates
+from freeseg.config import Config
+from freeseg.utils import set_deterministic_training, remove_duplicates
 from freeseg.datasets import load_datasets, SegmentationDataset
 
 """
@@ -54,7 +55,7 @@ def main():
     preprocessing_device = device
 
     # Load config file
-    config = load_config(args.config)
+    config = Config.load(args.config)
 
     # overwrite config with command line options
     if (args.dataset_list_file is not None):

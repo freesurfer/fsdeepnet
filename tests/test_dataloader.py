@@ -11,7 +11,8 @@ import shutil
 
 from torch.utils.data import DataLoader
 
-from freeseg.utils import load_config, DataGenerator, set_deterministic_training
+from freeseg.config import Config
+from freeseg.utils import DataGenerator, set_deterministic_training
 from freeseg.datasets import load_datasets
 
 
@@ -53,7 +54,7 @@ def main():
     preprocessing_device = device
 
     # Load config file
-    config = load_config(args.config)
+    config = Config.load(args.config)
 
     # overwrite config with command line options
     if (args.dataset_list_file is not None):

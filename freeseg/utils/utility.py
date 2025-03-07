@@ -7,7 +7,6 @@ import platform
 import numpy as np
 import surfa as sf
 import torch
-import yaml
 
 def load_framedimage(file_path, orientation=None, device=None, ndims=3):
     """
@@ -92,12 +91,6 @@ def save_framedimage(framedimage_tensor, output_file, original_framedimage=None,
             surfa_image = sf.Volume(np_image.squeeze(), labels=labels, geometry=geom)            
     
     surfa_image.save(output_file)
-
-
-def load_config(config_file):
-    with open(config_file, 'r') as file:
-        config = yaml.safe_load(file)
-    return config
 
 
 def remap_labels(labels, mapping):

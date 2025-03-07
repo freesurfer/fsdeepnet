@@ -12,7 +12,8 @@ import shutil
 from torch.utils.data import DataLoader
 
 from freeseg.training import Training
-from freeseg.utils import load_config, set_deterministic_training, print_vm_peak, config_logger, get_class, remove_duplicates
+from freeseg.config import Config
+from freeseg.utils import set_deterministic_training, print_vm_peak, config_logger, get_class, remove_duplicates
 from freeseg.datasets import load_datasets
 from freeseg.metrics import WeightedL2Loss, DiceLoss
 
@@ -63,7 +64,7 @@ def main():
     ctab = args.ctab
     
     # Load config file
-    config = load_config(args.config)
+    config = Config.load(args.config)
 
     # overwrite config with command line options
     if (args.verbose):
@@ -120,9 +121,11 @@ def main():
     config_logger(logfile=logfile)
 
     # print the command
-    mainlogger.info("=====================")
-    mainlogger.info("CWD: " + os.getcwd())
-    mainlogger.info("CMD: " + ' '.join(sys.argv))
+    cwd = os.getcwd()
+    cmd = ' '.join(sys.argv)
+    mainlogger.info("===================== Current date and time: " + str(datetime.datetime.now()) + " =====================")
+    mainlogger.info("CWD: " + cwd)
+    mainlogger.info("CMD: " + cmd)
 
     deterministic = config["training"].get("deterministic", False)
     if (deterministic):
@@ -130,16 +133,13 @@ def main():
         #           see https://pytorch.org/docs/stable/notes/randomness.html
         set_deterministic_training()
 
-    """
-    # yaml has nested structure, the update doesn't update value in nested structure
-    # Update configuration with command-line arguments
-    config_updates = {k: v for k, v in vars(args).items() if v is not None}
-    config.update(config_updates)
-    """
-
     # save config and dataset_list_file
-    shutil.copyfile(args.config, os.path.join(output_folder, "config.yaml"))
-    shutil.copyfile(config["dataset"]["dataset_list_file"], os.path.join(output_folder, "dataset_list.yaml"))
+    # no config updates should happen after this line
+    config_saveas = os.path.join(output_folder, "config.yaml")
+    shutil.copyfile(args.config, os.path.join(output_folder, "input_config.yaml"))  # --config <>
+    Config.save(config, cwd=cwd, cmd=cmd, saveas=config_saveas)                     # updated with command line args
+    dataset_list_saveas = os.path.join(output_folder, "dataset_list.yaml")
+    shutil.copyfile(config["dataset"]["dataset_list_file"], dataset_list_saveas)
 
     # Access updated configuration values
     augmentation_class = config["preprocessing"].get("augmentation_class", "freeseg.augmentation.augmentbase.AugmentBase")
@@ -218,8 +218,8 @@ def main():
     mainlogger.info(f"crop_size: {crop_size}")
     mainlogger.info(f"color table: {ctab}")
     mainlogger.info(f"train_output_folder: {output_folder}")        
-    mainlogger.info(f"training config: saved as {output_folder}/config.yaml")
-    mainlogger.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
+    mainlogger.info(f"training config: saved as {config_saveas}")
+    mainlogger.info(f"dataset list: saved as {dataset_list_saveas}")
     mainlogger.info("")
     if (logfile is not None):
         mainlogger.info(f"training log: {logfile}")

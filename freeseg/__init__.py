@@ -3,6 +3,7 @@ from . import prediction
 from . import evaluation
 from . import checkpoint
 from . import metrics
+from . import config
 
 from .models import unet
 
