@@ -53,7 +53,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     if ((args.i is not None) and (args.dataset_list_file is not None)):
-        loggin.error("Options --i <image_path> and --dataset_list_file <dataset.yaml> are mutually exclusive")
+        mainlogger.error("Options --i <image_path> and --dataset_list_file <dataset.yaml> are mutually exclusive")
         return
 
     assert ((args.i is not None) or (args.dataset_list_file is not None)), \
@@ -71,6 +71,10 @@ def main():
             dataset_dict = yaml.safe_load(file)
 
         dataset = dataset_dict.get(args.cohort)
+        if (dataset is None):
+            mainlogger.info("Empty cohort, nothing to do.")
+            return
+
         path_images, path_gt, path_priors = [], [], []
         for item in dataset:
             path_images.append(item["image_filepath"])
