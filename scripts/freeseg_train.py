@@ -70,6 +70,8 @@ def main():
         config["preprocessing"]["verbose"] = args.verbose
     if (args.model_name is not None):
         config["model"]["name"] = args.model_name
+    if (args.weight_init is not None):
+        config["model"]["weight_init"] = args.weight_init
     if (args.dataset_list_file is not None):
         config["dataset"]["dataset_list_file"] = args.dataset_list_file
     if (args.crop_size is not None):
@@ -104,6 +106,11 @@ def main():
     assert (np.all(np.array(crop_size) % (2**(nb_levels-1)) == 0)), f"crop_size {crop_size} needs to be divisible by 2^{nb_levels-1}"
     ndims = config["model"]["ndims"]
     assert (ndims == len(crop_size)), f"crop_size {crop_size} is not for {ndims}D"
+
+    weight_init = config["model"].get("weight_init", None)
+    if (weight_init is not None and weight_init not in ['xavier_uniform', 'zeros']):
+        mainlogger.error(f"weight_init '{weight_init}' is not supported. The options are either 'xavier_uniform' or 'zeros'")
+        return
 
     # setup and configure root and main logger
     output_folder = os.path.abspath(train_output_folder)    
@@ -181,9 +188,11 @@ def main():
         validation_loader = DataLoader(validation_dataset, batch_size=config["training"]["batch_size"], shuffle=False)
 
     mainlogger.info("Training Device: {}".format(device) + (f' (GPU index: {gpu_index})' if (gpu_index is not None) else ''))
+    mainlogger.info(f"model: {config['model'].get('name')}")
     if (checkpoint is not None):
         mainlogger.info(f"resume training from model: {checkpoint}")
-    mainlogger.info(f"model: {config['model'].get('name')}")
+    elif (weight_init is not None):
+        mainlogger.info(f"weight_init: {weight_init}")
     if (config["training"].get("wl2_epochs", 0) > 0):
         mainlogger.info(f"wl2_epochs: {config['training'].get('wl2_epochs')}")
         mainlogger.info(f"wl2_metrics: {config['training'].get('wl2_metrics', 'freeseg.metrics.WeightedL2Loss')}")
@@ -230,7 +239,7 @@ def main():
 
     train(train_loader, config, output_folder, len(unique_classes), ctab,
           label_lookup=label_lookup, checkpoint=checkpoint, validation_loader=validation_loader, device=device, preprocessing_device=preprocessing_device, gpu_index=gpu_index,
-          train_dataset_dict=train_dataset_dict, debug=args.debug, weight_init=args.weight_init)
+          train_dataset_dict=train_dataset_dict, debug=args.debug, weight_init=weight_init)
 
     # check memory usage
     if (args.vmp):

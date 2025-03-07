@@ -18,6 +18,7 @@ model:
   use_residuals: False
   refine_conv: False
   final_pred_activation: "softmax"
+  weight_init: xavier_uniform  # or zeros
 
 preprocessing:
   augmentation_class: freeseg.augmentation.augmentbase.AugmentBase   # or freeseg.augmentation.augment2.Augment2
