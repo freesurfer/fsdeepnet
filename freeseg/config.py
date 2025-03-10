@@ -13,7 +13,7 @@ class Config:
 
     @staticmethod
     # can't get yaml.safe_dump() to save in the correct format
-    def save(config, cwd=None, cmd=None, saveas=None, indent=4, sort_keys=False):
+    def save(config, cwd=None, cmd=None, saveas=None, indent=0, sort_keys=False):
         fp = sys.stdout
         if (saveas is not None):
             logging.info(f"save config yaml {saveas}")
@@ -27,28 +27,29 @@ class Config:
         fp.write("#\n")
 
         # output the config
-        Config.print(config, fp)
+        Config.dump(config, fp, indent=indent, sort_keys=sort_keys)
 
         if (fp != sys.stdout):
             fp.close()
 
 
     @staticmethod
-    def print(data, fp=sys.stdout, indent=0):
+    # 'sort_keys' is not implemented yet
+    def dump(data, fp=sys.stdout, indent=0, sort_keys=False):
         if isinstance(data, dict):
             for key, value in data.items():
                 fp.write(" " * indent + str(key) + ": ")
                 if isinstance(value, (dict, list, tuple)):
                     if isinstance(value, dict):
                         fp.write("\n")
-                    Config.print(value, fp, indent + 4)
+                    Config.dump(value, fp, indent + 4)
                 else:
                     fp.write(str(value) + "\n")
         elif isinstance(data, (list, tuple)):
             fp.write("[ ")
             for item in data:
                 if isinstance(item, (dict, list, tuple)):
-                    Config.print(item, fp, indent + 4)
+                    Config.dump(item, fp, indent + 4)
                 else:
                     fp.write(str(item) + ", ")
             fp.write("]")
