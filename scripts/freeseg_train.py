@@ -193,6 +193,8 @@ def main():
         mainlogger.info(f"resume training from model: {checkpoint}")
     elif (weight_init is not None):
         mainlogger.info(f"weight_init: {weight_init}")
+    optimizer = config["training"].get("optimizer", "torch.optim.Adam")      
+    mainlogger.info(f"optimizer: {optimizer}")
     if (config["training"].get("wl2_epochs", 0) > 0):
         mainlogger.info(f"wl2_epochs: {config['training'].get('wl2_epochs')}")
         mainlogger.info(f"wl2_metrics: {config['training'].get('wl2_metrics', 'freeseg.metrics.WeightedL2Loss')}")
@@ -239,7 +241,7 @@ def main():
 
     train(train_loader, config, output_folder, len(unique_classes), ctab,
           label_lookup=label_lookup, checkpoint=checkpoint, validation_loader=validation_loader, device=device, preprocessing_device=preprocessing_device, gpu_index=gpu_index,
-          train_dataset_dict=train_dataset_dict, debug=args.debug, weight_init=weight_init)
+          train_dataset_dict=train_dataset_dict, debug=args.debug, verbose=args.verbose, weight_init=weight_init, optimizer=optimizer)
 
     # check memory usage
     if (args.vmp):
@@ -286,7 +288,7 @@ def argument_parse():
 
 
 def train(train_loader, config, train_output_folder, num_labels, ctab, label_lookup=None, checkpoint=None,
-          validation_loader=None, device=None, preprocessing_device=None, gpu_index=None, train_dataset_dict=None, debug=False, weight_init=None):
+          validation_loader=None, device=None, preprocessing_device=None, gpu_index=None, train_dataset_dict=None, debug=False, verbose=False, weight_init=None, optimizer=None):
     # create the model to train
     model_arch_dict = config["model"]
     model_arch_dict["num_channels"] = config["dataset"]["expected_num_channels"]
@@ -299,8 +301,21 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
     assert the_model_name is not None, "Model name is not available."
 
     model_class = get_class(the_model_name, "freeseg.models.unet")
-    model = model_class(model_arch_dict).to(device)    
-   
+    model = model_class(model_arch_dict).to(device)
+    if (verbose):
+        total_params = sum(param.numel() for param in model.parameters())
+        mainlogger.debug(f"Total parameters: {total_params}")
+        for name, param in model.named_parameters():
+            trainable = False
+            if param.requires_grad:
+                trainable = True
+            mainlogger.debug(f"\t{name}: trainable={trainable}")
+
+    # retrieve optimizer class
+    if (optimizer is None):
+        optimizer = "torch.optim.Adam"
+    optimizer_cls = get_class(optimizer, "torch.optim")
+
     # print Model Architecture
     # from torchinfo import summary
     # input_shape = train_dataset_dict["input_shape"]
@@ -327,19 +342,20 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
     wl2_epochs = config["training"].get("wl2_epochs", 0)
     if (wl2_epochs > 0):
         wl2_metrics = get_class(config["training"].get("wl2_metrics", "freeseg.metrics.WeightedL2Loss"), "freeseg.metrics")
-        mainlogger.info(f"training {wl2_epochs} wl2 epochs: {wl2_metrics} ...")
+        mainlogger.info(f"training {wl2_epochs} wl2 epochs: {optimizer_cls}, {wl2_metrics} ...")
         wl2_loss_fn = wl2_metrics()
         trainer.train_model(lr=config["training"]["pre_train_learning_rate"],
                             epochs=wl2_epochs,
                             steps_per_epoch=config["training"]["steps_per_epoch"],
                             metric_type='wl2',
+                            optimizer_cls=optimizer_cls,
                             loss_fn=wl2_loss_fn)
                        
     # train dice epochs
     dice_epochs = config["training"].get("dice_epochs", 0)
     if (dice_epochs > 0):
         model_metrics = get_class(config["training"].get("model_metrics", "freeseg.metrics.DiceLoss"), "freeseg.metrics")
-        mainlogger.info(f"training {dice_epochs} epochs: {model_metrics} ...")
+        mainlogger.info(f"training {dice_epochs} epochs: {optimizer_cls}, {model_metrics} ...")
         dice_loss_fn = model_metrics(
             num_classes=num_labels,
             dice_type="soft"
@@ -348,6 +364,7 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
                             epochs=dice_epochs,
                             steps_per_epoch=config["training"]["steps_per_epoch"],
                             metric_type='dice',
+                            optimizer_cls=optimizer_cls,
                             loss_fn=dice_loss_fn)                   
 
 

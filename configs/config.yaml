@@ -108,6 +108,7 @@ training:
   batch_size: 1
   learning_rate: 0.0001
   pre_train_learning_rate: 0.0001
+  optimizer: torch.optim.Adam
   wl2_metrics: freeseg.metrics.WeightedL2Loss
   model_metrics: freeseg.metrics.DiceLoss
   write_tensorboard_summary: False  # whether to output tensorboard logs
