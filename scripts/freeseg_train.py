@@ -13,8 +13,7 @@ from torch.utils.data import DataLoader
 
 from freeseg.training import Training
 from freeseg.config import Config
-from freeseg.utils import set_deterministic_training, print_vm_peak, config_logger, get_class, remove_duplicates
-from freeseg.datasets import load_datasets
+from freeseg.utils import set_deterministic_training, print_vm_peak, config_logger, get_class, remove_duplicates, load_datasets
 from freeseg.metrics import WeightedL2Loss, DiceLoss
 
 """

@@ -12,8 +12,7 @@ import shutil
 from torch.utils.data import DataLoader
 
 from freeseg.config import Config
-from freeseg.utils import DataGenerator, set_deterministic_training
-from freeseg.datasets import load_datasets
+from freeseg.utils import DataGenerator, set_deterministic_training, load_datasets
 
 
 """
