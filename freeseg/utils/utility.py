@@ -37,7 +37,7 @@ def load_framedimage(file_path, orientation=None, device=None, ndims=3):
     orig_orientation = sf.transform.orientation.rotation_matrix_to_orientation(framedimage.geom.vox2world.matrix)
     # surfa.image.framed.reorient() is not yet implemented for 2D data
     if (ndims == 3 and orientation is not None):
-        framedimage = framedimage.reorient(orientation)
+        framedimage = framedimage.reorient(orientation, copy=False, inplace=True)
 
     # framedimage.framed_data has shape [H, W, D, C] (3D) or [H, W, C, 1] (2D)
     framedimage_data_native = framedimage.framed_data.astype(framedimage.dtype.newbyteorder('='))
@@ -81,7 +81,7 @@ def save_framedimage(framedimage_tensor, output_file, original_framedimage=None,
 
         # surfa.image.framed.reorient() is not yet implemented for 2D data            
         if (ndims == 3 and orientation is not None):
-            surfa_image = surfa_image.reorient(orientation)
+            surfa_image = surfa_image.reorient(orientation, copy=False, inplace=True)
     else:
         orientation = "RAS" if (orientation is None) else orientation
         rotation_matrix = sf.transform.orientation.orientation_to_rotation_matrix(orientation)
