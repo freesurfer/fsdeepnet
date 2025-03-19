@@ -7,6 +7,7 @@ import platform
 import numpy as np
 import surfa as sf
 import torch
+import yaml
 
 def load_framedimage(file_path, orientation=None, device=None, ndims=3):
     """
@@ -36,7 +37,7 @@ def load_framedimage(file_path, orientation=None, device=None, ndims=3):
     orig_orientation = sf.transform.orientation.rotation_matrix_to_orientation(framedimage.geom.vox2world.matrix)
     # surfa.image.framed.reorient() is not yet implemented for 2D data
     if (ndims == 3 and orientation is not None):
-        framedimage = framedimage.reorient(orientation)
+        framedimage = framedimage.reorient(orientation, copy=False, inplace=True)
 
     # framedimage.framed_data has shape [H, W, D, C] (3D) or [H, W, C, 1] (2D)
     framedimage_data_native = framedimage.framed_data.astype(framedimage.dtype.newbyteorder('='))
@@ -80,7 +81,7 @@ def save_framedimage(framedimage_tensor, output_file, original_framedimage=None,
 
         # surfa.image.framed.reorient() is not yet implemented for 2D data            
         if (ndims == 3 and orientation is not None):
-            surfa_image = surfa_image.reorient(orientation)
+            surfa_image = surfa_image.reorient(orientation, copy=False, inplace=True)
     else:
         orientation = "RAS" if (orientation is None) else orientation
         rotation_matrix = sf.transform.orientation.orientation_to_rotation_matrix(orientation)
@@ -301,7 +302,64 @@ def remove_duplicates(inlist, lowercase=True):
 
     return outlist
 
-                    
+
+def load_datasets(
+    config,
+    dataaugment,
+    train_augmentations=None,
+    validation_augmentations=None,
+    test_augmentations=None,
+    device=None,
+    check_augment=False,
+    keep_trainset_in_memory=False
+):
+    if (device is None):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    with open(config["dataset"]["dataset_list_file"], "r") as file:
+        dataset_dict = yaml.safe_load(file)
+
+    dataset_classname = config["dataset"].get("dataset_classname", "freeseg.datasets.segmentationdataset.SegmentationDataset")
+    py_dataset_cls = get_class(dataset_classname, "freeseg.datasets.segmentationdataset")
+    
+    dataset = dataset_dict.get("train")
+    train_dataset = None
+    if (dataset is not None):
+        train_dataset = py_dataset_cls(
+            config,
+            dataaugment,
+            dataset_dict=dataset,            
+            transform=train_augmentations,
+            device=device,
+            check_augment=check_augment,
+            keep_trainset_in_memory=keep_trainset_in_memory
+        )
+
+    dataset = dataset_dict.get("validation")
+    validation_dataset = None
+    if (dataset is not None):
+        validation_dataset = py_dataset_cls(
+            config,
+            dataaugment,
+            dataset_dict=dataset,            
+            transform=validation_augmentations,
+            device=device
+        )
+
+    dataset = dataset_dict.get("test")
+    test_dataset = None
+    if (dataset is not None):
+        test_dataset = py_dataset_cls(
+            config,
+            dataaugment,
+            dataset_dict=dataset,            
+            transform=test_augmentations,
+            device=device
+        )
+
+    return train_dataset, validation_dataset, test_dataset
+
+
 # ================================================================================================
 #                                        Lab2Im Utilities
 # ================================================================================================

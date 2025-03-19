@@ -123,7 +123,7 @@ class Training:
             os.makedirs(self._debug_dir, exist_ok=True)
 
 
-    def train_model(self, lr, epochs, steps_per_epoch, metric_type, loss_fn):
+    def train_model(self, lr, epochs, steps_per_epoch, metric_type, optimizer_cls, loss_fn):
         """
         model training loop
 
@@ -143,9 +143,9 @@ class Training:
         best_validation_loss = float("inf")
         best_validation_dice = 0.0
 
-        # define optimizer
-        optimizer = torch.optim.Adam(self._model.parameters(), lr=lr)
-                    
+        # set up optimizer
+        optimizer = optimizer_cls(self._model.parameters(), lr=lr)
+
         # load checkpoint if provided
         if (self._model_checkpoint is not None):
             self._checkpoint.load(self._model_checkpoint, self._model, optimizer, self._device)

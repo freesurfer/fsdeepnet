@@ -2,7 +2,6 @@ import os
 import logging
 import numpy as np
 import torch
-import yaml
 from torch.utils.data import Dataset
 
 from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot, get_class, remove_duplicates
@@ -257,57 +256,3 @@ class SegmentationDataset(Dataset):
         logging.info(f"  Number of channels: {input_shape[0]}")
     
         return input_shape, unique_classes, label_lookup
-
-
-def load_datasets(
-    config,
-    dataaugment,
-    train_augmentations=None,
-    validation_augmentations=None,
-    test_augmentations=None,
-    device=None,
-    check_augment=False,
-    keep_trainset_in_memory=False
-):
-    if (device is None):
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    with open(config["dataset"]["dataset_list_file"], "r") as file:
-        dataset_dict = yaml.safe_load(file)
-
-    dataset = dataset_dict.get("train")
-    train_dataset = None
-    if (dataset is not None):
-        train_dataset = SegmentationDataset(
-            config,
-            dataaugment,
-            dataset_dict=dataset,            
-            transform=train_augmentations,
-            device=device,
-            check_augment=check_augment,
-            keep_trainset_in_memory=keep_trainset_in_memory
-        )
-
-    dataset = dataset_dict.get("validation")
-    validation_dataset = None
-    if (dataset is not None):
-        validation_dataset = SegmentationDataset(
-            config,
-            dataaugment,
-            dataset_dict=dataset,            
-            transform=validation_augmentations,
-            device=device
-        )
-
-    dataset = dataset_dict.get("test")
-    test_dataset = None
-    if (dataset is not None):
-        test_dataset = SegmentationDataset(
-            config,
-            dataaugment,
-            dataset_dict=dataset,            
-            transform=test_augmentations,
-            device=device
-        )
-
-    return train_dataset, validation_dataset, test_dataset

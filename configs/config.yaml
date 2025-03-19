@@ -1,4 +1,5 @@
 dataset:
+  dataset_classname: freeseg.datasets.segmentationdataset.SegmentationDataset
   dataset_list_file: configs/pgland_dataset_list.yaml
   expected_classes: [0, 883, 900, 903, 904]
   #left_right_corresponding: define-left-right-label-correspondings #ex. this is for SynthSeg training [2, 41, 3, 42, 4, 43, 5, 44, 7, 46, 8, 47, 10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54, 25, 57, 26, 58, 28, 60, 30, 62, 136, 163, 137, 164]
@@ -108,6 +109,7 @@ training:
   batch_size: 1
   learning_rate: 0.0001
   pre_train_learning_rate: 0.0001
+  optimizer: torch.optim.Adam
   wl2_metrics: freeseg.metrics.WeightedL2Loss
   model_metrics: freeseg.metrics.DiceLoss
   write_tensorboard_summary: False  # whether to output tensorboard logs

@@ -9,8 +9,7 @@ import numpy as np
 import shutil
 
 from freeseg.config import Config
-from freeseg.utils import set_deterministic_training, remove_duplicates
-from freeseg.datasets import load_datasets, SegmentationDataset
+from freeseg.utils import set_deterministic_training, remove_duplicates, load_datasets, get_class
 
 """
 Usage: test_preprocessing.py 
@@ -104,9 +103,11 @@ def main():
     evaluation_augmentations = remove_duplicates(config["evaluation"].get("evaluation_augmentations"))
     if (args.image is not None and args.label is not None):
         logging.info("Loading dataset: SegmentationDataset(...)")
-        train_dataset = SegmentationDataset(config, augmentation_class,
-                                            image=args.image, label=args.label, priors=args.priors,
-                                            transform=train_augmentations, device=preprocessing_device, check_augment=args.check_augment)
+        dataset_classname = config["dataset"].get("dataset_classname", "freeseg.datasets.segmentationdataset.SegmentationDataset")
+        py_dataset_cls = get_class(dataset_classname, "freeseg.datasets.segmentationdataset")
+        train_dataset = py_dataset_cls(config, augmentation_class,
+                                       image=args.image, label=args.label, priors=args.priors,
+                                       transform=train_augmentations, device=preprocessing_device, check_augment=args.check_augment)
     else:
         logging.info("Loading dataset: load_dataset(...)")
         train_dataset, _, _ = load_datasets(config, augmentation_class,
