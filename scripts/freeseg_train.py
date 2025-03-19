@@ -61,41 +61,9 @@ def main():
 
     checkpoint = args.checkpoint
     ctab = args.ctab
-    
-    # Load config file
-    config = Config.load(args.config)
 
-    # overwrite config with command line options
-    if (args.verbose):
-        config["preprocessing"]["verbose"] = args.verbose
-    if (args.model_name is not None):
-        config["model"]["name"] = args.model_name
-    if (args.weight_init is not None):
-        config["model"]["weight_init"] = args.weight_init
-    if (args.dataset_list_file is not None):
-        config["dataset"]["dataset_list_file"] = args.dataset_list_file
-    if (args.crop_size is not None):
-        config["preprocessing"]["crop_size"] = args.crop_size
-    if (args.train_output_folder is not None):
-        config["training"]["train_output_folder"] = args.train_output_folder
-    if (args.deterministic is not None):
-        config["training"]["deterministic"] = args.deterministic
-    if (args.batch_size is not None):
-        config["training"]["batch_size"] = args.batch_size
-    if (args.write_tensorboard_summary):
-        config["training"]["write_tensorboard_summary"] = args.write_tensorboard_summary
-    if (args.perform_evaluation):
-        config["training"]["perform_evaluation"] = args.perform_evaluation
-    if (args.best_model_metric is not None):
-       config["training"]["best_model_metric"] = args.best_model_metric
-    if (args.num_workers is not None):
-        config["preprocessing"]["num_workers"] = args.num_workers
-    if (args.prefetch_factor is not None):
-        config["preprocessing"]["prefetch_factor"] = args.prefetch_factor        
-    if (args.pin_memory is not None):
-        config["preprocessing"]["pin_memory"] = args.pin_memory
-    if (args.persistent_workers is not None):
-        config["preprocessing"]["persistent_workers"] = args.persistent_workers        
+    # load config.yaml and update it with user options
+    config = update_config(args)
 
     train_output_folder = config["training"].get("train_output_folder", None)
     assert (train_output_folder is not None), "Use '--train_output_folder <>' or 'train_output_folder' in config.yaml to specify training output directory"
@@ -133,9 +101,9 @@ def main():
         set_deterministic_training()
 
     # save config and dataset_list_file
-    # no config updates should happen after this line
-    config_saveas = os.path.join(output_folder, "config.yaml")
+    # !!! no config updates should happen after this line
     shutil.copyfile(args.config, os.path.join(output_folder, "input_config.yaml"))  # --config <>
+    config_saveas = os.path.join(output_folder, "config.yaml")
     Config.save(config, cwd=cwd, cmd=cmd, saveas=config_saveas)                     # updated with command line args
     dataset_list_saveas = os.path.join(output_folder, "dataset_list.yaml")
     shutil.copyfile(config["dataset"]["dataset_list_file"], dataset_list_saveas)
@@ -200,7 +168,6 @@ def main():
     if (config["training"].get("dice_epochs", 0) > 0):
         mainlogger.info(f"dice_epochs: {config['training'].get('dice_epochs')}")
         mainlogger.info(f"model_metrics: {config['training'].get('model_metrics', 'freeseg.metrics.DiceLoss')}")
-
     mainlogger.info(f"keep_trainset_in_memory: {args.keep_trainset_in_memory}")
     mainlogger.info(f"deterministic: {deterministic}")
     mainlogger.info(f"perform_evaluation: {perform_evaluation}")    
@@ -269,7 +236,16 @@ def argument_parse():
     parser.add_argument("--pin_memory", action='store_true', help="Store data in pinned memory")
     parser.add_argument("--persistent_workers", action='store_true', help=" Keep the workers Dataset instances alive")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
-    parser.add_argument("--batch_size" , type=int, help="Batch size for DataLoader")
+    parser.add_argument("--batch_size", type=int, help="Batch size for DataLoader")
+    parser.add_argument("--dice_epochs", type=int, help="Number of dice training epochs")
+    parser.add_argument("--learning_rate", type=float, help="Network learning rate")
+    parser.add_argument("--nb_levels", type=int, help="Number of network levels")
+    parser.add_argument("--nb_features", type=int, help="Number of features at the first level")
+    parser.add_argument("--feat_mult", type=int, help="Feature multiplication factor")
+    parser.add_argument("--nb_conv_per_level", type=int, help="Number of convolution layers at each level")
+    parser.add_argument("--conv_size", type=int, help="Convolution kernel size")
+    parser.add_argument("--pool_size", type=int, help="Max pooling size")
+    parser.add_argument("--use_residuals", action='store_true', help="Use residuals")
     #parser.add_argument("--expected_classes", nargs="+", type=int, help="Expected classes in the dataset")
     parser.add_argument("--write_tensorboard_summary", action='store_true', help="Write tensorboard summary")
     parser.add_argument("--perform_evaluation", action='store_true', help="Perform evaluation after each epoch")
@@ -281,14 +257,70 @@ def argument_parse():
     parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
     parser.add_argument("--verbose", action='store_true', help="Print debug info to stdout")
 
-    if len(sys.argv) < 2:
-        parser.print_help()
-        sys.exit(1)
+
 
     # parse commandline
     args = parser.parse_args()
 
     return args
+
+
+# load config.yaml and update it with user options
+def update_config(args):
+    # Load config file
+    config = Config.load(args.config)
+
+    # overwrite config with command line options
+    if (args.verbose):
+        config["preprocessing"]["verbose"] = args.verbose
+    if (args.model_name is not None):
+        config["model"]["name"] = args.model_name
+    if (args.weight_init is not None):
+        config["model"]["weight_init"] = args.weight_init
+    if (args.nb_levels is not None):
+        config["model"]["nb_levels"] = args.nb_levels
+    if (args.nb_features is not None):
+        config["model"]["nb_features"] = args.nb_features
+    if (args.feat_mult is not None):
+        config["model"]["feat_mult"] = args.feat_mult
+    if (args.nb_conv_per_level is not None):
+        config["model"]["nb_conv_per_level"] = args.nb_conv_per_level
+    if (args.conv_size is not None):
+        config["model"]["conv_size"] = args.conv_size
+    if (args.pool_size is not None):
+        config["model"]["pool_size"] = args.pool_size
+    if (args.use_residuals):
+        config["model"]["use_residuals"] = args.use_residuals
+    if (args.dice_epochs is not None):
+        config["training"]["dice_epochs"] = args.dice_epochs
+    if (args.learning_rate is not None):
+        config["training"]["learning_rate"] = args.learning_rate
+    if (args.dataset_list_file is not None):
+        config["dataset"]["dataset_list_file"] = args.dataset_list_file
+    if (args.crop_size is not None):
+        config["preprocessing"]["crop_size"] = args.crop_size
+    if (args.train_output_folder is not None):
+        config["training"]["train_output_folder"] = args.train_output_folder
+    if (args.deterministic is not None):
+        config["training"]["deterministic"] = args.deterministic
+    if (args.batch_size is not None):
+        config["training"]["batch_size"] = args.batch_size
+    if (args.write_tensorboard_summary):
+        config["training"]["write_tensorboard_summary"] = args.write_tensorboard_summary
+    if (args.perform_evaluation):
+        config["training"]["perform_evaluation"] = args.perform_evaluation
+    if (args.best_model_metric is not None):
+       config["training"]["best_model_metric"] = args.best_model_metric
+    if (args.num_workers is not None):
+        config["preprocessing"]["num_workers"] = args.num_workers
+    if (args.prefetch_factor is not None):
+        config["preprocessing"]["prefetch_factor"] = args.prefetch_factor        
+    if (args.pin_memory is not None):
+        config["preprocessing"]["pin_memory"] = args.pin_memory
+    if (args.persistent_workers is not None):
+        config["preprocessing"]["persistent_workers"] = args.persistent_workers        
+
+    return config
 
 
 def train(train_loader, config, train_output_folder, num_labels, ctab, label_lookup=None, checkpoint=None,
