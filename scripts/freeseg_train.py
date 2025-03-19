@@ -199,6 +199,7 @@ def main():
     if (config["training"].get("dice_epochs", 0) > 0):
         mainlogger.info(f"dice_epochs: {config['training'].get('dice_epochs')}")
         mainlogger.info(f"model_metrics: {config['training'].get('model_metrics', 'freeseg.metrics.DiceLoss')}")
+
     mainlogger.info(f"keep_trainset_in_memory: {args.keep_trainset_in_memory}")
     mainlogger.info(f"deterministic: {deterministic}")
     mainlogger.info(f"perform_evaluation: {perform_evaluation}")    
@@ -267,7 +268,7 @@ def argument_parse():
     parser.add_argument("--pin_memory", action='store_true', help="Store data in pinned memory")
     parser.add_argument("--persistent_workers", action='store_true', help=" Keep the workers Dataset instances alive")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
-    parser.add_argument("--batch_size", type=int, help="Batch size for DataLoader")
+    parser.add_argument("--batch_size" , type=int, help="Batch size for DataLoader")
     #parser.add_argument("--expected_classes", nargs="+", type=int, help="Expected classes in the dataset")
     parser.add_argument("--write_tensorboard_summary", action='store_true', help="Write tensorboard summary")
     parser.add_argument("--perform_evaluation", action='store_true', help="Perform evaluation after each epoch")
@@ -278,6 +279,10 @@ def argument_parse():
     parser.add_argument('--logfile', type=str, help='Set logfile (default is freeseg_train.log)')
     parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
     parser.add_argument("--verbose", action='store_true', help="Print debug info to stdout")
+
+    if len(sys.argv) < 2:
+        parser.print_help()
+        sys.exit(1)
 
     # parse commandline
     args = parser.parse_args()
