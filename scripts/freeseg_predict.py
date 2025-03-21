@@ -75,17 +75,22 @@ def main():
             mainlogger.info("Empty cohort, nothing to do.")
             return
 
-        path_images, path_gt, path_priors = [], [], []
+        path_images, path_gt, path_priors, codenames = [], [], [], []
         for item in dataset:
             path_images.append(item["image_filepath"])
             path_gt.append(item["label_filepath"])
             if (item.get("prior_filepath")):
                 path_priors.append(item["prior_filepath"])
+            if (item.get("codename")):
+                codenames.append(item["codename"])
 
+        assert (len(path_images) == len(path_gt)), "image and label need to be the same length"                
         path_priors = path_priors if (len(path_priors)) else None
-        assert (len(path_images) == len(path_gt)), "image and label need to be the same length"
+        codenames = codenames if (len(codenames)) else None
         if (path_priors is not None):
             assert (len(path_images) == len(path_priors)), "images and priors need to be the same length"
+        if (codenames is not None):
+            assert (len(path_images) == len(codenames)), "images and codenames need to be the same length"
 
     mainlogger.info("prediction in progress ...")
     if (logfile is not None):
@@ -96,6 +101,7 @@ def main():
             ctab=args.ctab,
             path_labels=args.label,
             path_priors=path_priors,
+            codenames=codenames,
             path_gt=path_gt,
             addctab=True if (not args.noaddctab) else False,
             write_posteriors=args.write_posteriors,
@@ -141,7 +147,7 @@ def argument_parse():
     return args
 
 
-def predict(path_images, out_segmentations, checkpoint, crop_size=None, ctab=None, path_labels=None, path_priors=None,
+def predict(path_images, out_segmentations, checkpoint, crop_size=None, ctab=None, path_labels=None, path_priors=None, codenames=None,
             path_gt=None, addctab=True, write_posteriors=False, device=None, debug=False):
     prediction = Prediction(device, ctab=ctab)
     prediction.load_model(checkpoint)
@@ -149,6 +155,7 @@ def predict(path_images, out_segmentations, checkpoint, crop_size=None, ctab=Non
                        crop_size=crop_size,
                        path_labels=path_labels,
                        path_priors=path_priors,
+                       codenames=codenames,
                        path_gt=path_gt,
                        addctab=addctab,
                        write_posteriors=write_posteriors,
