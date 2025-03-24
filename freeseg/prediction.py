@@ -222,12 +222,13 @@ class Prediction:
                     f"Expected prior shape [self.num_classes, *image_tensor.shape[1:]], but got {list(prior_tensor.shape)}"
 
             list_predictions.append(path_images[i])
+            basename = os.path.basename(out_segmentations[i])
             if (debug):
                 logging.debug("output re-oriented image/prior ...")
-                out_reoriented_image = os.path.join(out_debug_dir, f"{codenames[i]}."+os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.reoriented.RAS.mgz"
+                out_reoriented_image = os.path.join(out_debug_dir, basename.replace(f"{pred_suffix}.", f"image.reoriented.RAS."))
                 save_framedimage(image_tensor, out_reoriented_image, original_framedimage=sfimage)
                 if (path_priors is not None):
-                    out_reoriented_prior = os.path.join(out_debug_dir, f"{codenames[i]}."+os.path.splitext(os.path.basename(path_priors[i]))[0])+f".prior.reoriented.RAS.mgz"
+                    out_reoriented_prior = os.path.join(out_debug_dir, basename.replace(f"{pred_suffix}.", f"prior.reoriented.RAS."))
                     save_framedimage(prior_tensor, out_reoriented_prior, original_framedimage=sfprior)
                 
             label_lookup = self._label_lookup
@@ -264,19 +265,19 @@ class Prediction:
                         crop = 'centroidcropped'
 
                     logging.debug(f"output {crop} image/label ...")
-                    out_cropped_image = os.path.join(out_debug_dir, f"{codenames[i]}."+os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.RAS.mgz"
+                    out_cropped_image = os.path.join(out_debug_dir, basename.replace(f"{pred_suffix}.", f"image.{crop}.RAS."))
                     save_framedimage(image_tensor_cropped, out_cropped_image, original_framedimage=sfimage)
-                    out_cropped_image = os.path.join(out_debug_dir, f"{codenames[i]}."+os.path.splitext(os.path.basename(path_images[i]))[0])+f".image.{crop}.mgz"
+                    out_cropped_image = os.path.join(out_debug_dir, basename.replace(f"{pred_suffix}.", f"image.{crop}."))
                     save_framedimage(image_tensor_cropped, out_cropped_image, original_framedimage=sfimage, orientation=orig_orientation)
                     if (prior_tensor_cropped is not None):
-                        out_cropped_prior = os.path.join(out_debug_dir, f"{codenames[i]}."+os.path.splitext(os.path.basename(path_priors[i]))[0])+f".prior.{crop}.RAS.mgz"
+                        out_cropped_prior = os.path.join(out_debug_dir, basename.replace(f"{pred_suffix}.", f"prior.{crop}.RAS."))
                         save_framedimage(prior_tensor_cropped, out_cropped_prior, original_framedimage=sfprior, dtype=float)
-                        out_cropped_prior = os.path.join(out_debug_dir, f"{codenames[i]}."+os.path.splitext(os.path.basename(path_priors[i]))[0])+f".prior.{crop}.mgz"
+                        out_cropped_prior = os.path.join(out_debug_dir, basename.replace(f"{pred_suffix}.", f"prior.{crop}."))
                         save_framedimage(prior_tensor_cropped, out_cropped_prior, original_framedimage=sfprior, orientation=orig_orientation, dtype=float)
                     if (path_labels is not None):
-                        out_cropped_label = os.path.join(out_debug_dir, f"{codenames[i]}."+os.path.splitext(os.path.basename(path_labels[i]))[0])+f".label.{crop}.RAS.mgz"
+                        out_cropped_label = os.path.join(out_debug_dir, basename.replace(f"{pred_suffix}.", f"label.{crop}.RAS."))
                         save_framedimage(label_tensor_cropped, out_cropped_label, original_framedimage=sflabel)
-                        out_cropped_label = os.path.join(out_debug_dir, f"{codenames[i]}."+os.path.splitext(os.path.basename(path_labels[i]))[0])+f".label.{crop}.mgz"
+                        out_cropped_label = os.path.join(out_debug_dir, basename.replace(f"{pred_suffix}.", f"label.{crop}."))
                         save_framedimage(label_tensor_cropped, out_cropped_label, original_framedimage=sflabel, orientation=orig_orientation)
                     # end of debugging
 
