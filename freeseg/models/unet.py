@@ -36,7 +36,8 @@ class ConvBlock(nn.Module):
             in_channels_conv = in_channels if (conv == 0) else out_channels
             
             module_list = nn.ModuleList()
-            module_list.append(convL(in_channels_conv, out_channels, kernel_size=conv_size, padding=1))
+            # padding='same' pads the input so the output has the shape as the input. However, this mode doesn’t support any stride values other than 1.
+            module_list.append(convL(in_channels_conv, out_channels, kernel_size=conv_size, padding='same'))
             self.init_weight(module_list, weight_init)         
 
             if (conv < nb_conv_per_level - 1) or (not use_residuals):
