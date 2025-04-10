@@ -342,13 +342,11 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
     model_class = get_class(the_model_name, "freeseg.models.unet")
     model = model_class(model_arch_dict).to(device)
     if (verbose):
-        total_params = sum(param.numel() for param in model.parameters())
-        mainlogger.debug(f"Total parameters: {total_params}")
-        for name, param in model.named_parameters():
-            trainable = False
-            if param.requires_grad:
-                trainable = True
-            mainlogger.debug(f"\t{name}: trainable={trainable}")
+        from freeseg import models
+        net_crop_size = train_dataset_dict.get("crop_size", train_dataset_dict["input_shape"])
+        net_input_shape = (train_dataset_dict["num_channels"], *net_crop_size)
+        models.model_summary(model, net_input_shape, logger=mainlogger)
+        models.model_parameters(model, logger=mainlogger)
 
     # retrieve optimizer class
     if (optimizer is None):
