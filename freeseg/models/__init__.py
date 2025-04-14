@@ -20,7 +20,7 @@ def model_summary(model, input_size, logger=logging, device=None, debug=False):
         def forward_pre_hook(module, input):
             class_name = str(module.__class__).split(".")[-1].split("'")[0]
             module_idx = len(forward_hook_pre_summary)
-            m_key = f"{class_name}.{name}-{module_idx+1}"
+            m_key = f"{name}.{class_name}-{module_idx+1}"
             forward_hook_pre_summary[m_key] = {
                 "input_shape": list(input[0].size()),
             }
@@ -29,11 +29,20 @@ def model_summary(model, input_size, logger=logging, device=None, debug=False):
             class_name = str(module.__class__).split(".")[-1].split("'")[0]
             module_idx = len(forward_hook_summary)
             m_key = f"{name}.{class_name}-{module_idx+1}"
+
+            param_sizes = []
+            for nm, param in module.named_parameters():
+                if (param.requires_grad):
+                    datasize = param.data.size()
+                    datasize_list = list(datasize)
+                    param_sizes.append(f"{nm:s}:{str(datasize_list):s}")
+
             forward_hook_summary.append({
                 "name": m_key,
-                "input_shape": list(input[0].size()),
+                "input_shape":  list(input[0].size()),
                 "output_shape": list(output.size()),
-                "nb_params": sum(p.numel() for p in module.parameters())
+                "nb_params":    sum(p.numel() for p in module.parameters()),
+                "param_sizes":  ", ".join(param_sizes)
             })
 
             
@@ -97,27 +106,29 @@ def model_summary(model, input_size, logger=logging, device=None, debug=False):
 
     # forward hook summary
     logger.info("<<< FORWARD HOOK SUMMARY >>>")
-    logger.info("-----------------------------------------------------------------------------------------------------------")
-    line_new = "{:<35}  {:>25}  {:>25}  {:>15}".format("Layer (type)", "Input Shape", "Output Shape", "Param #")
+    logger.info("-----------------------------------------------------------------------------------------------------------------------------------------")
+    line_new = "{:<35}  {:>25}  {:>25}  {:>10}  {:>15}".format("Layer (type)", "Input Shape", "Output Shape", "Param #", "Param Size")
     logger.info(line_new)
-    logger.info("===========================================================================================================")
+    logger.info("=========================================================================================================================================")
     total_params = 0
     for forward_hook in forward_hook_summary:
         layer = forward_hook["name"]
-        line_new = "{:<35}  {:>25}  {:>25}  {:>15}".format(
+        line_new = "{:<35}  {:>25}  {:>25}  {:>10}  {:<15}".format(
             layer,
             str(forward_hook["input_shape"]),
             str(forward_hook["output_shape"]),
-            "{0:,}".format(forward_hook["nb_params"])
+            "{0:,}".format(forward_hook["nb_params"]),
+            forward_hook["param_sizes"]
         )
         total_params += forward_hook["nb_params"]
         logger.info(line_new)
-    logger.info("===========================================================================================================")
+    logger.info("=========================================================================================================================================")
     logger.info(f"Total params: {total_params:,}")
-    logger.info("-----------------------------------------------------------------------------------------------------------")
+    logger.info("-----------------------------------------------------------------------------------------------------------------------------------------")
 
 
 def model_parameters(model, logger=logging):
+    logger.info("<<< NETWORK PARAMETERS >>>")
     for name, param in model.named_parameters():
         trainable = False
         if param.requires_grad:

@@ -79,7 +79,8 @@ def main():
 
     models.model_print(model)
     models.model_summary(model, (n_channels, *args.input_shape[-args.ndims:]), device=device, debug=True)
-    models.model_parameters(model)    
+    #models.model_parameters(model)
+    #models.model_summary_torchinfo(model, (1, 1, *args.input_shape[-args.ndims:]))
         
 
 def argument_parse(description):
