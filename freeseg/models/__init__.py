@@ -20,8 +20,7 @@ def model_summary(model, input_size, logger=logging, device=None, debug=False):
         def forward_pre_hook(module, input):
             class_name = str(module.__class__).split(".")[-1].split("'")[0]
             module_idx = len(forward_hook_pre_summary)
-            #m_key = f"{class_name}-{module_idx+1}"
-            m_key = f"{class_name}-{name}-{module_idx+1}"
+            m_key = f"{class_name}.{name}-{module_idx+1}"
             forward_hook_pre_summary[m_key] = {
                 "input_shape": list(input[0].size()),
             }
@@ -29,8 +28,7 @@ def model_summary(model, input_size, logger=logging, device=None, debug=False):
         def forward_hook(module, input, output):
             class_name = str(module.__class__).split(".")[-1].split("'")[0]
             module_idx = len(forward_hook_summary)
-            #m_key = f"{class_name}-{module_idx+1}"
-            m_key = f"{name}-{class_name}-{module_idx+1}"
+            m_key = f"{name}.{class_name}-{module_idx+1}"
             forward_hook_summary.append({
                 "name": m_key,
                 "input_shape": list(input[0].size()),

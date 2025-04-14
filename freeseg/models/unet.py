@@ -24,9 +24,9 @@ class ConvBlock(nn.Module):
             raise ValueError(f"Unsupported number of dimensions for the Unet: {ndims}")
 
         if activation.lower() == "elu":
-            activation_func = nn.ELU()
+            activation = nn.ELU
         elif activation.lower() == "relu":
-            activation_func = nn.ReLU()
+            activation = nn.ReLU
         else:
             raise ValueError(f"Invalid activation function: {activation}")
 
@@ -41,7 +41,7 @@ class ConvBlock(nn.Module):
             self.init_weight(module_list, weight_init)         
 
             if (conv < nb_conv_per_level - 1) or (not use_residuals):
-                module_list.append(activation_func)
+                module_list.append(activation())
 
             self.convs.append(module_list)
 
@@ -51,7 +51,7 @@ class ConvBlock(nn.Module):
             self.resblock = nn.ModuleList()
             self.resblock.append(convL(in_channels, out_channels, kernel_size=conv_size, padding=1))
             self.init_weight(self.resblock, weight_init)                
-            self.resblock.append(activation_func)
+            self.resblock.append(activation())
 
         """
         The default BatchNorm3d layer behavior is different between .train() and .eval().
@@ -139,7 +139,7 @@ class UNet(nn.Module):
         self.final_pred_activation = final_pred_activation
 
         convL = getattr(nn, "Conv%dd" % ndims)
-        pool = getattr(nn, "MaxPool%dd" % ndims)(kernel_size=pool_size, stride=pool_size)
+        pool = getattr(nn, "MaxPool%dd" % ndims)
 
         # Encoder (Contracting path)
         self.encoder = nn.ModuleList()
@@ -161,7 +161,7 @@ class UNet(nn.Module):
                     weight_init=weight_init
                 )
             )
-            encoder.append(pool)
+            encoder.append(pool(kernel_size=pool_size, stride=pool_size))
 
             self.encoder.append(encoder)
             in_channels = nb_lvl_feats
@@ -222,6 +222,15 @@ class UNet(nn.Module):
         elif (classifier_weight_init == "xavier_uniform"):
             nn.init.xavier_uniform_(self.classifier.weight)
 
+        # final activation layer
+        if self.final_pred_activation == 'softmax':
+            self.final_activation = nn.Softmax(dim=1)
+        elif self.final_pred_activation == 'sigmoid':
+            self.final_activation = nn.Sigmoid()
+        elif self.final_pred_activation == 'linear':
+            self.final_activation = None  # No activation applied
+        else:
+            raise ValueError(f"Unknown final_pred_activation: {self.final_pred_activation}")            
 
     def forward(self, x, priors=None):
         skip_connections = []
@@ -258,28 +267,16 @@ class UNet(nn.Module):
         """
 
         # output prediction layer
-        if self.final_pred_activation == 'softmax':
-            x = nn.functional.softmax(x, dim=1)
-        elif self.final_pred_activation == 'sigmoid':
-            x = nn.functional.sigmoid(x)
-        elif self.final_pred_activation == 'linear':
-            pass  # No activation applied
-        else:
-            raise ValueError(f"Unknown final_pred_activation: {self.final_pred_activation}")
+        if (self.final_activation is not None):
+            x = self.final_activation(x)
 
         # Benjamin's add_prior implementation (https://github.com/BBillot/SynthSeg/blob/master/ext/neuron/models.py#L501)
         # priors are added to the softmax output, then takes softmax again        
         if (self.add_priors and priors is not None and priors.numel() != 0):
             #logging.debug(f"UNet.forward(): add priors")
             x = torch.add(x, priors)
-            if self.final_pred_activation == 'softmax':
-                x = nn.functional.softmax(x, dim=1)
-            elif self.final_pred_activation == 'sigmoid':
-                x = nn.functional.sigmoid(x)
-            elif self.final_pred_activation == 'linear':
-                pass  # No activation applied
-            else:
-                raise ValueError(f"Unknown final_pred_activation: {self.final_pred_activation}")
+            if (self.final_activation is not None):
+                x = self.final_activation(x)
 
         # also return penultimate layer output for WeightedL2Loss
         return [x, x1]
