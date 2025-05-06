@@ -140,6 +140,7 @@ class Training:
         """
 
         start_epoch = 0
+        end_epoch = epochs
         best_validation_loss = float("inf")
         best_validation_dice = 0.0
 
@@ -153,19 +154,20 @@ class Training:
             if (self._checkpoint.metric_type is not None and self._checkpoint.metric_type != metric_type):
                 return
             
-            logging.info(f"Resuming training from checkpoint: {self._model_checkpoint}")
             start_epoch = self._checkpoint.epoch + 1
+            end_epoch = start_epoch + epochs
+            logging.info(f"Continue to train {end_epoch-start_epoch} ({epochs}) {self._checkpoint.metric_type} epochs")
             if (self._label_lookup is None):
                 self._label_lookup = self._checkpoint.label_lookup
             self._model_checkpoint = None  # the checkpoint will only be used once in the training
 
         # training loop
         ncols = 2 if (self._validation_loader is None) else 4
-        loss_dice_avg = np.zeros((epochs-start_epoch, ncols))        
-        for epoch in range(start_epoch, epochs):
+        loss_dice_avg = np.zeros((end_epoch-start_epoch, ncols))        
+        for epoch in range(start_epoch, end_epoch):
             if (self._gpu_index is not None):
                 gpu_report(self._gpu_index)
-            logging.info(f"Epoch {epoch+1:3d}/{epochs:<3d}")
+            logging.info(f"Epoch {epoch+1:3d}/{end_epoch:<3d}")
             (train_loss, train_dices)  = self._train_one_epoch(optimizer, loss_fn, epoch, steps_per_epoch,
                                                                metric_type=metric_type)
             
@@ -182,7 +184,7 @@ class Training:
             if (self._validation_loader is None):
                 loss_dice_avg[epoch-start_epoch] = np.array((train_loss, train_dice_avg))                
                 logging.info(
-                    f"Epoch [{epoch+1}/{epochs}], "
+                    f"Epoch [{epoch+1}/{end_epoch}], "
                     f"Train Loss: {train_loss:.4f}, "
                     f"Train Dice Avg: {train_dice_avg:.4f}"
                 )
@@ -218,7 +220,7 @@ class Training:
 
                 loss_dice_avg[epoch-start_epoch] = np.array((train_loss, train_dice_avg, validation_loss, validation_dice_avg))                
                 logging.info(
-                    f"Epoch [{epoch+1}/{epochs}], "
+                    f"Epoch [{epoch+1}/{end_epoch}], "
                     f"Train Loss: {train_loss:.4f}, "
                     f"Train Dice Avg: {train_dice_avg:.4f}, "
                     f"Val Loss: {validation_loss:.4f}, "
@@ -264,7 +266,7 @@ class Training:
             # End of perform evaluation
         # End of training loop
         
-        f_loss_dice_avg_dat = os.path.join(self._checkpoint_dir, f"train_validation_avg_{metric_type}_epoch{start_epoch}-{epochs}.dat")
+        f_loss_dice_avg_dat = os.path.join(self._checkpoint_dir, f"train_validation_avg_{metric_type}_epoch{start_epoch+1}-{end_epoch}.dat")
         # Save in text format as nepoch x 2
         np.savetxt(f_loss_dice_avg_dat, loss_dice_avg)
 

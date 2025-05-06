@@ -62,7 +62,7 @@ def main():
         mainlogger.error("Use --cohort <train|validation|test> which dataset to segment")
         return
 
-    codenames = [];
+    codenames = None
     path_images = args.i
     path_gt = args.gt
     path_priors = args.prior

@@ -84,13 +84,15 @@ def main():
     output_folder = os.path.abspath(train_output_folder)    
     if (not os.path.exists(output_folder)):
         os.makedirs(output_folder)
-    logfile = args.logfile if (args.logfile) else os.path.join(output_folder, 'freeseg_train.log')
+    logfile = args.logfile if (args.logfile) else os.path.join(output_folder, "freeseg_train.log")
     config_logger(logfile=logfile)
 
     # print the command
     cwd = os.getcwd()
     cmd = ' '.join(sys.argv)
-    mainlogger.info("===================== Current date and time: " + str(datetime.datetime.now()) + " =====================")
+    now = datetime.datetime.now()
+    dt_nowstring = str(now).replace(' ', '.').replace(':', '.')
+    mainlogger.info("===================== Current date and time: " + str(now) + " =====================")
     mainlogger.info("CWD: " + cwd)
     mainlogger.info("CMD: " + cmd)
 
@@ -102,8 +104,8 @@ def main():
 
     # save config and dataset_list_file
     # !!! no config updates should happen after this line
-    shutil.copyfile(args.config, os.path.join(output_folder, "input_config.yaml"))  # --config <>
-    config_saveas = os.path.join(output_folder, "config.yaml")
+    shutil.copyfile(args.config, os.path.join(output_folder, f"input_config.{dt_nowstring}.yaml"))  # --config <>
+    config_saveas = os.path.join(output_folder, f"config.{dt_nowstring}.yaml")
     Config.save(config, cwd=cwd, cmd=cmd, saveas=config_saveas)                     # updated with command line args
     dataset_list_saveas = os.path.join(output_folder, "dataset_list.yaml")
     shutil.copyfile(config["dataset"]["dataset_list_file"], dataset_list_saveas)
@@ -238,6 +240,7 @@ def argument_parse():
     parser.add_argument("--persistent_workers", action='store_true', help=" Keep the workers Dataset instances alive")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     parser.add_argument("--batch_size", type=int, help="Batch size for DataLoader")
+    parser.add_argument("--wl2_epochs", type=int, help="Number of wl2 training epochs")
     parser.add_argument("--dice_epochs", type=int, help="Number of dice training epochs")
     parser.add_argument("--learning_rate", type=float, help="Network learning rate")
     parser.add_argument("--nb_levels", type=int, help="Number of network levels")
@@ -294,6 +297,8 @@ def update_config(args):
         config["model"]["pool_size"] = args.pool_size
     if (args.use_residuals):
         config["model"]["use_residuals"] = args.use_residuals
+    if (args.wl2_epochs is not None):
+        config["training"]["wl2_epochs"] = args.wl2_epochs    
     if (args.dice_epochs is not None):
         config["training"]["dice_epochs"] = args.dice_epochs
     if (args.learning_rate is not None):
@@ -358,6 +363,9 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
     # input_shape = train_dataset_dict["input_shape"]
     # summary(model, input_size=input_shape)
 
+    if (checkpoint is not None):
+        mainlogger.info(f"Resuming training from checkpoint: {checkpoint}")
+    
     # create the Training object
     trainer = Training(train_output_folder,
                        train_loader,
@@ -374,12 +382,13 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
                        gpu_index=gpu_index,
                        preprocessing_device=preprocessing_device,
                        debug=debug)
-                       
+
     # train wl2 epochs
     wl2_epochs = config["training"].get("wl2_epochs", 0)
     if (wl2_epochs > 0):
         wl2_metrics = get_class(config["training"].get("wl2_metrics", "freeseg.metrics.WeightedL2Loss"), "freeseg.metrics")
-        mainlogger.info(f"training {wl2_epochs} wl2 epochs: {optimizer_cls}, {wl2_metrics} ...")
+        if (checkpoint is None):
+            mainlogger.info(f"training {wl2_epochs} wl2 epochs: {optimizer_cls}, {wl2_metrics} ...")
         wl2_loss_fn = wl2_metrics()
         trainer.train_model(lr=config["training"]["pre_train_learning_rate"],
                             epochs=wl2_epochs,
@@ -392,7 +401,7 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
     dice_epochs = config["training"].get("dice_epochs", 0)
     if (dice_epochs > 0):
         model_metrics = get_class(config["training"].get("model_metrics", "freeseg.metrics.DiceLoss"), "freeseg.metrics")
-        mainlogger.info(f"training {dice_epochs} epochs: {optimizer_cls}, {model_metrics} ...")
+        mainlogger.info(f"training {dice_epochs} dice epochs: {optimizer_cls}, {model_metrics} ...")
         dice_loss_fn = model_metrics(
             num_classes=num_labels,
             dice_type="soft"
