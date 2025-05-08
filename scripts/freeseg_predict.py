@@ -156,7 +156,7 @@ def argument_parse():
 
 def predict(path_images, out_segmentations, checkpoint, crop_size=None, ctab=None, path_labels=None, path_priors=None, codenames=None,
             path_gt=None, addctab=True, write_posteriors=False, device=None, debug=False):
-    prediction = Prediction(device, ctab=ctab)
+    prediction = Prediction(device, ctab=ctab, debug=debug)
     prediction.load_model(checkpoint)
     prediction.predict(path_images, out_segmentations,
                        crop_size=crop_size,
@@ -165,8 +165,7 @@ def predict(path_images, out_segmentations, checkpoint, crop_size=None, ctab=Non
                        codenames=codenames,
                        path_gt=path_gt,
                        addctab=addctab,
-                       write_posteriors=write_posteriors,
-                       debug=debug)
+                       write_posteriors=write_posteriors)
 
 
 # execute script

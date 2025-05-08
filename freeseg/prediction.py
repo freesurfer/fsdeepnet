@@ -26,7 +26,7 @@ class Prediction:
         Predict with the loaded model
     """
         
-    def __init__(self, device=None, ctab=None):
+    def __init__(self, device=None, ctab=None, debug=False):
         """
         Prediction Constructor.
         """
@@ -40,6 +40,12 @@ class Prediction:
         if (ctab is not None):
             import surfa as sf
             self._label_lookup = sf.load_label_lookup(ctab)
+
+        self._debug = debug
+        self._out_debug_dir = None
+
+        # save any hook handlers registered
+        self._forward_pre_hooks, self._forward_hooks = [], []
 
 
     def load_model(self, model_checkpoint):
@@ -91,7 +97,43 @@ class Prediction:
         self._model.load_state_dict(checkpoint.model_state_dict)
         self._model.eval()
 
-        
+
+    def register_hook(self, module, name=''):
+        def forward_hook(module, input, output):
+            class_name = str(module.__class__).split(".")[-1].split("'")[0]
+            m_key = f"{name}.{class_name}"
+            
+            # forward hooks are called after the forward() call, save the output of forward()
+            layer_output = os.path.join(self._out_debug_dir, f"layerout.{m_key}.npy")
+            logging.info(f"save layer {m_key} output {list(output.size())} : {layer_output}")
+            # Can't call numpy() on Tensor that requires grad. Use tensor.detach().numpy() instead
+            np.save(layer_output, output.permute(2, 3, 4, 1, 0).cpu().detach().numpy())
+
+            
+        if isinstance(module, (list, tuple)):
+            it = iter(module)
+            # iterate through the list two elements at a time
+            for nm, mod in zip(it, it):
+                name += nm if len(name) == 0 else "." + nm
+                self.register_hook(mod, name)
+        else:
+            chld_iter = module.named_children()
+            chld_count = len(list(chld_iter))
+            if (chld_count == 0):
+                self._forward_hooks.append(module.register_forward_hook(forward_hook))
+            else:
+                for idx, chld in enumerate(module.named_children()):
+                   self.register_hook(chld, name)
+
+
+    def unregister_hook(self):
+        # remove any hooks registered
+        for h in self._forward_hooks:
+            h.remove()
+        for h in self._forward_pre_hooks:
+            h.remove()
+
+
     def predict(self,
                 path_images,
                 out_segmentations,
@@ -101,8 +143,7 @@ class Prediction:
                 codenames=None,
                 path_gt=None, # for hard-dice calculation
                 addctab=True,
-                write_posteriors=False,
-                debug=False):
+                write_posteriors=False):
         
         # check inputs
         assert path_images is not None, 'please specify an input file/folder'
@@ -202,9 +243,10 @@ class Prediction:
         if (write_posteriors):
             out_posteriors_dir = os.path.join(os.path.dirname(out_segmentations[0]), "posteriors")
             os.makedirs(out_posteriors_dir, exist_ok=True)
-        if (debug):
-            out_debug_dir = os.path.join(os.path.dirname(out_segmentations[0]), "debug")
-            os.makedirs(out_debug_dir, exist_ok=True)
+        if (self._debug):
+            self._out_debug_dir = os.path.join(os.path.dirname(out_segmentations[0]), "debug")
+            os.makedirs(self._out_debug_dir, exist_ok=True)            
+            self.register_hook(self._model)
 
         list_predictions = list()  # make an empty list
 
@@ -223,12 +265,12 @@ class Prediction:
 
             list_predictions.append(path_images[i])
             basename = os.path.basename(out_segmentations[i])
-            if (debug):
+            if (self._debug):
                 logging.debug("output re-oriented image/prior ...")
-                out_reoriented_image = os.path.join(out_debug_dir, basename.replace(f"{pred_suffix}.", f"image.reoriented.RAS."))
+                out_reoriented_image = os.path.join(self._out_debug_dir, basename.replace(f"{pred_suffix}.", f"image.reoriented.RAS."))
                 save_framedimage(image_tensor, out_reoriented_image, original_framedimage=sfimage)
                 if (path_priors is not None):
-                    out_reoriented_prior = os.path.join(out_debug_dir, basename.replace(f"{pred_suffix}.", f"prior.reoriented.RAS."))
+                    out_reoriented_prior = os.path.join(self._out_debug_dir, basename.replace(f"{pred_suffix}.", f"prior.reoriented.RAS."))
                     save_framedimage(prior_tensor, out_reoriented_prior, original_framedimage=sfprior)
                 
             label_lookup = self._label_lookup
@@ -236,7 +278,7 @@ class Prediction:
                 label_lookup = sfimage.labels
             crop_idx = None
             label_tensor = None
-            image_tensor_cropped = image_tensor
+            image_tensor_cropped = image_tensor.float()
             prior_tensor_cropped = prior_tensor if (path_priors is not None) else None
             
             # check if the input image already has crop_size
@@ -258,26 +300,26 @@ class Prediction:
                     apply_centercrop(image_tensor_cropped, label=label_tensor, prior=prior_tensor_cropped)
                 image_tensor_cropped = image_tensor_cropped.to(self._device).float()
 
-                if (debug):
+                if (self._debug):
                     # begin of debugging
                     crop = 'centercropped'
                     if (path_labels is not None):
                         crop = 'centroidcropped'
 
                     logging.debug(f"output {crop} image/label ...")
-                    out_cropped_image = os.path.join(out_debug_dir, basename.replace(f"{pred_suffix}.", f"image.{crop}.RAS."))
+                    out_cropped_image = os.path.join(self._out_debug_dir, basename.replace(f"{pred_suffix}.", f"image.{crop}.RAS."))
                     save_framedimage(image_tensor_cropped, out_cropped_image, original_framedimage=sfimage)
-                    out_cropped_image = os.path.join(out_debug_dir, basename.replace(f"{pred_suffix}.", f"image.{crop}."))
+                    out_cropped_image = os.path.join(self._out_debug_dir, basename.replace(f"{pred_suffix}.", f"image.{crop}."))
                     save_framedimage(image_tensor_cropped, out_cropped_image, original_framedimage=sfimage, orientation=orig_orientation)
                     if (prior_tensor_cropped is not None):
-                        out_cropped_prior = os.path.join(out_debug_dir, basename.replace(f"{pred_suffix}.", f"prior.{crop}.RAS."))
+                        out_cropped_prior = os.path.join(self._out_debug_dir, basename.replace(f"{pred_suffix}.", f"prior.{crop}.RAS."))
                         save_framedimage(prior_tensor_cropped, out_cropped_prior, original_framedimage=sfprior, dtype=float)
-                        out_cropped_prior = os.path.join(out_debug_dir, basename.replace(f"{pred_suffix}.", f"prior.{crop}."))
+                        out_cropped_prior = os.path.join(self._out_debug_dir, basename.replace(f"{pred_suffix}.", f"prior.{crop}."))
                         save_framedimage(prior_tensor_cropped, out_cropped_prior, original_framedimage=sfprior, orientation=orig_orientation, dtype=float)
                     if (path_labels is not None):
-                        out_cropped_label = os.path.join(out_debug_dir, basename.replace(f"{pred_suffix}.", f"label.{crop}.RAS."))
+                        out_cropped_label = os.path.join(self._out_debug_dir, basename.replace(f"{pred_suffix}.", f"label.{crop}.RAS."))
                         save_framedimage(label_tensor_cropped, out_cropped_label, original_framedimage=sflabel)
-                        out_cropped_label = os.path.join(out_debug_dir, basename.replace(f"{pred_suffix}.", f"label.{crop}."))
+                        out_cropped_label = os.path.join(self._out_debug_dir, basename.replace(f"{pred_suffix}.", f"label.{crop}."))
                         save_framedimage(label_tensor_cropped, out_cropped_label, original_framedimage=sflabel, orientation=orig_orientation)
                     # end of debugging
 
@@ -313,9 +355,9 @@ class Prediction:
                         orientation=orig_orientation,
                         labels=label_lookup if (addctab) else None)
             logging.info(f"output segmentation {out_segmentations[i]}")
-            if (debug):
+            if (self._debug):
                 logging.debug("output cropped prediction ...")
-                seg_noreshape = os.path.join(out_debug_dir, os.path.splitext(os.path.basename(out_segmentations[i]))[0])+f".cropped.mgz"
+                seg_noreshape = os.path.join(self._out_debug_dir, os.path.splitext(os.path.basename(out_segmentations[i]))[0])+f".cropped.mgz"
                 save_framedimage(segmentation_cropped, seg_noreshape,
                             original_framedimage=sfimage, 
                             orientation=orig_orientation,
@@ -330,6 +372,8 @@ class Prediction:
                                  orientation=orig_orientation, onehotencoded=True, dtype=float)
                 logging.info(f"output posteriors {out_posteriors}")
         # end of segmentation loop
+        
+        self.unregister_hook()
 
         # evaluate
         if (path_gt is not None):
@@ -354,7 +398,7 @@ class Prediction:
                 f_list_predictions.write(f"{codenames[idx]}:{predict}\n")
             f_list_predictions.close()
             
-            
+
     """
     # this method is not used as of 2024-10-15. it is not in-sync with other changes.
     def evaluate_dataset(self, test_dataset, unique_output_folder,
