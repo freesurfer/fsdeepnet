@@ -47,6 +47,12 @@ mainlogger.addHandler(logging.StreamHandler())
 
 def main():
     args = argument_parse()
+    
+    checkpoint = args.checkpoint    
+    if (checkpoint is not None):
+        if not os.path.isfile(checkpoint):
+            mainlogger.error('ERROR: file does not exist: %s' % checkpoint)
+            sys.exit(1)
 
     if (args.cpu):
         os.environ["CUDA_VISIBLE_DEVICES"]=""
@@ -59,7 +65,6 @@ def main():
         gpu_index = None
     preprocessing_device = device
 
-    checkpoint = args.checkpoint
     ctab = args.ctab
 
     # load config.yaml and update it with user options

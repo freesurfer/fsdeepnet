@@ -42,6 +42,12 @@ def main():
     config_logger(logfile=logfile, mode='w')
     mainlogger = logging.getLogger(__name__)
     mainlogger.addHandler(logging.StreamHandler())
+
+    checkpoint = args.checkpoint    
+    if (checkpoint is not None):
+        if not os.path.isfile(checkpoint):
+            mainlogger.error('ERROR: file does not exist: %s' % checkpoint)
+            sys.exit(1)
                           
     # print the command
     mainlogger.info("")
@@ -97,7 +103,7 @@ def main():
     if (logfile is not None):
         mainlogger.info(f"prediction log can be found in {logfile}")
 
-    predict(path_images, args.o, args.checkpoint,
+    predict(path_images, args.o, checkpoint,
             crop_size=args.crop_size,
             ctab=args.ctab,
             path_labels=args.label,
