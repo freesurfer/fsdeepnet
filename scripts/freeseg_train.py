@@ -23,7 +23,7 @@ Usage: freeseg_train.py
        [--keep_trainset_in_memory]
        [--deterministic]
        [--model_name <model_classname>]
-       [--dataset_list_file <dataset_list_file>]
+       [--dataset_list_file <dataset_list_file>  --train_cohort <train|validation|test> --validation_cohort <train|validation|test> --test_cohort <train|validation|test>]
        [--ctab <ctab>]
        [--checkpoint <checkpoint>]
        [--crop_size <W H D>]
@@ -139,7 +139,8 @@ def main():
     config["dataset"]["label_mapping"] = label_mapping
     train_dataset, validation_dataset, _ = load_datasets(config, augmentation_class,
                                                          train_augmentations, evaluation_augmentations,
-                                                         device=preprocessing_device, check_augment=args.check_augment, keep_trainset_in_memory=args.keep_trainset_in_memory)
+                                                         device=preprocessing_device, check_augment=args.check_augment, keep_trainset_in_memory=args.keep_trainset_in_memory,
+                                                         train_cohort=args.train_cohort,  validation_cohort=args.validation_cohort, test_cohort=args.test_cohort)
     perform_evaluation = config["training"].get("perform_evaluation", False)
     if (perform_evaluation and validation_dataset is None):
         mainlogger.error(f"No 'validation' set in {config['dataset']['dataset_list_file']} to perform evaluation")
@@ -234,6 +235,9 @@ def argument_parse():
     parser.add_argument("--model_name", type=str, help="Class used to create the model to train")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
     parser.add_argument("--keep_trainset_in_memory", action='store_true', help="Keep preloaded training data in memory")
+    parser.add_argument("--train_cohort", nargs="+", type=str, default=['train'], help="Specify training dataset cohort. Can be combinations of train, validation, or test")
+    parser.add_argument("--validation_cohort", nargs="+", type=str, default=['validation'], help="Specify validation dataset cohort. Can be combinations of train, validation, or test")
+    parser.add_argument("--test_cohort", nargs="+", type=str, default=['test'], help="Specify test dataset cohort. Can be combinations of train, validation, or test")
     parser.add_argument("--deterministic", action='store_true', help="deterministic training")
     parser.add_argument("--ctab", type=str, help="Path to the lookup table")
     parser.add_argument("--train_output_folder", type=str, default=None, help="Folder for saving training outputs")    
@@ -242,7 +246,7 @@ def argument_parse():
     parser.add_argument("--num_workers", type=int, help="Number of Dataloader workers")
     parser.add_argument("--prefetch_factor", type=int, help="Number of batches loaded in advance by each worker")
     parser.add_argument("--pin_memory", action='store_true', help="Store data in pinned memory")
-    parser.add_argument("--persistent_workers", action='store_true', help=" Keep the workers Dataset instances alive")
+    parser.add_argument("--persistent_workers", action='store_true', help="Keep the workers Dataset instances alive")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     parser.add_argument("--batch_size", type=int, help="Batch size for DataLoader")
     parser.add_argument("--wl2_epochs", type=int, help="Number of wl2 training epochs")

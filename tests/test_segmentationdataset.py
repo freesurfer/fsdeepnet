@@ -19,7 +19,7 @@ Usage: test_preprocessing.py
        [--outdir <augmentation_output_dir>]
        [--check_augment]
        [--image <im1 im2 ...> --label <lb1 lb2 ...> [--priors <...>]]
-       [--dataset_list_file <dataset_list_file>]
+       [--dataset_list_file <dataset_list_file> --cohort <train|validation|test>]
        [--crop_size <W H D>]
        [--batch_size <n>]
        [--cpu]
@@ -111,7 +111,7 @@ def main():
     else:
         logging.info("Loading dataset: load_dataset(...)")
         train_dataset, _, _ = load_datasets(config, augmentation_class,
-            train_augmentations, evaluation_augmentations, device=preprocessing_device, check_augment=args.check_augment)    
+            train_augmentations, evaluation_augmentations, device=preprocessing_device, check_augment=args.check_augment, train_cohort=args.cohort)    
 
     sample_input_shape, unique_classes, label_lookup = train_dataset.preload()
     input_shape = sample_input_shape[1:]
@@ -153,6 +153,7 @@ def argument_parse():
     parser.add_argument("--label", nargs="+", type=str, help="Input label map(s)")
     parser.add_argument("--priors", nargs="+", type=str, help="Input priors")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
+    parser.add_argument("--cohort", nargs="+", type=str, default=['train'], help="Specify dataset cohort. Can be combinations of train, validation, or test")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     parser.add_argument("--batch_size", type=int, help="Batch size for DataLoader")
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")

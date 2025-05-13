@@ -7,6 +7,7 @@ import torch
 import argparse
 import yaml
 
+from freeseg.config import Config
 from freeseg.utils import print_vm_peak, config_logger
 from freeseg.prediction import Prediction
 
@@ -74,11 +75,10 @@ def main():
     path_priors = args.prior
     if ((args.dataset_list_file is not None)):
         # --label <> needs to specified separately, pointing to a directory
-        with open(args.dataset_list_file, "r") as file:
-            dataset_dict = yaml.safe_load(file)
+        dataset_dict = Config.load_dataset_list(args.dataset_list_file)
 
-        dataset = dataset_dict.get(args.cohort)
-        if (dataset is None):
+        dataset = Config.retrieve_dataset_cohorts(dataset_dict, args.cohort)
+        if (not dataset):
             mainlogger.info("Empty cohort, nothing to do.")
             return
 
@@ -129,7 +129,7 @@ def argument_parse():
     # input/outputs
     parser.add_argument("--i", type=str, help="Image(s) to segment. Can be a path to an image or to a folder.")
     parser.add_argument("--dataset_list_file", type=str, help="Image(s) to segment. Can be a path to an image or to a folder.")
-    parser.add_argument("--cohort", type=str, help="Dataset cohort. Can be train, validation, or test")
+    parser.add_argument("--cohort", nargs="+", type=str, default=['test'], help="Dataset cohort. Can be combinations of train, validation, or test")
     parser.add_argument("--o", type=str, required=True, help="Segmentation output(s). Must be a folder if --i designates a folder, or --dataset_list_file is specified.")
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to a checkpoint file to resume training from")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")

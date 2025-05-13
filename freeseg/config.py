@@ -58,3 +58,20 @@ class Config:
 
         fp.write("\n")
 
+
+    @staticmethod
+    def load_dataset_list(dataset_list_file):
+        with open(dataset_list_file, "r") as file:
+            dataset_dict = yaml.safe_load(file)
+
+        return dataset_dict
+
+    @staticmethod
+    def retrieve_dataset_cohorts(dataset_dict, cohorts):
+        dataset = []
+        for cohort in (cohorts):
+            ds_cohort = dataset_dict.get(cohort)
+            if (ds_cohort is not None):
+                dataset.extend(ds_cohort)
+
+        return dataset

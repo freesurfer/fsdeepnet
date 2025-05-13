@@ -19,7 +19,7 @@ from freeseg.utils import DataGenerator, set_deterministic_training, load_datase
 Usage: test_dataloader.py 
        --config <config.yaml>
        [--deterministic]
-       [--dataset_list_file <dataset_list_file>]
+       [--dataset_list_file <dataset_list_file> --cohort <train|validation|test>]
        [--train_output_folder <train_output_folder>]
        [--crop_size <W H D>]
        [--cpu]
@@ -112,7 +112,7 @@ def main():
     config["dataset"]["label_mapping"] = label_mapping
     augmentation_class = config["preprocessing"].get("augmentation_class", "freeseg.augmentation.augmentbase.AugmentBase")
     train_dataset, _, _ = load_datasets(config, augmentation_class,
-                                        config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"), device=preprocessing_device)
+                                        config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"), device=preprocessing_device, train_cohort=args.cohort)
 
     # Create training DataLoader
     train_loader = DataLoader(train_dataset, batch_size=config["training"]["batch_size"], shuffle=True,
@@ -175,6 +175,7 @@ def argument_parse():
     parser.add_argument("--config", type=str, required=True, help="Path to the configuration file")
     parser.add_argument("--deterministic", action='store_true', help="deterministic training")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
+    parser.add_argument("--cohort", nargs="+", type=str, default=['train'], help="Specify dataset cohort. Can be combinations of train, validation, or test")
     parser.add_argument("--train_output_folder", type=str, default=None, help="Base folder for saving training outputs")    
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
     parser.add_argument("--num_workers", type=int, help="Number of Dataloader workers")
