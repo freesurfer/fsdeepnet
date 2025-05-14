@@ -8,7 +8,7 @@ import surfa as sf
 
 from freeseg.checkpoint import Checkpoint
 from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot, centroid, get_class
-from freeseg.augmentation.augmentbase import CenterCrop
+from freeseg.augmentation.augmentbase import CenterCrop, RescaleVolume
 
 class Prediction:
     """
@@ -252,6 +252,11 @@ class Prediction:
 
         # create CenterCrop object
         apply_centercrop = CenterCrop({"crop_size": self._crop_size}, device=self._device)
+        # create RescaleVolume object
+        apply_rescalevolume = RescaleVolume({"new_min": 0.,
+                                             "new_max": 1.,
+                                             "min_percentile": 0.5,
+                                             "max_percentile": 99.5}, device=self._device)
 
         # perform segmentation
         for i in range(len(path_images)):
@@ -323,14 +328,18 @@ class Prediction:
                         save_framedimage(label_tensor_cropped, out_cropped_label, original_framedimage=sflabel, orientation=orig_orientation)
                     # end of debugging
 
+            # normalize
+            if (self._debug):
+                np.save(os.path.join(self._out_debug_dir, f"{str(i)}_predict_image_to_predict_before_normalize.npy"), image_tensor_cropped.cpu().numpy().astype(np.float32))
+            image_tensor_cropped, _, _, _ = apply_rescalevolume(image_tensor_cropped)
+            if (self._debug):
+                np.save(os.path.join(self._out_debug_dir, f"{str(i)}_predict_image_to_predict.npy"), image_tensor_cropped.cpu().numpy().astype(np.float32))
+
             # add batch axes
             image_tensor_cropped = image_tensor_cropped.unsqueeze(0)
             if (prior_tensor_cropped is not None):
                 prior_tensor_cropped = prior_tensor_cropped.unsqueeze(0)
-                
-            # normalize
-            # ??? todo ???
-            
+
             ### prediction ###
             (outputs, _) = self._model(image_tensor_cropped, prior_tensor_cropped)
             predicted_segmentation = torch.argmax(outputs, dim=1)

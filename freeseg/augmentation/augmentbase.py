@@ -19,7 +19,8 @@ class AugmentBase:
                                          "randomcrop", "randomcentercrop", "centercrop",
                                          "biasfieldcorruption",
                                          "intensityaugmentation",
-                                         "sampleconditionalgmm"]
+                                         "sampleconditionalgmm",
+                                         "rescalevolume"]
         self.valid_augmentations = self.valid_augmentations_base.copy()
 
         self.hyperparameters = hyperparameters        
@@ -42,6 +43,7 @@ class AugmentBase:
         self.biasfieldcorruption = BiasFieldCorruption(self.hyperparameters, device=self.device)
         self.intensityaugmentation = IntensityAugmentation(self.hyperparameters, device=self.device)
         self.sampleconditionalgmm = SampleConditionalGMM(self.hyperparameters, self.generation_labels, device=self.device)
+        self.rescalevolume = RescaleVolume(self.hyperparameters, device=self.device)
 
 
     def check_augmentations(self, augmentations_to_apply):
@@ -616,3 +618,55 @@ class SampleConditionalGMM(nn.Module):
         return sampled_image, label, prior, None
 
 
+class RescaleVolume(nn.Module):
+    def __init__(self, hyperparameters, device=None):
+        super().__init__()
+        self.device = device
+        if (self.device is None):
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        self.new_min = hyperparameters.get("new_min", 0)
+        self.new_max = hyperparameters.get("new_max", 255)
+        self.min_percentile = hyperparameters.get("min_percentile", 2)
+        self.max_percentile = hyperparameters.get("max_percentile", 98)
+        self.use_positive_only = hyperparameters.get("use_positive_only", False)
+        self.sampling = hyperparameters.get("sampling_hyperparameters", True)
+        self.verbose = True if hyperparameters.get("verbose") else False
+
+
+    def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
+        """
+        Applies intensity rescaling to the image volume. All channels are scales separately.
+        """
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augmentbase.RescaleIntensity'")
+
+        if (self.use_positive_only):
+            image = image[image > 0]
+            
+        ndims = image.ndim - 1
+        axis = tuple(dim for dim in range(1, ndims+1)) # axis=(H, W (,D))
+
+        # m is reduced to [C, 1, 1 (,1)]
+        if (self.min_percentile == 0):
+            m = torch.amin(image, dim=axis, keepdim=True)
+        else:
+            q = torch.tensor(self.min_percentile/100).to(self.device)
+            m = image
+            for dim in (axis):
+                m = torch.quantile(m, q, dim=dim, keepdim=True, interpolation='linear')
+
+        # M is reduced to [C, 1, 1 (,1)]
+        if (self.max_percentile == 100):
+            M = torch.amax(image, dim=axis, keepdim=True)
+        else:
+            q = torch.tensor(self.max_percentile/100).to(self.device)
+            M = image
+            for dim in (axis):
+                M = torch.quantile(M, q, dim=dim, keepdim=True, interpolation='linear')
+
+        # normalize
+        image = torch.clip(image, min=m, max=M)
+        image = self.new_min + (image - m) / (M - m + torch.finfo(torch.float32).eps) * (self.new_max - self.new_min)
+        
+        return image, label, prior, None

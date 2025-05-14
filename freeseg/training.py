@@ -301,6 +301,9 @@ class Training:
             optimizer.zero_grad()
 
             # Make predictions for this batch
+            if (self._debug):
+                np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_train_image_to_predict.npy"), images.cpu())
+                np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_train_prior_to_predict.npy"), priors.cpu())
             (outputs, penultimate) = self._model(images, priors)
 
             # Compute the loss and its gradients
@@ -415,6 +418,9 @@ class Training:
             for batch_idx, (dataset_indices, images, onehot_labels, priors) in enumerate(self._validation_loader):
                 images, onehot_labels, priors = images.to(self._device), onehot_labels.to(self._device), priors.to(self._device)
 
+                if (self._debug):
+                    np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_image_to_predict.npy"), images.cpu())
+                    np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_prior_to_predict.npy"), priors.cpu())
                 (outputs, penultimate) = self._model(images, priors)
 
                 if (metric_type == 'wl2'):

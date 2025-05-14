@@ -119,8 +119,10 @@ training:
 evaluation:
   evaluation_augmentations: [
     "centercrop",
+    "rescalevolume",
     ]
   test_augmentations: [
     "centercrop",
+    "rescalevolume",
   ]
   batch_size: 1
