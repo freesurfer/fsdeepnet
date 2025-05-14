@@ -12,6 +12,7 @@ model:
   feat_mult: 2
   nb_conv_per_level: 2
   use_batchnorm: True
+  bn_track_running_stats: False
   activation: "elu"
   ndims: 3
   conv_size: 3

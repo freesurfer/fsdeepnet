@@ -53,17 +53,6 @@ class ConvBlock(nn.Module):
             self.init_weight(self.resblock, weight_init)                
             self.resblock.append(activation())
 
-        """
-        The default BatchNorm3d layer behavior is different between .train() and .eval().
-        By default, during training this layer keeps running estimates of its computed mean and variance, which are then used for normalization during evaluation.
-        This causes the evaluation to perform much worse than training if the data distribution of the training set and the evaluation/test set is very different.
-        Set track_running_stats=False, this module does not track such statistics, and initializes statistics buffers running_mean and running_var as None.
-        When these buffers are None, this module always uses batch statistics in both training and eval modes.
-        """
-        self.bn = (
-            getattr(nn, "BatchNorm%dd" % ndims)(out_channels, track_running_stats=False) if use_batchnorm else nn.Identity()
-        )
-
 
     # initialize weights/bias
     def init_weight(self, modulelist, weight_init="xavier_uniform"):
@@ -90,9 +79,6 @@ class ConvBlock(nn.Module):
             residual = self.resblock[0](residual)  # residual conv
             x += residual
             x = self.resblock[1](x)  # activation
-
-        # batch norm
-        x = self.bn(x)
 
         return x
 
@@ -121,6 +107,7 @@ class UNet(nn.Module):
         refine_conv = model_arch_dict.get("refine_conv", False)
         final_pred_activation = model_arch_dict.get("final_pred_activation", "softmax")
         weight_init = model_arch_dict.get("weight_init", "xavier_uniform")
+        bn_track_running_stats = model_arch_dict.get("bn_track_running_stats", False)
 
         assert (weight_init == "xavier_uniform" or weight_init == "zeros"), \
             f"weight_init {weight_init} is not supported. The options are either 'xavier_uniform' or 'zeros'"
@@ -137,9 +124,19 @@ class UNet(nn.Module):
         self.add_priors = add_priors
         self.refine_conv = refine_conv
         self.final_pred_activation = final_pred_activation
+        self.use_batchnorm = use_batchnorm
 
         convL = getattr(nn, "Conv%dd" % ndims)
         pool = getattr(nn, "MaxPool%dd" % ndims)
+        
+        """
+        The default BatchNorm3d layer behavior is different between .train() and .eval().
+        By default, during training this layer keeps running estimates of its computed mean and variance, which are then used for normalization during evaluation.
+        This causes the evaluation to perform much worse than training if the data distribution of the training set and the evaluation/test set is very different.
+        Set track_running_stats=False, this module does not track such statistics, and initializes statistics buffers running_mean and running_var as None.
+        When these buffers are None, this module always uses batch statistics in both training and eval modes.
+        """
+        self.batchnorm = getattr(nn, "BatchNorm%dd" % ndims)
 
         # Encoder (Contracting path)
         self.encoder = nn.ModuleList()
@@ -156,11 +153,16 @@ class UNet(nn.Module):
                     conv_size=conv_size,
                     nb_conv_per_level=nb_conv_per_level,
                     use_residuals=use_residuals,
-                    use_batchnorm=use_batchnorm,
+                    use_batchnorm=self.use_batchnorm,
                     activation=activation,
                     weight_init=weight_init
                 )
             )
+            if (self.use_batchnorm):
+                if (bn_track_running_stats):  # match synthseg
+                    encoder.append(self.batchnorm(nb_lvl_feats, track_running_stats=True, momentum=0.99, eps=0.001))
+                else:
+                    encoder.append(self.batchnorm(nb_lvl_feats, track_running_stats=False))
             encoder.append(pool(kernel_size=pool_size, stride=pool_size))
 
             self.encoder.append(encoder)
@@ -168,17 +170,25 @@ class UNet(nn.Module):
 
         # Bottleneck
         nb_lvl_feats = nb_features * (feat_mult**(nb_levels - 1))
-        self.bottleneck = ConvBlock(
-            in_channels,
-            nb_lvl_feats,
-            ndims=ndims,
-            conv_size=conv_size,
-            nb_conv_per_level=nb_conv_per_level,
-            use_residuals=use_residuals,
-            use_batchnorm=use_batchnorm,
-            activation=activation,
-            weight_init=weight_init
+        self.bottleneck = nn.ModuleList()
+        self.bottleneck.append(
+            ConvBlock(
+                in_channels,
+                nb_lvl_feats,
+                ndims=ndims,
+                conv_size=conv_size,
+                nb_conv_per_level=nb_conv_per_level,
+                use_residuals=use_residuals,
+                use_batchnorm=self.use_batchnorm,
+                activation=activation,
+                weight_init=weight_init
+            )
         )
+        if (self.use_batchnorm):
+            if (bn_track_running_stats):  # match synthseg
+                self.bottleneck.append(self.batchnorm(nb_lvl_feats, track_running_stats=True, momentum=0.99, eps=0.001))
+            else:
+                self.bottleneck.append(self.batchnorm(nb_lvl_feats, track_running_stats=False))
 
         # Decoder (Expansive path)
         self.decoder = nn.ModuleList()
@@ -188,9 +198,9 @@ class UNet(nn.Module):
 
             decoder = nn.ModuleList()
             if ndims == 2:
-                decoder.append(nn.Upsample(scale_factor=pool_size, mode='bilinear', align_corners=True))
+                decoder.append(nn.Upsample(scale_factor=pool_size, mode='nearest'))
             elif ndims == 3:
-                decoder.append(nn.Upsample(scale_factor=pool_size, mode='trilinear', align_corners=True))
+                decoder.append(nn.Upsample(scale_factor=pool_size, mode='nearest'))
 
             if self.refine_conv:
                 decoder.append(convL(in_channels, nb_lvl_feats, kernel_size=conv_size, padding=1))  # Refinement convolution
@@ -206,12 +216,16 @@ class UNet(nn.Module):
                     conv_size=conv_size,
                     nb_conv_per_level=nb_conv_per_level,
                     use_residuals=use_residuals,
-                    use_batchnorm=use_batchnorm,
+                    use_batchnorm=self.use_batchnorm,
                     activation=activation,
                     weight_init=weight_init
                 )
             )
-            
+            if (self.use_batchnorm):
+                if (bn_track_running_stats):  # match synthseg
+                    decoder.append(self.batchnorm(nb_lvl_feats, track_running_stats=True, momentum=0.99, eps=0.001))
+                else:
+                    decoder.append(self.batchnorm(nb_lvl_feats, track_running_stats=False))
             self.decoder.append(decoder)
 
         # Classification layer (Compute likelihood prediction)
@@ -236,22 +250,30 @@ class UNet(nn.Module):
         skip_connections = []
 
         # Encoder (Contracting path)
-        for encoder in (self.encoder):
-            x = encoder[0](x) # ConvBlock
-            skip_connections.append(x)
-            x = encoder[1](x) # MaxPool
+        for encoder in self.encoder:
+            for idx, layer in enumerate(encoder):
+                x = layer(x) # ConvBlock + batchnorm + maxpool
+                if (idx == 0): # ConvBlock
+                    skip_connections.append(x)
 
         # Bottleneck
-        x = self.bottleneck(x)
-        
+        for layer in self.bottleneck:
+            x = layer(x)
+
         # Decoder (Expansive path)
         for decoder in (self.decoder):
-            x = decoder[0](x) # Upsample
+            idx = 0
+            x = decoder[idx](x) # Upsample
+            idx = idx + 1
             if self.refine_conv:
-                x = decoder[1](x) # Refinement convolution
+                x = decoder[idx](x) # Refinement convolution
+                idx = idx + 1
             skip_connection = skip_connections.pop()
-            x = torch.cat([x, skip_connection], dim=1)
-            x = decoder[-1](x) # ConvBlock
+            x = torch.cat([skip_connection, x], dim=1)
+            x = decoder[idx](x) # ConvBlock
+            idx = idx + 1
+            if (self.use_batchnorm):
+                x = decoder[idx](x) # bn
         
         # Classification layern (Compute likelihood prediction)
         x1 = x = self.classifier(x)
