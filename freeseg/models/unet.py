@@ -108,16 +108,25 @@ class UNet(nn.Module):
         final_pred_activation = model_arch_dict.get("final_pred_activation", "softmax")
         weight_init = model_arch_dict.get("weight_init", "xavier_uniform")
         bn_track_running_stats = model_arch_dict.get("bn_track_running_stats", False)
+        upsample_interpolation = model_arch_dict.get("upsample_interpolation", "linear")
+        skip_connect_from = model_arch_dict.get("skip_connect_from", "batchnorm")
 
         assert (weight_init == "xavier_uniform" or weight_init == "zeros"), \
             f"weight_init {weight_init} is not supported. The options are either 'xavier_uniform' or 'zeros'"
-
+        assert (upsample_interpolation == "linear" or upsample_interpolation == "nearest"), \
+            f"upsample_interpolation {upsample_interpolation} is not supported. The options are either 'linear' or 'nearest'"
+        assert (skip_connect_from == "batchnorm" or skip_connect_from == "encoder"), \
+            f"skip_connect_from {skip_connect_from} is not supported. The options are either 'batchnorm' or 'encoder'"
+        if (skip_connect_from == "batchnorm"):
+            assert(use_batchnorm), f"use_batchnorm needs to be 'True' for skip_connect_from '{skip_connect_from}'"
+                
         classifier_weight_init = weight_init
         """
         if (add_priors):
             classifier_weight_init = "zeros"
         """
-        logging.info(f"UNet: encoder/decoder weight_init={weight_init}, classifier weight_init={classifier_weight_init}")
+        logging.info(f"UNet: encoder/decoder use_batchnorm={use_batchnorm}, bn_track_running_stats={bn_track_running_stats}, upsample_interpolation={upsample_interpolation}, skip_connect_from={skip_connect_from}")
+        logging.info(f"UNet: weight_init={weight_init}, classifier weight_init={classifier_weight_init}")
 
         super().__init__()
 
@@ -168,6 +177,8 @@ class UNet(nn.Module):
             self.encoder.append(encoder)
             in_channels = nb_lvl_feats
 
+        self.skip_connect_idx = 1 if (skip_connect_from == "batchnorm") else 0
+                
         # Bottleneck
         nb_lvl_feats = nb_features * (feat_mult**(nb_levels - 1))
         self.bottleneck = nn.ModuleList()
@@ -197,10 +208,13 @@ class UNet(nn.Module):
             nb_lvl_feats = nb_features * (feat_mult**level)
 
             decoder = nn.ModuleList()
-            if ndims == 2:
+            if (upsample_interpolation == "nearest"):
                 decoder.append(nn.Upsample(scale_factor=pool_size, mode='nearest'))
-            elif ndims == 3:
-                decoder.append(nn.Upsample(scale_factor=pool_size, mode='nearest'))
+            else:
+                if ndims == 2:
+                    decoder.append(nn.Upsample(scale_factor=pool_size, mode='bilinear', align_corners=True))
+                elif ndims == 3:
+                    decoder.append(nn.Upsample(scale_factor=pool_size, mode='trilinear', align_corners=True))
 
             if self.refine_conv:
                 decoder.append(convL(in_channels, nb_lvl_feats, kernel_size=conv_size, padding=1))  # Refinement convolution
@@ -252,8 +266,8 @@ class UNet(nn.Module):
         # Encoder (Contracting path)
         for encoder in self.encoder:
             for idx, layer in enumerate(encoder):
-                x = layer(x) # ConvBlock + batchnorm + maxpool
-                if (idx == 0): # ConvBlock
+                x = layer(x) # ConvBlock + batchnorm(optional) + maxpool
+                if (idx == self.skip_connect_idx): # ConvBlock or batchnorm
                     skip_connections.append(x)
 
         # Bottleneck
