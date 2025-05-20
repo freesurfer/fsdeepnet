@@ -253,10 +253,7 @@ class Prediction:
         # create CenterCrop object
         apply_centercrop = CenterCrop({"crop_size": self._crop_size}, device=self._device)
         # create RescaleVolume object
-        apply_rescalevolume = RescaleVolume({"new_min": 0.,
-                                             "new_max": 1.,
-                                             "min_percentile": 0.5,
-                                             "max_percentile": 99.5}, device=self._device)
+        apply_rescalevolume = RescaleVolume({}, device=self._device)
 
         # perform segmentation
         for i in range(len(path_images)):

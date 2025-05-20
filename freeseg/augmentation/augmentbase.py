@@ -625,10 +625,10 @@ class RescaleVolume(nn.Module):
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.new_min = hyperparameters.get("new_min", 0)
-        self.new_max = hyperparameters.get("new_max", 255)
-        self.min_percentile = hyperparameters.get("min_percentile", 2)
-        self.max_percentile = hyperparameters.get("max_percentile", 98)
+        self.new_min = hyperparameters.get("new_min", 0.0)
+        self.new_max = hyperparameters.get("new_max", 1.0)
+        self.min_percentile = hyperparameters.get("min_percentile", 0.5)
+        self.max_percentile = hyperparameters.get("max_percentile", 99.5)
         self.use_positive_only = hyperparameters.get("use_positive_only", False)
         self.sampling = hyperparameters.get("sampling_hyperparameters", True)
         self.verbose = True if hyperparameters.get("verbose") else False

@@ -348,10 +348,12 @@ class Training:
 
                     out_posteriors = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.posteriors_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.mgz")
                     posteriors = outputs[n]  # non-batched tensor [C, H, W (,D)]
+                    np.save(os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.posteriors_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.npy"), posteriors.movedim(0, -1).cpu().detach().numpy())
                     save_framedimage(posteriors, out_posteriors, onehotencoded=True)
 
                     out_segmentation = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.prediction_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.mgz")
                     predicted_segmentation = torch.argmax(outputs[n], dim=0)
+                    np.save(os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.prediction_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.npy"), predicted_segmentation.cpu().int())
                     segmentation = remap_labels(predicted_segmentation, self._inverse_label_mapping)
                     save_framedimage(segmentation.unsqueeze(0), out_segmentation)
             # end of debugging volumes output     
@@ -418,11 +420,26 @@ class Training:
             for batch_idx, (dataset_indices, images, onehot_labels, priors) in enumerate(self._validation_loader):
                 images, onehot_labels, priors = images.to(self._device), onehot_labels.to(self._device), priors.to(self._device)
 
+                (outputs, penultimate) = self._model(images, priors)
                 if (self._debug):
                     np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_image_to_predict.npy"), images.cpu())
                     np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_prior_to_predict.npy"), priors.cpu())
-                (outputs, penultimate) = self._model(images, priors)
 
+                    # predicted, labels from 0 .. N
+                    predicted = torch.argmax(outputs, dim=1)
+                    np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_predicted.npy"), predicted.cpu().int())
+                    
+                    # map labels to original id
+                    predicted_remap = remap_labels(predicted, self._inverse_label_mapping)
+                    np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_predicted_remap.npy"), predicted_remap.cpu().int())
+
+                    # posteriors
+                    posteriors = outputs  #.squeeze(0)  # remove batch axis => non-batched tensor [C, H, W (,D)]
+                    np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_posteriors.npy"), posteriors.cpu().movedim(1, -1))
+
+                    np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_onehot_labels.npy"), onehot_labels.cpu().movedim(1, -1))
+                    
+                    
                 if (metric_type == 'wl2'):
                     loss = loss_fn(penultimate, onehot_labels)
                 elif (metric_type == 'dice'):
