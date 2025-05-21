@@ -47,6 +47,8 @@ class Prediction:
         # save any hook handlers registered
         self._forward_pre_hooks, self._forward_hooks = [], []
 
+        self._curr_codename = None
+
 
     def load_model(self, model_checkpoint):
         """
@@ -104,8 +106,8 @@ class Prediction:
             m_key = f"{name}.{class_name}"
             
             # forward hooks are called after the forward() call, save the output of forward()
-            layer_output = os.path.join(self._out_debug_dir, f"layerout.{m_key}.npy")
-            logging.info(f"save layer {m_key} output {list(output.size())} : {layer_output}")
+            layer_output = os.path.join(self._out_debug_dir, f"{self._curr_codename}_layerout.{m_key}.npy")
+            logging.info(f"save {self._curr_codename} layer {m_key} output {list(output.size())} : {layer_output}")
             # Can't call numpy() on Tensor that requires grad. Use tensor.detach().numpy() instead
             np.save(layer_output, output.permute(2, 3, 4, 1, 0).cpu().detach().numpy())
 
@@ -266,13 +268,13 @@ class Prediction:
                     f"Expected prior shape [self.num_classes, *image_tensor.shape[1:]], but got {list(prior_tensor.shape)}"
 
             list_predictions.append(path_images[i])
-            basename = os.path.basename(out_segmentations[i])
+            self._curr_codename = f"{codenames[i]}_{str(i)}"
             if (self._debug):
                 logging.debug("output re-oriented image/prior ...")
-                out_reoriented_image = os.path.join(self._out_debug_dir, basename.replace(f"{pred_suffix}.", f"image.reoriented.RAS."))
+                out_reoriented_image = os.path.join(self._out_debug_dir, f"{self._curr_codename}_image.reoriented.RAS.mgz")
                 save_framedimage(image_tensor, out_reoriented_image, original_framedimage=sfimage)
                 if (path_priors is not None):
-                    out_reoriented_prior = os.path.join(self._out_debug_dir, basename.replace(f"{pred_suffix}.", f"prior.reoriented.RAS."))
+                    out_reoriented_prior = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prior.reoriented.RAS.mgz")
                     save_framedimage(prior_tensor, out_reoriented_prior, original_framedimage=sfprior)
                 
             label_lookup = self._label_lookup
@@ -309,28 +311,28 @@ class Prediction:
                         crop = 'centroidcropped'
 
                     logging.debug(f"output {crop} image/label ...")
-                    out_cropped_image = os.path.join(self._out_debug_dir, basename.replace(f"{pred_suffix}.", f"image.{crop}.RAS."))
+                    out_cropped_image = os.path.join(self._out_debug_dir, f"{self._curr_codename}_image.{crop}.RAS.mgz")
                     save_framedimage(image_tensor_cropped, out_cropped_image, original_framedimage=sfimage)
-                    out_cropped_image = os.path.join(self._out_debug_dir, basename.replace(f"{pred_suffix}.", f"image.{crop}."))
+                    out_cropped_image = os.path.join(self._out_debug_dir, f"{self._curr_codename}_image.{crop}.mgz")
                     save_framedimage(image_tensor_cropped, out_cropped_image, original_framedimage=sfimage, orientation=orig_orientation)
                     if (prior_tensor_cropped is not None):
-                        out_cropped_prior = os.path.join(self._out_debug_dir, basename.replace(f"{pred_suffix}.", f"prior.{crop}.RAS."))
+                        out_cropped_prior = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prior.{crop}.RAS.mgz")
                         save_framedimage(prior_tensor_cropped, out_cropped_prior, original_framedimage=sfprior, dtype=float)
-                        out_cropped_prior = os.path.join(self._out_debug_dir, basename.replace(f"{pred_suffix}.", f"prior.{crop}."))
+                        out_cropped_prior = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prior.{crop}.mgz")
                         save_framedimage(prior_tensor_cropped, out_cropped_prior, original_framedimage=sfprior, orientation=orig_orientation, dtype=float)
                     if (path_labels is not None):
-                        out_cropped_label = os.path.join(self._out_debug_dir, basename.replace(f"{pred_suffix}.", f"label.{crop}.RAS."))
+                        out_cropped_label = os.path.join(self._out_debug_dir, f"{self._curr_codename}_label.{crop}.RAS.mgz")
                         save_framedimage(label_tensor_cropped, out_cropped_label, original_framedimage=sflabel)
-                        out_cropped_label = os.path.join(self._out_debug_dir, basename.replace(f"{pred_suffix}.", f"label.{crop}."))
+                        out_cropped_label = os.path.join(self._out_debug_dir, f"{self._curr_codename}_label.{crop}.mgz")
                         save_framedimage(label_tensor_cropped, out_cropped_label, original_framedimage=sflabel, orientation=orig_orientation)
                     # end of debugging
 
             # normalize
             if (self._debug):
-                np.save(os.path.join(self._out_debug_dir, f"{str(i)}_predict_image_to_predict_before_normalize.npy"), image_tensor_cropped.cpu().numpy().astype(np.float32))
+                np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_predict_image_to_predict_before_normalize.npy"), image_tensor_cropped.cpu().numpy().astype(np.float32))
             image_tensor_cropped, _, _, _ = apply_rescalevolume(image_tensor_cropped)
             if (self._debug):
-                np.save(os.path.join(self._out_debug_dir, f"{str(i)}_predict_image_to_predict.npy"), image_tensor_cropped.cpu().numpy().astype(np.float32))
+                np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_predict_image_to_predict.npy"), image_tensor_cropped.cpu().numpy().astype(np.float32))
 
             # add batch axes
             image_tensor_cropped = image_tensor_cropped.unsqueeze(0)
@@ -363,7 +365,7 @@ class Prediction:
             logging.info(f"output segmentation {out_segmentations[i]}")
             if (self._debug):
                 logging.debug("output cropped prediction ...")
-                seg_noreshape = os.path.join(self._out_debug_dir, os.path.splitext(os.path.basename(out_segmentations[i]))[0])+f".cropped.mgz"
+                seg_noreshape = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prediction.cropped.mgz")
                 save_framedimage(segmentation_cropped, seg_noreshape,
                             original_framedimage=sfimage, 
                             orientation=orig_orientation,

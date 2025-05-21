@@ -301,9 +301,6 @@ class Training:
             optimizer.zero_grad()
 
             # Make predictions for this batch
-            if (self._debug):
-                np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_train_image_to_predict.npy"), images.cpu())
-                np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_train_prior_to_predict.npy"), priors.cpu())
             (outputs, penultimate) = self._model(images, priors)
 
             # Compute the loss and its gradients
@@ -423,7 +420,8 @@ class Training:
                 (outputs, penultimate) = self._model(images, priors)
                 if (self._debug):
                     np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_image_to_predict.npy"), images.cpu())
-                    np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_prior_to_predict.npy"), priors.cpu())
+                    if (priors is not None and priors.numel() != 0):
+                        np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_prior_to_predict.npy"), priors.cpu())
 
                     # predicted, labels from 0 .. N
                     predicted = torch.argmax(outputs, dim=1)
