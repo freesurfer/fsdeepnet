@@ -6,7 +6,7 @@ import yaml
 class Config:
     @staticmethod
     def load(config_file):
-        with open(config_file, 'r') as file:
+        with open(config_file, 'r', encoding='utf-8') as file:
             config = yaml.safe_load(file)
         return config
 
@@ -61,7 +61,7 @@ class Config:
 
     @staticmethod
     def load_dataset_list(dataset_list_file):
-        with open(dataset_list_file, "r") as file:
+        with open(dataset_list_file, "r", encoding='utf-8') as file:
             dataset_dict = yaml.safe_load(file)
 
         return dataset_dict
