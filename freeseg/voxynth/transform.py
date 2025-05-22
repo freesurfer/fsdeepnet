@@ -322,7 +322,7 @@ def random_affine(
         inv = np.random.choice([-1, 1], size=ndim)
         scale = np.random.uniform(1, max_scaling, size=ndim) ** inv
     else:
-        scale = np.array(max_scaling * ndim)
+        scale = np.array([max_scaling] * ndim)
 
     # Sample shearing factors
     shear_size = 6 if ndim == 3 else 2

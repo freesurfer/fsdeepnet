@@ -714,7 +714,7 @@ class RescaleVolume(nn.Module):
         Applies intensity rescaling to the image volume. All channels are scales separately.
         """
         if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentbase.RescaleIntensity'")
+            logging.debug(f"'freeseg.augmentation.augmentbase.RescaleVolume'")
 
         if (self.use_positive_only):
             image = image[image > 0]
