@@ -16,7 +16,7 @@ class AugmentBase:
                  device=None):
         self.valid_augmentations_base = ["flip",
                                          "spatialdeformation",
-                                         "randomcrop", "randomcentercrop", "centercrop",
+                                         "randomcrop", "randomcentercrop", "centercrop", "centroidcrop",
                                          "biasfieldcorruption",
                                          "intensityaugmentation",
                                          "sampleconditionalgmm",
@@ -40,6 +40,7 @@ class AugmentBase:
         self.randomcrop = RandomCrop(self.hyperparameters, device=self.device, mode='random')
         self.randomcentercrop = RandomCrop(self.hyperparameters, device=self.device, mode='center')
         self.centercrop = CenterCrop(self.hyperparameters, device=self.device)
+        self.centroidcrop = CentroidCrop(self.hyperparameters, device=self.device)
         self.biasfieldcorruption = BiasFieldCorruption(self.hyperparameters, device=self.device)
         self.intensityaugmentation = IntensityAugmentation(self.hyperparameters, device=self.device)
         self.sampleconditionalgmm = SampleConditionalGMM(self.hyperparameters, self.generation_labels, device=self.device)
@@ -59,6 +60,12 @@ class AugmentBase:
             assert self.left_right_corresponding is not None, "left_right_corresponding is required for augmentation 'flip'"
         if ("sampleConditionalgmm" in augmentations_to_apply):
             assert (self.generation_labels is not None), "generation_labels is required for augmentation 'sampleConditionalGMM'"
+        if (("centroidcrop" in augmentations_to_apply) and ("centercrop" in augmentations_to_apply)):
+            raise ValueError("Both 'centroidcrop' and 'centercrop' are selected. Choose one.")        
+        if (("centroidcrop" in augmentations_to_apply) and ("randomcrop" in augmentations_to_apply)):
+            raise ValueError("Both 'centroidcrop' and 'randomcrop' are selected. Choose one.")
+        if (("centroidcrop" in augmentations_to_apply) and ("randomcentercrop" in augmentations_to_apply)):
+            raise ValueError("Both 'centroidcrop' and 'randomcentercrop' are selected. Choose one.")
         if (("centercrop" in augmentations_to_apply) and ("randomcrop" in augmentations_to_apply)):
             raise ValueError("Both 'centercrop' and 'randomcrop' are selected. Choose one.")
         if (("centercrop" in augmentations_to_apply) and ("randomcentercrop" in augmentations_to_apply)):
@@ -82,11 +89,13 @@ class AugmentBase:
                 os.path.join(self.output_dir, save_volumes + "_reoriented_image.mgz"),
                 original_framedimage=original_image,            
             )
+            np.save(os.path.join(self.output_dir, save_volumes + "_reoriented_image.npy"), image_tensor.cpu().numpy().astype(np.float32))
             save_framedimage(
                 label_tensor,
                 os.path.join(self.output_dir, save_volumes + "_reoriented_label.mgz"),
                 original_framedimage=original_label,            
             )
+            np.save(os.path.join(self.output_dir, save_volumes + "_reoriented_label.npy"), label_tensor.cpu().numpy().astype(np.float32))
             if (priors_tensor is not None):
                 save_framedimage(
                     priors_tensor,
@@ -94,6 +103,7 @@ class AugmentBase:
                     original_framedimage=original_image,
                     dtype=float
                 )
+                np.save(os.path.join(self.output_dir, save_volumes + "_reoriented_prior.npy"), priors_tensor.cpu().numpy().astype(np.float32))
 
         for idx, augment_name in enumerate(augmentations_to_apply):
             augment = getattr(self, augment_name, None)
@@ -111,11 +121,13 @@ class AugmentBase:
                     os.path.join(self.output_dir, save_volumes + f"_{augment_name}_{idx}_image.mgz"),
                     original_framedimage=original_image,            
                 )
+                np.save(os.path.join(self.output_dir, save_volumes + f"_{augment_name}_{idx}_image.npy"), image_tensor.cpu().numpy().astype(np.float32))
                 save_framedimage(
                     label_tensor,
                     os.path.join(self.output_dir, save_volumes + f"_{augment_name}_{idx}_label.mgz"),
                     original_framedimage=original_label,            
                 )
+                np.save(os.path.join(self.output_dir, save_volumes + f"_{augment_name}_{idx}_label.npy"), label_tensor.cpu().numpy().astype(np.float32))
                 if (priors_tensor is not None):
                     save_framedimage(
                         priors_tensor,
@@ -123,6 +135,7 @@ class AugmentBase:
                         original_framedimage=original_image,
                         dtype=float
                     )
+                    np.save(os.path.join(self.output_dir, save_volumes + f"_{augment_name}_{idx}_prior.npy"), priors_tensor.cpu().numpy().astype(np.float32))
 
         return image_tensor, label_tensor, priors_tensor
 
@@ -267,6 +280,8 @@ class RandomCrop(nn.Module):
         if (self.bbox_labels is not None):
             # calculate lower and upper bounds for the label bounding box
             bbox_lower, bbox_upper = bbox(label, self.bbox_labels, verbose=self.verbose)
+            if (self.verbose):
+                logging.debug(f"crop around label bounding box {bbox_lower} - {bbox_upper}")
         
             # make sure crop_size > (bbox_upper - bbox_lower)
             """
@@ -361,7 +376,7 @@ class RandomCrop(nn.Module):
         # Calculate the crop indices
         crop_idx = torch.concat((start_coords, end_coords)).int()
         if (self.verbose):
-            dbg_msg = f"apply_randomcrop({self.mode}) - {image_shape.tolist()} => {self.crop_size.tolist()}, "
+            dbg_msg = f"randomcrop({self.mode}) - {image_shape.tolist()} => {self.crop_size.tolist()}, "
             if (self.bbox_labels is not None):
                 dbg_msg += f"bbox: {bbox_lower.tolist()} - {bbox_upper.tolist()}, "
             if (self.mode == 'center'):
@@ -374,7 +389,7 @@ class RandomCrop(nn.Module):
             
         # check if bbox_lower/bbox_upper are inside start_coords/end_coords
         if (torch.any(bbox_lower < start_coords) or torch.any(bbox_upper > end_coords)):
-            dbg_msg = f"***CROPPING ERROR*** apply_randomcrop({self.mode}) - {image_shape.tolist()} => {self.crop_size.tolist()}, "
+            dbg_msg = f"***CROPPING WARNING*** randomcrop({self.mode}) - {image_shape.tolist()} => {self.crop_size.tolist()}, "
             if (self.bbox_labels is not None):
                 dbg_msg += f"bbox: {bbox_lower.tolist()} - {bbox_upper.tolist()}, "
             if (self.mode == 'center'):
@@ -401,6 +416,80 @@ class RandomCrop(nn.Module):
                    prior[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (prior is not None) else None, \
                    crop_idx
     
+
+class CentroidCrop(nn.Module):
+    def __init__(self, hyperparameters, device=None):
+        super().__init__()
+        self.device = device
+        if (self.device is None):
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        crop_size = hyperparameters.get("crop_size", None)
+        self.crop_size = torch.tensor(crop_size, device=self.device)
+        self.verbose = True if hyperparameters.get("verbose") else False
+
+    def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
+        """Applies a crop centered around a specified point or the image center.
+
+        Args:
+            image (torch.Tensor): The 3D image to crop (C, H, W, D), it is non-batched.
+            crop_size (tuple): The desired crop size, e.g., (160, 160, 160).
+            center_point (tuple, optional): Coordinates of the center point for the crop 
+                (x, y, z). If None, the image center is used. 
+
+        Returns:
+            torch.Tensor: The cropped image.
+            numpy array:  The indices where the image is cropped.
+        """    
+
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augmentbase.CentroidCrop'")
+        
+        # input image is non-batched tensor
+        image_shape = torch.tensor(image.shape[1:], device=image.device)
+        #crop_size = torch.tensor(crop_size, device=image.device)
+
+        crop_idx = None
+        if (not torch.any(image_shape > self.crop_size)):
+            return image, label, prior, crop_idx
+
+        center_point = None
+        # calculate the center point to crop the image/label around    
+        if (label is not None):
+            center_point = centroid(label.squeeze(0), verbose=self.verbose)
+
+        zero_tensor = torch.zeros(image.ndim-1, device=image.device, dtype=int)
+        crop_half = (self.crop_size/2).int()
+        if (center_point is None):
+            center_point = (image_shape/2).int()   #tuple(dim // 2 for dim in image_shape)
+        else:
+            # adjust the calculated center so that croppred image will have crop_size
+            if (torch.any(center_point < crop_half)):
+                distance = crop_half - center_point
+                center_point += torch.maximum(zero_tensor,  distance)    
+            if (torch.any(center_point > (image_shape - crop_half))):
+                distance = center_point - (image_shape - crop_half)
+                center_point -= torch.maximum(zero_tensor,  distance)
+
+        # Calculate the starting and ending indices for the crop region
+        start_coords = torch.maximum(zero_tensor, center_point - crop_half)
+        end_coords = torch.minimum(center_point + crop_half, image_shape)
+        crop_idx = torch.concat((start_coords, end_coords))
+        if (self.verbose):
+            logging.debug(f"adjusted crop center: {center_point.tolist()}, crop indices: {crop_idx.tolist()}")
+
+        ndims = len(image.shape[1:])
+        if (ndims == 3):
+            return image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]], \
+                   label[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (label is not None) else None, \
+                   prior[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (prior is not None) else None, \
+                   crop_idx
+        else:
+            return image[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]], \
+                   label[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (label is not None) else None, \
+                   prior[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (prior is not None) else None, \
+                   crop_idx
+
 
 class CenterCrop(nn.Module):
     def __init__(self, hyperparameters, device=None):
@@ -438,30 +527,16 @@ class CenterCrop(nn.Module):
         if (not torch.any(image_shape > self.crop_size)):
             return image, label, prior, crop_idx
 
-        center_point = None
-        # calculate the center point to crop the image/label around    
-        if (label is not None):
-            center_point = centroid(label.squeeze(0), verbose=self.verbose)
-
         zero_tensor = torch.zeros(image.ndim-1, device=image.device, dtype=int)
         crop_half = (self.crop_size/2).int()
-        if (center_point is None):
-            center_point = (image_shape/2).int()   #tuple(dim // 2 for dim in image_shape)
-        else:
-            # adjust the calculated center so that croppred image will have crop_size
-            if (torch.any(center_point < crop_half)):
-                distance = crop_half - center_point
-                center_point += torch.maximum(zero_tensor,  distance)    
-            if (torch.any(center_point > (image_shape - crop_half))):
-                distance = center_point - (image_shape - crop_half)
-                center_point -= torch.maximum(zero_tensor,  distance)
+        center_point = (image_shape/2).int()   #tuple(dim // 2 for dim in image_shape)
 
         # Calculate the starting and ending indices for the crop region
         start_coords = torch.maximum(zero_tensor, center_point - crop_half)
         end_coords = torch.minimum(center_point + crop_half, image_shape)
         crop_idx = torch.concat((start_coords, end_coords))
         if (self.verbose):
-            logging.debug(f"adjusted crop center: {center_point.tolist()}, crop indices: {crop_idx.tolist()}")
+            logging.debug(f"crop center: {center_point.tolist()}, crop indices: {crop_idx.tolist()}")
 
         ndims = len(image.shape[1:])
         if (ndims == 3):

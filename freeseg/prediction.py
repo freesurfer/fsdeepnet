@@ -329,10 +329,10 @@ class Prediction:
 
             # normalize
             if (self._debug):
-                np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_predict_image_to_predict_before_normalize.npy"), image_tensor_cropped.cpu().numpy().astype(np.float32))
+                np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_topredict_image_before_normalize.npy"), image_tensor_cropped.cpu().numpy().astype(np.float32))
             image_tensor_cropped, _, _, _ = apply_rescalevolume(image_tensor_cropped)
             if (self._debug):
-                np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_predict_image_to_predict.npy"), image_tensor_cropped.cpu().numpy().astype(np.float32))
+                np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_topredict_image.npy"), image_tensor_cropped.cpu().numpy().astype(np.float32))
 
             # add batch axes
             image_tensor_cropped = image_tensor_cropped.unsqueeze(0)
@@ -365,6 +365,7 @@ class Prediction:
             logging.info(f"output segmentation {out_segmentations[i]}")
             if (self._debug):
                 logging.debug("output cropped prediction ...")
+                np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_prediction.cropped.npy"), segmentation_cropped.cpu().numpy().astype(np.float32))
                 seg_noreshape = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prediction.cropped.mgz")
                 save_framedimage(segmentation_cropped, seg_noreshape,
                             original_framedimage=sfimage, 

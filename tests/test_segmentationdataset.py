@@ -90,7 +90,6 @@ def main():
             assert (config["dataset"].get("dataset_list_file", None) is not None), \
                 "No input images are available. Use '--dataset_list_file <dataset_list_file>' or " \
                 "'--image <im1 im2 ...> --label <lb1 lb2 ...>' to specify dataset."
-        if (config["dataset"].get("dataset_list_file", None) is not None):
             shutil.copyfile(config["dataset"]["dataset_list_file"], os.path.join(output_folder, "dataset_list.yaml"))
         
     # create training dataset with the desired augmentations specified
@@ -129,7 +128,8 @@ def main():
         logging.info("Perform data augmentation ...")        
         logging.info(f"Augmentation Output: {output_folder}")
         logging.info(f"training config: saved as {output_folder}/config.yaml")
-        logging.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
+        if (config["dataset"].get("dataset_list_file", None) is not None and os.path.exists(f"{output_folder}/dataset_list.yaml")):
+            logging.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
 
         # output segmentation_labels.npy in training directory
         f_segmentation_labels = os.path.join(output_folder, "segmentation_labels.npy")
