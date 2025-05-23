@@ -88,12 +88,14 @@ class BiasFieldCorruption(nn.Module):
                         otherwise, use bias_field_std as the standard deviation of a centred normal distribution
         """
 
+        if (self.sampling and (not np.random.rand() < self.prob or self.bias_field_std <= 0)):
+            if (self.verbose):
+                logging.debug(f"'freeseg.augmentation.augment2.BiasFieldCorruption' - Skipped prob={self.prob}, bias_field_std={self.bias_field_std}")
+            return image, label, prior, None
+    
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augment2.BiasFieldCorruption'")
         
-        if (self.sampling and (not np.random.rand() < self.prob or self.bias_field_std <= 0)):
-            return image
-    
         num_channels = image.shape[0]
         ndims = image.ndim - 1
         image_shape = image.shape[1:]
