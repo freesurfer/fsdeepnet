@@ -106,7 +106,7 @@ class BiasFieldCorruption(nn.Module):
 
         # sample small bias field (step 1 and 2)
         # stddev = U(0, bias_field_std) if sampling = True; otherwise stddev = bias_field_std
-        stddev = self.bias_field_std * torch.rand(std_shape, device=image.device) if (self.sampling) else self.bias_field_std
+        stddev = self.bias_field_std * torch.rand(std_shape, device=image.device) if (self.sampling) else torch.full(std_shape, self.bias_field_std, device=image.device)
         bias_field_tensor = stddev * torch.randn(small_bias_shape, device=image.device)   # N(0, stddev)
     
         # resize bias field and take exponential (step 3 and 4)
@@ -184,7 +184,7 @@ class IntensityAugmentation(nn.Module):
         # add noise with predefined probability
         if (self.noise_std > 0 and np.random.rand() < self.prob_noise):
             # noise_stddev = U(0, noise_std) if sampling = True; otherwise noise_stddev = noise_std
-            noise_stddev = self.noise_std * torch.rand(sample_shape, device=image.device) if (self.sampling) else self.noise_std
+            noise_stddev = self.noise_std * torch.rand(sample_shape, device=image.device) if (self.sampling) else torch.full(sample_shape, self.noise_std, device=image.device)
             noise = noise_stddev * torch.randn(image.shape, device=image.device)       # N(0, noise_stddev)
             image += noise
 
