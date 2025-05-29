@@ -64,7 +64,7 @@ class BiasFieldCorruption(nn.Module):
         self.sampling = hyperparameters.get("sampling_hyperparameters", True)
         self.verbose = True if hyperparameters.get("verbose") else False        
 
-    def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
+    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
         """
         Apply a smooth random bias field to the input tensor by applying the following steps:
 
@@ -145,7 +145,7 @@ class IntensityAugmentation(nn.Module):
         self.sampling = hyperparameters.get("sampling_hyperparameters", True)
         self.verbose = True if hyperparameters.get("verbose") else False        
 
-    def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
+    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
         """
         Augment the intensities of the input tensor. All channels are augmented separately.
 

@@ -552,6 +552,7 @@ def random_transform(
     isdisp : bool = True,
     perlin_method: str = 'upsample',
     sampling: bool = True,
+    return_aff: bool = False,
     ) -> Tensor:
     """
     generate a randomly sampled transform
@@ -571,6 +572,7 @@ def random_transform(
     """
     ndim = len(shape)
     trf = None
+    aff_matrix = None
 
     # generate a random affine
     if chance(affine_probability):
@@ -591,10 +593,12 @@ def random_transform(
             max_shearing=max_shearing,
             device=device,
             sampling=sampling)
+        aff_matrix = matrix.clone()
         trf = affine_to_displacement_field(matrix, meshgrid)
 
     # generate a nonlinear transform
     if chance(warp_probability):
+        aff_matrix = None
         disp = random_displacement_field(
             shape=shape,
             smoothing=np.random.uniform(*warp_smoothing_range),
@@ -615,4 +619,11 @@ def random_transform(
         # compute the absolute crs field scaled to range [-1, 1]
         trf = displacement_field_to_coords(trf)
 
-    return trf
+    if (return_aff):
+        """
+        trf and aff_matrix are the same transform
+        aff_matrix is None if there is non-linear component in trf
+        """
+        return trf, aff_matrix
+    else:
+        return trf

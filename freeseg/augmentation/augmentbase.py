@@ -83,59 +83,62 @@ class AugmentBase:
                             priors_tensor=None,
                             save_volumes=None,
                             augmentations_to_apply=None):
+        debugsaveprefix = None
         if (save_volumes is not None and self.output_dir is not None):
+            debugsaveprefix = os.path.join(self.output_dir, save_volumes)
+
+        if (debugsaveprefix is not None):
             save_framedimage(
                 image_tensor,
-                os.path.join(self.output_dir, save_volumes + "_reoriented_image.mgz"),
+                f"{debugsaveprefix}_reoriented_image.mgz",
                 original_framedimage=original_image,            
             )
-            np.save(os.path.join(self.output_dir, save_volumes + "_reoriented_image.npy"), image_tensor.cpu().numpy().astype(np.float32))
+            np.save(f"{debugsaveprefix}_reoriented_image.npy", image_tensor.cpu().numpy().astype(np.float32))
             save_framedimage(
                 label_tensor,
-                os.path.join(self.output_dir, save_volumes + "_reoriented_label.mgz"),
+                f"{debugsaveprefix}_reoriented_label.mgz",
                 original_framedimage=original_label,            
             )
-            np.save(os.path.join(self.output_dir, save_volumes + "_reoriented_label.npy"), label_tensor.cpu().numpy().astype(np.float32))
+            np.save(f"{debugsaveprefix}_reoriented_label.npy", label_tensor.cpu().numpy().astype(np.float32))
             if (priors_tensor is not None):
                 save_framedimage(
                     priors_tensor,
-                    os.path.join(self.output_dir, save_volumes + "_reoriented_prior.mgz"),
+                    f"{debugsaveprefix}_reoriented_prior.mgz",
                     original_framedimage=original_image,
                     dtype=float
                 )
-                np.save(os.path.join(self.output_dir, save_volumes + "_reoriented_prior.npy"), priors_tensor.cpu().numpy().astype(np.float32))
+                np.save(f"{debugsaveprefix}_reoriented_prior.npy", priors_tensor.cpu().numpy().astype(np.float32))
 
         for idx, augment_name in enumerate(augmentations_to_apply):
             augment = getattr(self, augment_name, None)
             if (augment is None):
                 logging.warning(f"augmentation '{augment_name}' not support, skip")
                 continue
-            
-            aff = original_image.geom.vox2world.matrix            
-            image_tensor, label_tensor, priors_tensor, _ = augment(image=image_tensor, label=label_tensor, prior=priors_tensor, voxsize=voxsize, aff=aff)
+
+            image_tensor, label_tensor, priors_tensor, _ = augment(image=image_tensor, label=label_tensor, prior=priors_tensor, voxsize=voxsize, geom=original_image.geom, debugsaveprefix=debugsaveprefix)
 
             # save augmented volumes
-            if (save_volumes is not None and self.output_dir is not None):
+            if (debugsaveprefix is not None):
                 save_framedimage(
                     image_tensor,
-                    os.path.join(self.output_dir, save_volumes + f"_{augment_name}_{idx}_image.mgz"),
+                    f"{debugsaveprefix}_{augment_name}_{idx}_image.mgz",
                     original_framedimage=original_image,            
                 )
-                np.save(os.path.join(self.output_dir, save_volumes + f"_{augment_name}_{idx}_image.npy"), image_tensor.cpu().numpy().astype(np.float32))
+                np.save(f"{debugsaveprefix}_{augment_name}_{idx}_image.npy", image_tensor.cpu().numpy().astype(np.float32))
                 save_framedimage(
                     label_tensor,
-                    os.path.join(self.output_dir, save_volumes + f"_{augment_name}_{idx}_label.mgz"),
+                    f"{debugsaveprefix}_{augment_name}_{idx}_label.mgz",
                     original_framedimage=original_label,            
                 )
-                np.save(os.path.join(self.output_dir, save_volumes + f"_{augment_name}_{idx}_label.npy"), label_tensor.cpu().numpy().astype(np.float32))
+                np.save(f"{debugsaveprefix}_{augment_name}_{idx}_label.npy", label_tensor.cpu().numpy().astype(np.float32))
                 if (priors_tensor is not None):
                     save_framedimage(
                         priors_tensor,
-                        os.path.join(self.output_dir, save_volumes + f"_{augment_name}_{idx}_prior.mgz"),
+                        f"{debugsaveprefix}_{augment_name}_{idx}_prior.mgz",
                         original_framedimage=original_image,
                         dtype=float
                     )
-                    np.save(os.path.join(self.output_dir, save_volumes + f"_{augment_name}_{idx}_prior.npy"), priors_tensor.cpu().numpy().astype(np.float32))
+                    np.save(f"{debugsaveprefix}_{augment_name}_{idx}_prior.npy", priors_tensor.cpu().numpy().astype(np.float32))
 
         return image_tensor, label_tensor, priors_tensor
 
@@ -153,18 +156,19 @@ class Flip(nn.Module):
         self.verbose = True if hyperparameters.get("verbose") else False
 
     # ??? todo: flip priors ???        
-    def forward(self, image, label, aff):
+    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
         """Applies a random left-right flip to image and label volumes."""
         """Swaps left-right labels on label volume."""
         if (np.random.rand() >= self.flip_prob):
             # no flipping
             return image, label
-        
-        assert aff is not None, 'aff should not be None when applying flipping'
+
+        assert geom is not None, 'geom should not be None when applying flipping'
         assert self.left_right_corresponding is not None, 'left_right_corresponding should not be None when applying flipping'
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.Flip'")
 
+        aff = geom.vox2world.matrix
         ndims = len(image.shape[1:])
         
         # swap left-right labels
@@ -209,14 +213,18 @@ class SpatialDeformation(nn.Module):
         self.sampling = hyperparameters.get("sampling_hyperparameters", True)
         self.verbose = True if hyperparameters.get("verbose") else False
 
-    def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
+    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
         """Applies a random spatial transformation to image and label volumes."""
 
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.SpatialDeformation'")
 
-        # voxsize is default to 1
-        trf = voxynth.transform.random_transform(
+        """
+        trf and aff_matrix are the same transform
+        aff_matrix is None if there is non-linear component in trf
+        """
+        # voxsize is default to 1        
+        trf, aff_matrix = voxynth.transform.random_transform(
             shape=image.shape[1:],
             device=self.device,
             affine_probability=self.affine_probability,
@@ -229,8 +237,30 @@ class SpatialDeformation(nn.Module):
             warp_smoothing_range=self.warp_smoothing_range,
             warp_magnitude_range=self.warp_magnitude_range,
             perlin_method=self.warp_generation_method,
+            isdisp=True,  # the transformation is returned as displacement field
             sampling=self.sampling,
+            return_aff=True
         )
+
+        if (debugsaveprefix is not None):
+            # trf is displacement in crs
+            from surfa.transform import Warp
+            trf_cpu = trf.cpu().detach().numpy().astype(np.float32)
+            warp = Warp(trf_cpu, source=geom, target=geom, format=Warp.Format.disp_crs)
+            warp.save(f"{debugsaveprefix}_warp_dispcrs.mgz")
+
+            if (aff_matrix is not None):
+                from surfa.transform import Affine
+                aff_matrix_cpu = aff_matrix.cpu().detach().numpy().astype(np.float64)
+
+                # aff_matrix is vox2vox mapping from target to source, which rotates around the image center
+                # convert it to a standard-format affine that rotates around the corner (origin)
+                center = np.eye(4)
+                center[:3, -1] = -(np.asarray(image.shape[1:]) - 1)/2
+                aff_matrix_cpu = np.linalg.inv(center) @ aff_matrix_cpu @ center
+
+                affine = Affine(aff_matrix_cpu, source=geom, target=geom)
+                affine.save(f"{debugsaveprefix}_vox2vox_trg2src.lta")
 
         transformed_image = voxynth.transform.spatial_transform(image, trf)
         transformed_label = voxynth.transform.spatial_transform(label, trf, method="nearest")
@@ -255,7 +285,7 @@ class RandomCrop(nn.Module):
         self.bbox_labels = hyperparameters.get("bbox_labels", None)
         self.verbose = True if hyperparameters.get("verbose") else False
 
-    def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
+    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
         """
         Randomly crop input tensors to a given shape. 
         The input tensors are non-batched, expected to have shape [C, H, W(, D)].
@@ -428,7 +458,7 @@ class CentroidCrop(nn.Module):
         self.crop_size = torch.tensor(crop_size, device=self.device)
         self.verbose = True if hyperparameters.get("verbose") else False
 
-    def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
+    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
         """Applies a crop centered around a specified point or the image center.
 
         Args:
@@ -502,7 +532,7 @@ class CenterCrop(nn.Module):
         self.crop_size = torch.tensor(crop_size, device=self.device)
         self.verbose = True if hyperparameters.get("verbose") else False
 
-    def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
+    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
         """Applies a crop centered around a specified point or the image center.
 
         Args:
@@ -570,7 +600,7 @@ class IntensityAugmentation(nn.Module):
         self.sampling = hyperparameters.get("sampling_hyperparameters", True)
         self.verbose = True if hyperparameters.get("verbose") else False
             
-    def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
+    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
         """Applies blurring and resampling to the image volume."""
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.IntensityAugmentation'")
@@ -596,11 +626,12 @@ class BiasFieldCorruption(nn.Module):
         self.bias_field_probability = hyperparameters.get("bias_field_probability", 0.5)
         self.bias_field_max_magnitude = hyperparameters.get("bias_field_max_magnitude", 0.1)
         self.bias_field_smoothing_range = hyperparameters.get("bias_field_smoothing_range", [1, 2])
-        self.bias_field_generation_method =hyperparameters.get("bias_field_generation_method", "blur")
+        self.bias_field_generation_method = hyperparameters.get("bias_field_generation_method", "blur")
         self.sampling = hyperparameters.get("sampling_hyperparameters", True)
         self.verbose = True if hyperparameters.get("verbose") else False
+            
         
-    def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
+    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
         """Applies bias field augmentation to the image volume."""
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.BiasFieldCorruption'")
@@ -633,7 +664,7 @@ class SampleConditionalGMM(nn.Module):
         self.prior_std = hyperparameters.get("prior_std", [5, 25])
         self.verbose = True if hyperparameters.get("verbose") else False
 
-    def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
+    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
         """
         Generate a synthetic image (num_channels) by sampling a Gaussian Mixture Model conditioned on a label map given as input.
         Each channel is sampled independently.
@@ -709,7 +740,7 @@ class RescaleVolume(nn.Module):
         self.verbose = True if hyperparameters.get("verbose") else False
 
 
-    def forward(self, image=None, label=None, prior=None, voxsize=None, aff=None):
+    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
         """
         Applies intensity rescaling to the image volume. All channels are scales separately.
         """
