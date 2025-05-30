@@ -83,62 +83,65 @@ class AugmentBase:
                             priors_tensor=None,
                             save_volumes=None,
                             augmentations_to_apply=None):
-        debugsaveprefix = None
+        debugsaveprefix0 = None
         if (save_volumes is not None and self.output_dir is not None):
-            debugsaveprefix = os.path.join(self.output_dir, save_volumes)
+            debugsaveprefix0 = os.path.join(self.output_dir, save_volumes)
 
-        if (debugsaveprefix is not None):
+        if (debugsaveprefix0 is not None):
             save_framedimage(
                 image_tensor,
-                f"{debugsaveprefix}_reoriented_image.mgz",
+                f"{debugsaveprefix0}_reoriented_image.mgz",
                 original_framedimage=original_image,            
             )
-            np.save(f"{debugsaveprefix}_reoriented_image.npy", image_tensor.cpu().numpy().astype(np.float32))
+            np.save(f"{debugsaveprefix0}_reoriented_image.npy", image_tensor.cpu().numpy().astype(np.float32))
             save_framedimage(
                 label_tensor,
-                f"{debugsaveprefix}_reoriented_label.mgz",
+                f"{debugsaveprefix0}_reoriented_label.mgz",
                 original_framedimage=original_label,            
             )
-            np.save(f"{debugsaveprefix}_reoriented_label.npy", label_tensor.cpu().numpy().astype(np.float32))
+            np.save(f"{debugsaveprefix0}_reoriented_label.npy", label_tensor.cpu().numpy().astype(np.float32))
             if (priors_tensor is not None):
                 save_framedimage(
                     priors_tensor,
-                    f"{debugsaveprefix}_reoriented_prior.mgz",
+                    f"{debugsaveprefix0}_reoriented_prior.mgz",
                     original_framedimage=original_image,
                     dtype=float
                 )
-                np.save(f"{debugsaveprefix}_reoriented_prior.npy", priors_tensor.cpu().numpy().astype(np.float32))
+                np.save(f"{debugsaveprefix0}_reoriented_prior.npy", priors_tensor.cpu().numpy().astype(np.float32))
 
         for idx, augment_name in enumerate(augmentations_to_apply):
             augment = getattr(self, augment_name, None)
             if (augment is None):
                 logging.warning(f"augmentation '{augment_name}' not support, skip")
                 continue
-
+            
+            debugsaveprefix = None
+            if (debugsaveprefix0 is not None):
+                debugsaveprefix = f"{debugsaveprefix0}_{augment_name}_{idx}"
             image_tensor, label_tensor, priors_tensor, _ = augment(image=image_tensor, label=label_tensor, prior=priors_tensor, voxsize=voxsize, geom=original_image.geom, debugsaveprefix=debugsaveprefix)
 
             # save augmented volumes
             if (debugsaveprefix is not None):
                 save_framedimage(
                     image_tensor,
-                    f"{debugsaveprefix}_{augment_name}_{idx}_image.mgz",
+                    f"{debugsaveprefix}_image.mgz",
                     original_framedimage=original_image,            
                 )
-                np.save(f"{debugsaveprefix}_{augment_name}_{idx}_image.npy", image_tensor.cpu().numpy().astype(np.float32))
+                np.save(f"{debugsaveprefix}_image.npy", image_tensor.cpu().numpy().astype(np.float32))
                 save_framedimage(
                     label_tensor,
-                    f"{debugsaveprefix}_{augment_name}_{idx}_label.mgz",
+                    f"{debugsaveprefix}_label.mgz",
                     original_framedimage=original_label,            
                 )
-                np.save(f"{debugsaveprefix}_{augment_name}_{idx}_label.npy", label_tensor.cpu().numpy().astype(np.float32))
+                np.save(f"{debugsaveprefix}_label.npy", label_tensor.cpu().numpy().astype(np.float32))
                 if (priors_tensor is not None):
                     save_framedimage(
                         priors_tensor,
-                        f"{debugsaveprefix}_{augment_name}_{idx}_prior.mgz",
+                        f"{debugsaveprefix}_prior.mgz",
                         original_framedimage=original_image,
                         dtype=float
                     )
-                    np.save(f"{debugsaveprefix}_{augment_name}_{idx}_prior.npy", priors_tensor.cpu().numpy().astype(np.float32))
+                    np.save(f"{debugsaveprefix}_prior.npy", priors_tensor.cpu().numpy().astype(np.float32))
 
         return image_tensor, label_tensor, priors_tensor
 
@@ -629,7 +632,7 @@ class BiasFieldCorruption(nn.Module):
         self.bias_field_generation_method = hyperparameters.get("bias_field_generation_method", "blur")
         self.sampling = hyperparameters.get("sampling_hyperparameters", True)
         self.verbose = True if hyperparameters.get("verbose") else False
-            
+
         
     def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
         """Applies bias field augmentation to the image volume."""
