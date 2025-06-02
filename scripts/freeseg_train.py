@@ -98,6 +98,7 @@ def main():
     now = datetime.datetime.now()
     dt_nowstring = str(now).replace(' ', '.').replace(':', '.')
     mainlogger.info("===================== Current date and time: " + str(now) + " =====================")
+    mainlogger.info("*** augmentation classes implemented: augmentbase.AugmentBase, augment2.Augment2 ***")
     mainlogger.info("CWD: " + cwd)
     mainlogger.info("CMD: " + cmd)
 
