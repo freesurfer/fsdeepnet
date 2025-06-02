@@ -397,7 +397,7 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
     if (wl2_epochs > 0):
         wl2_metrics = get_class(config["training"].get("wl2_metrics", "freeseg.metrics.WeightedL2Loss"), "freeseg.metrics")
         if (checkpoint is None):
-            mainlogger.info(f"training {wl2_epochs} wl2 epochs: {optimizer_cls}, {wl2_metrics} ...")
+            mainlogger.info(f"training {wl2_epochs} wl2 epochs: {optimizer_cls}, {wl2_metrics}, lr:{config['training']['pre_train_learning_rate']} ...")
         wl2_loss_fn = wl2_metrics()
         trainer.train_model(lr=config["training"]["pre_train_learning_rate"],
                             epochs=wl2_epochs,
@@ -410,12 +410,12 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
     dice_epochs = config["training"].get("dice_epochs", 0)
     if (dice_epochs > 0):
         model_metrics = get_class(config["training"].get("model_metrics", "freeseg.metrics.DiceLoss"), "freeseg.metrics")
-        mainlogger.info(f"training {dice_epochs} dice epochs: {optimizer_cls}, {model_metrics} ...")
+        mainlogger.info(f"training {dice_epochs} dice epochs: {optimizer_cls}, {model_metrics}, lr:{config['training']['learning_rate']} ...")
         dice_loss_fn = model_metrics(
             num_classes=num_labels,
             dice_type="soft"
         )                   
-        trainer.train_model(lr=config["training"]["pre_train_learning_rate"],
+        trainer.train_model(lr=config["training"]["learning_rate"],
                             epochs=dice_epochs,
                             steps_per_epoch=config["training"]["steps_per_epoch"],
                             metric_type='dice',

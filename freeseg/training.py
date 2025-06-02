@@ -156,7 +156,7 @@ class Training:
             
             start_epoch = self._checkpoint.epoch + 1
             end_epoch = start_epoch + epochs
-            logging.info(f"Continue to train {end_epoch-start_epoch} ({epochs}) {self._checkpoint.metric_type} epochs")
+            logging.info(f"Continue to train {end_epoch-start_epoch} ({epochs}) {self._checkpoint.metric_type} epochs, lr:{lr}")
             if (self._label_lookup is None):
                 self._label_lookup = self._checkpoint.label_lookup
             self._model_checkpoint = None  # the checkpoint will only be used once in the training
