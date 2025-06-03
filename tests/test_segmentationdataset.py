@@ -98,6 +98,10 @@ def main():
     inverse_label_mapping = {v: k for k, v in label_mapping.items()}
     config["dataset"]["label_mapping"] = label_mapping
     augmentation_class = config["preprocessing"].get("augmentation_class", "freeseg.augmentation.augmentbase.AugmentBase")
+    if ("Augment2" in augmentation_class):
+        logging.info("'augment2.Augment2' is specified in config.")
+        logging.info("Change 'augment2.Augment2' to 'augmentbase.AugmentBase' since augmentations in augment2.Augment2 are now implemented in augmentbase.AugmentBase")
+        augmentation_class = "freeseg.augmentation.augmentbase.AugmentBase"
     train_augmentations = remove_duplicates(config["preprocessing"].get("train_augmentations"))
     evaluation_augmentations = remove_duplicates(config["evaluation"].get("evaluation_augmentations"))
     if (args.image is not None and args.label is not None):

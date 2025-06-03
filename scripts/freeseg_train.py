@@ -98,7 +98,7 @@ def main():
     now = datetime.datetime.now()
     dt_nowstring = str(now).replace(' ', '.').replace(':', '.')
     mainlogger.info("===================== Current date and time: " + str(now) + " =====================")
-    mainlogger.info("*** augmentation classes implemented: augmentbase.AugmentBase, augment2.Augment2 ***")
+    mainlogger.info("*** augmentation classes implemented: augmentbase.AugmentBase, augmentvoxynth.AugmentVoxynth ***")
     mainlogger.info("CWD: " + cwd)
     mainlogger.info("CMD: " + cmd)
 
@@ -118,6 +118,11 @@ def main():
 
     # Access updated configuration values
     augmentation_class = config["preprocessing"].get("augmentation_class", "freeseg.augmentation.augmentbase.AugmentBase")
+    if ("Augment2" in augmentation_class):
+        mainlogger.info("'augment2.Augment2' is specified in config.")
+        mainlogger.info("Change 'augment2.Augment2' to 'augmentbase.AugmentBase' since augmentations in augment2.Augment2 are now implemented in augmentbase.AugmentBase")
+        augmentation_class = "freeseg.augmentation.augmentbase.AugmentBase"
+    
     train_augmentations = remove_duplicates(config["preprocessing"].get("train_augmentations"))
     # enforce "centercrop"/"rescalevolume" for evaluation_augmentations
     evaluation_augmentations = ["centercrop", "rescalevolume"]

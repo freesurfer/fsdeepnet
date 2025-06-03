@@ -10,7 +10,7 @@ from .models import unet
 from .datasets import segmentationdataset
 
 from .augmentation import augmentbase
-from .augmentation import augment2
+from .augmentation import augmentvoxynth
 
 from .utils import utility
 
