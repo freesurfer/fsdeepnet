@@ -150,6 +150,9 @@ class Training:
         # load checkpoint if provided
         if (self._model_checkpoint is not None):
             self._checkpoint.load(self._model_checkpoint, self._model, optimizer, self._device)
+            # iterate through param_groups and update the learning rate:
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr
             
             if (self._checkpoint.metric_type is not None and self._checkpoint.metric_type != metric_type):
                 return
