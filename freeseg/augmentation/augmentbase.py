@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 from freeseg import voxynth
 from freeseg.utils import save_framedimage, get_ras_axes, bbox, centroid
+from freeseg.filter import Filter
 
 class AugmentBase:
     def __init__(self, hyperparameters,
@@ -20,7 +21,8 @@ class AugmentBase:
                                          "biasfieldcorruption",
                                          "intensityaugmentation",
                                          "sampleconditionalgmm",
-                                         "rescalevolume"]
+                                         "rescalevolume",
+                                         "gaussianblur"]
         self.valid_augmentations = self.valid_augmentations_base.copy()
 
         self.hyperparameters = hyperparameters        
@@ -45,6 +47,7 @@ class AugmentBase:
         self.intensityaugmentation = IntensityAugmentation(self.hyperparameters, device=self.device)
         self.sampleconditionalgmm = SampleConditionalGMM(self.hyperparameters, self.generation_labels, device=self.device)
         self.rescalevolume = RescaleVolume(self.hyperparameters, device=self.device)
+        self.gaussianblur = GaussianBlur(self.hyperparameters, device=self.device)
 
 
     def check_augmentations(self, augmentations_to_apply):
@@ -879,3 +882,60 @@ class RescaleVolume(nn.Module):
         image = self.new_min + (image - m) / (M - m + torch.finfo(torch.float32).eps) * (self.new_max - self.new_min)
         
         return image, label, prior, None
+
+
+class GaussianBlur(nn.Module):
+    def __init__(self, hyperparameters, device=None):
+        super().__init__()
+        self.device = device
+        if (self.device is None):
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # ??? sample sigma from max_sigma ???
+        self.sigma = hyperparameters.get("gaussian_blur_sigma", None)
+        assert (self.sigma is not None), \
+            f"freeseg.augmentation.augmentbase.GaussianBlur(): need to specify gaussian_blur_sigma"
+        self.truncate = hyperparameters.get("gaussian_blur_truncate", 2.5)
+        self.radius = hyperparameters.get("gaussian_blur_radius", None)
+        self.sampling = hyperparameters.get("sampling_hyperparameters", True)
+        self.verbose = True if hyperparameters.get("verbose") else False
+
+
+    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
+        """
+        Applies gaussian smoothing to the image volume.
+
+        image: torch.tensor
+          non-batched tensor [C, H, W (,D)] 
+        """
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augmentbase.GaussianBlur'")
+
+        ndims = image.ndim - 1
+        in_channels = image.shape[0]
+        conv = getattr(nn.functional, f'conv{ndims}d')
+        sigma = self.sigma
+        if (np.isscalar(sigma)):
+            sigma = [sigma] * ndims
+
+        """
+          gaussian_filter needs to have shape [out_channels, nfilters, H, W (,D)]
+
+          padding='same' pads the input so the output has the shape as the input.
+          this mode doesn’t support any stride values other than 1.
+        
+          each group will be convolved separately,
+          the output is the concatenation of all the groups results along the channel axis
+        """
+        groups = in_channels
+        out_channels = in_channels
+        nfilters = int(out_channels/groups)
+        gaussian_filter = Filter.gaussian_kernel(sigma, self.truncate, self.radius, self.device)
+        gaussian_filter = gaussian_filter[None, None, :]  # add out_channels and nfilters dimension
+        # repeat for each output channels
+        gaussian_filter = gaussian_filter.repeat(out_channels, nfilters, *([1] * ndims))
+
+        image_blurred = conv(image.unsqueeze(0), gaussian_filter, groups=groups, padding="same")
+
+        # remove batch dimension before returning
+        return image_blurred.squeeze(0), label, prior, None    

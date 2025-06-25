@@ -4,6 +4,7 @@ from . import evaluation
 from . import checkpoint
 from . import metrics
 from . import config
+from . import filter
 
 from .models import unet
 
@@ -13,4 +14,3 @@ from .augmentation import augmentbase
 from .augmentation import augmentvoxynth
 
 from .utils import utility
-
