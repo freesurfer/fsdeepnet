@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+from freeseg import augmentation
 from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot, get_class, remove_duplicates
 
 class SegmentationDataset(Dataset):
@@ -79,7 +80,7 @@ class SegmentationDataset(Dataset):
                                           output_dir=self.output_dir,
                                           device=self.device)
         if (self.transform is not None):
-            self.data_augment.check_augmentations(self.transform)
+            augmentation.check_augmentations(self.data_augment, self.transform)
         
 
     def haspriors(self):
@@ -127,7 +128,8 @@ class SegmentationDataset(Dataset):
                 # make it writeable or voxynth.augment.image_augment() will complain non-writable numpy array
                 voxsize = np.copy(image.geom.voxsize[:image_tensor.ndim-1])
                 augmented_image_tensor, augmented_label_tensor, augmented_priors_tensor = \
-                    self.data_augment.apply_augmentations(
+                    augmentation.apply_augmentations(
+                        self.data_augment,
                         image_tensor,
                         label_tensor,
                         image,
