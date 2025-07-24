@@ -360,6 +360,12 @@ def train(train_loader, config, train_output_folder, num_labels, ctab, label_loo
     assert the_model_name is not None, "Model name is not available."
 
     model_class = get_class(the_model_name, "freeseg.models.unet")
+    model_arch_dict = model_class.setdefault_arch_dict(model_arch_dict)
+    # print model_arch_dict
+    mainlogger.info(f"{the_model_name}:")
+    for k in model_arch_dict.keys():
+        mainlogger.info(f"    {k}: {model_arch_dict[k]}")
+
     model = model_class(model_arch_dict).to(device)
     if (verbose):
         from freeseg import models
