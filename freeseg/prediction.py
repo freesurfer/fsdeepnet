@@ -300,8 +300,11 @@ class Prediction:
 
                 # crop the images
                 # apply_centercrop() expects input image_tensor to be non-batched, output image_tensor_cropped is non-batched
-                (image_tensor_cropped, label_tensor_cropped, prior_tensor_cropped, crop_idx) = \
-                    apply_centercrop(image_tensor_cropped, label=label_tensor, prior=prior_tensor_cropped)
+                out_centercrop = apply_centercrop({'image':image_tensor_cropped, 'label':label_tensor, 'prior':prior_tensor_cropped})
+                image_tensor_cropped = out_centercrop.get('image')
+                label_tensor_cropped = out_centercrop.get('label')
+                prior_tensor_cropped = out_centercrop.get('prior')
+                crop_idx = out_centercrop.get('crop_idx')                
                 image_tensor_cropped = image_tensor_cropped.to(self._device).float()
 
                 if (self._debug):
@@ -330,7 +333,8 @@ class Prediction:
             # normalize
             if (self._debug):
                 np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_topredict_image_before_normalize.npy"), image_tensor_cropped.cpu().numpy().astype(np.float32))
-            image_tensor_cropped, _, _, _ = apply_rescalevolume(image_tensor_cropped)
+            out_rescalevolume = apply_rescalevolume({'image':image_tensor_cropped})
+            image_tensor_cropped = out_rescalevolume.get('image')
             if (self._debug):
                 np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_topredict_image.npy"), image_tensor_cropped.cpu().numpy().astype(np.float32))
 

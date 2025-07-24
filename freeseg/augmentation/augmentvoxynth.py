@@ -85,10 +85,16 @@ class BiasFieldCorruption(nn.Module):
             
 
         
-    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
+    def forward(self, input, debugsaveprefix=None):
         """Applies bias field augmentation to the image volume."""
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentvoxynth.BiasFieldCorruption'")
+
+        image = input.get("image", None)
+        label = input.get("label", None)
+        prior = input.get("prior", None)
+        voxsize = input.get("voxsize", None)
+        geom = input.get("geom", None)
         
         bf_augmented_image = voxynth.augment.image_augment(
             image,
@@ -99,7 +105,13 @@ class BiasFieldCorruption(nn.Module):
             bias_field_generation_method=self.bias_field_generation_method,
             sampling=self.sampling,
         )
-        return bf_augmented_image, label, prior, None
+
+        output = {
+            'image': bf_augmented_image,
+            'label': label,
+            'prior': prior
+                 }
+        return output
 
 
 class IntensityAugmentation(nn.Module):
@@ -116,10 +128,16 @@ class IntensityAugmentation(nn.Module):
         self.sampling = hyperparameters.get("sampling_hyperparameters", True)
         self.verbose = True if hyperparameters.get("verbose") else False
             
-    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
+    def forward(self, input, debugsaveprefix=None):
         """Applies blurring and resampling to the image volume."""
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentvoxynth.IntensityAugmentation'")
+
+        image = input.get("image", None)
+        label = input.get("label", None)
+        prior = input.get("prior", None)
+        voxsize = input.get("voxsize", None)
+        geom = input.get("geom", None)
         
         blur_resampled_image = voxynth.augment.image_augment(
             image,
@@ -129,7 +147,13 @@ class IntensityAugmentation(nn.Module):
             gamma_scaling_max=self.gamma_scaling_max,
             sampling=self.sampling,
         )
-        return blur_resampled_image, label, prior, None
+
+        output = {
+            'image': blur_resampled_image,
+            'label': label,
+            'prior': prior,
+                 }
+        return output
 
 
 # biasfieldcorruption + intensityaugmentation in one voxynth.augment.image_augment() call
@@ -180,10 +204,16 @@ class BiasFieldCorruptionAndIntensityAugmentation(nn.Module):
             logging.debug(f"'augmentvoxynth.BiasFieldCorruptionAndIntensityAugmentation' calculated bias_field_smoothing_range: {self.bias_field_smoothing_range}, bias_field_generation_method: {self.bias_field_generation_method}")
                     
         
-    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
+    def forward(self, input, debugsaveprefix=None):
         """Applies blurring and resampling to the image volume."""
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentvoxynth.BiasFieldCorruptionAndIntensityAugmentation'")
+
+        image = input.get("image", None)
+        label = input.get("label", None)
+        prior = input.get("prior", None)
+        voxsize = input.get("voxsize", None)
+        geom = input.get("geom", None)
         
         blur_resampled_image = voxynth.augment.image_augment(
             image,
@@ -199,4 +229,10 @@ class BiasFieldCorruptionAndIntensityAugmentation(nn.Module):
             gamma_scaling_max=self.gamma_scaling_max,
             sampling=self.sampling,
         )
-        return blur_resampled_image, label, prior, None
+
+        output = {
+            'image': blur_resampled_image,
+            'label': label,
+            'prior': prior,
+                 }
+        return output

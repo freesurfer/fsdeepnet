@@ -50,7 +50,18 @@ def apply_augmentations(augment_obj,
         debugsaveprefix = None
         if (debugsaveprefix0 is not None):
             debugsaveprefix = f"{debugsaveprefix0}_{augment_name}_{idx}"
-        image_tensor, label_tensor, priors_tensor, _ = augment(image=image_tensor, label=label_tensor, prior=priors_tensor, voxsize=voxsize, geom=original_image.geom, debugsaveprefix=debugsaveprefix)
+
+        input = {
+            'image': image_tensor,
+            'label': label_tensor,
+            'prior': priors_tensor,
+            'voxsize': voxsize,
+            'geom': original_image.geom,
+                }
+        output = augment(input, debugsaveprefix=debugsaveprefix)
+        image_tensor = output.get('image', None)
+        label_tensor = output.get('label', None)
+        priors_tensor = output.get('prior', None) 
 
         # save augmented volumes
         if (debugsaveprefix is not None):

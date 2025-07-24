@@ -63,7 +63,7 @@ class Flip(nn.Module):
         self.verbose = True if hyperparameters.get("verbose") else False
 
     # ??? todo: flip priors ???        
-    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
+    def forward(self, input, debugsaveprefix=None):
         """Applies a random left-right flip to image and label volumes."""
         """Swaps left-right labels on label volume."""
         if (np.random.rand() >= self.flip_prob):
@@ -74,6 +74,12 @@ class Flip(nn.Module):
         assert self.left_right_corresponding is not None, 'left_right_corresponding should not be None when applying flipping'
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.Flip'")
+
+        image = input.get("image", None)
+        label = input.get("label", None)
+        prior = input.get("prior", None)
+        voxsize = input.get("voxsize", None)
+        geom = input.get("geom", None)
 
         aff = geom.vox2world.matrix
         ndims = len(image.shape[1:])
@@ -96,7 +102,11 @@ class Flip(nn.Module):
         flipped_image = image.flip([axis+1])
         flipped_label = label.flip([axis+1])
     
-        return flipped_image, flipped_label
+        output = {
+            'image': flipped_image,
+            'label': flipped_label,
+                 }
+        return output
 
 
 class SpatialDeformation(nn.Module):
@@ -120,11 +130,17 @@ class SpatialDeformation(nn.Module):
         self.sampling = hyperparameters.get("sampling_hyperparameters", True)
         self.verbose = True if hyperparameters.get("verbose") else False
 
-    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
+    def forward(self, input, debugsaveprefix=None):
         """Applies a random spatial transformation to image and label volumes."""
 
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.SpatialDeformation'")
+
+        image = input.get("image", None)
+        label = input.get("label", None)
+        prior = input.get("prior", None)
+        voxsize = input.get("voxsize", None)
+        geom = input.get("geom", None)
 
         """
         trf and aff_matrix are the same transform
@@ -176,7 +192,12 @@ class SpatialDeformation(nn.Module):
         if (prior is not None):
             transformed_priors = voxynth.transform.spatial_transform(prior, trf, method="nearest")
 
-        return transformed_image, transformed_label, transformed_priors, None
+        output = {
+            'image': transformed_image,
+            'label': transformed_label,
+            'prior': transformed_priors,
+                 }
+        return output
 
 
 class RandomCrop(nn.Module):
@@ -192,7 +213,7 @@ class RandomCrop(nn.Module):
         self.bbox_labels = hyperparameters.get("bbox_labels", None)
         self.verbose = True if hyperparameters.get("verbose") else False
 
-    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
+    def forward(self, input, debugsaveprefix=None):
         """
         Randomly crop input tensors to a given shape. 
         The input tensors are non-batched, expected to have shape [C, H, W(, D)].
@@ -205,7 +226,13 @@ class RandomCrop(nn.Module):
 
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.RandomCrop'")
-        
+
+        image = input.get("image", None)
+        label = input.get("label", None)
+        prior = input.get("prior", None)
+        voxsize = input.get("voxsize", None)
+        geom = input.get("geom", None)
+            
         # assuming image and label have the same dimensions
         image_shape = torch.tensor(image.shape[1:], device=image.device)
         image_ndims = len(image_shape)
@@ -343,15 +370,21 @@ class RandomCrop(nn.Module):
             """
 
         if (image_ndims == 3):
-            return image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]], \
-                   label[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (label is not None) else None, \
-                   prior[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (prior is not None) else None, \
-                   crop_idx
+            output = {
+                'image': image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]],
+                'label': label[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (label is not None) else None,
+                'prior': prior[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (prior is not None) else None,
+                'crop_idx': crop_idx,
+                     }
         else:
-            return image[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]], \
-                   label[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (label is not None) else None, \
-                   prior[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (prior is not None) else None, \
-                   crop_idx
+            output = {
+                'image': image[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]],
+                'label': label[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (label is not None) else None,
+                'prior': prior[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (prior is not None) else None,
+                'crop_idx': crop_idx,
+                     }
+
+        return output
     
 
 class CentroidCrop(nn.Module):
@@ -365,7 +398,7 @@ class CentroidCrop(nn.Module):
         self.crop_size = torch.tensor(crop_size, device=self.device)
         self.verbose = True if hyperparameters.get("verbose") else False
 
-    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
+    def forward(self, input, debugsaveprefix=None):
         """Applies a crop centered around a specified point or the image center.
 
         Args:
@@ -381,6 +414,12 @@ class CentroidCrop(nn.Module):
 
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.CentroidCrop'")
+
+        image = input.get("image", None)
+        label = input.get("label", None)
+        prior = input.get("prior", None)
+        voxsize = input.get("voxsize", None)
+        geom = input.get("geom", None)            
         
         # input image is non-batched tensor
         image_shape = torch.tensor(image.shape[1:], device=image.device)
@@ -417,15 +456,21 @@ class CentroidCrop(nn.Module):
 
         ndims = len(image.shape[1:])
         if (ndims == 3):
-            return image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]], \
-                   label[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (label is not None) else None, \
-                   prior[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (prior is not None) else None, \
-                   crop_idx
+            output = {
+                'image': image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]],
+                'label': label[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (label is not None) else None,
+                'prior': prior[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (prior is not None) else None,
+                'crop_idx': crop_idx
+                     }
         else:
-            return image[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]], \
-                   label[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (label is not None) else None, \
-                   prior[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (prior is not None) else None, \
-                   crop_idx
+            output = {
+                'image': image[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]],
+                'label': label[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (label is not None) else None,
+                'prior': prior[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (prior is not None) else None,
+                'crop_idx': crop_idx
+                     }
+
+        return output
 
 
 class CenterCrop(nn.Module):
@@ -439,7 +484,7 @@ class CenterCrop(nn.Module):
         self.crop_size = torch.tensor(crop_size, device=self.device)
         self.verbose = True if hyperparameters.get("verbose") else False
 
-    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
+    def forward(self, input, debugsaveprefix=None):
         """Applies a crop centered around a specified point or the image center.
 
         Args:
@@ -455,6 +500,12 @@ class CenterCrop(nn.Module):
 
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.CenterCrop'")
+
+        image = input.get("image", None)
+        label = input.get("label", None)
+        prior = input.get("prior", None)
+        voxsize = input.get("voxsize", None)
+        geom = input.get("geom", None)
         
         # input image is non-batched tensor
         image_shape = torch.tensor(image.shape[1:], device=image.device)
@@ -477,15 +528,21 @@ class CenterCrop(nn.Module):
 
         ndims = len(image.shape[1:])
         if (ndims == 3):
-            return image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]], \
-                   label[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (label is not None) else None, \
-                   prior[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (prior is not None) else None, \
-                   crop_idx
+            output = {
+                'image': image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]],
+                'label': label[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (label is not None) else None,
+                'prior': prior[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (prior is not None) else None,
+                'crop_idx': crop_idx,
+                     }
         else:
-            return image[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]], \
-                   label[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (label is not None) else None, \
-                   prior[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (prior is not None) else None, \
-                   crop_idx
+            output = {
+                'image': image[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]],
+                'label': label[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (label is not None) else None,
+                'prior': prior[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (prior is not None) else None,
+                'crop_idx': crop_idx,
+                     }
+
+        return output
 
 
 # This is described in Hypothalamus paper (https://www.sciencedirect.com/science/article/pii/S1053811920307734)
@@ -512,7 +569,7 @@ class IntensityAugmentation(nn.Module):
         self.sampling = hyperparameters.get("sampling_hyperparameters", True)
         self.verbose = True if hyperparameters.get("verbose") else False        
 
-    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
+    def forward(self, input, debugsaveprefix=None):
         """
         Augment the intensities of the input tensor. All channels are augmented separately.
 
@@ -541,6 +598,12 @@ class IntensityAugmentation(nn.Module):
 
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.IntensityAugmentation'")
+
+        image = input.get("image", None)
+        label = input.get("label", None)
+        prior = input.get("prior", None)
+        voxsize = input.get("voxsize", None)
+        geom = input.get("geom", None)
         
         num_channels = image.shape[0]
         ndims = image.ndim - 1
@@ -574,7 +637,12 @@ class IntensityAugmentation(nn.Module):
             gamma = self.gamma_std * torch.randn(sample_shape, device=image.device)   # N(0, gamma_std)
             image = torch.pow(image, torch.exp(gamma))
 
-        return image, label, prior, None
+        output = {
+            'image': image,
+            'label': label,
+            'prior': prior,
+                 }
+        return output
 
 
 # This is described in Hypothalamus paper (https://www.sciencedirect.com/science/article/pii/S1053811920307734)
@@ -598,7 +666,7 @@ class BiasFieldCorruption(nn.Module):
         self.sampling = hyperparameters.get("sampling_hyperparameters", True)
         self.verbose = True if hyperparameters.get("verbose") else False        
 
-    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
+    def forward(self, input, debugsaveprefix=None):
         """
         Apply a smooth random bias field to the input tensor by applying the following steps:
 
@@ -629,6 +697,12 @@ class BiasFieldCorruption(nn.Module):
     
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.BiasFieldCorruption'")
+
+        image = input.get("image", None)
+        label = input.get("label", None)
+        prior = input.get("prior", None)
+        voxsize = input.get("voxsize", None)
+        geom = input.get("geom", None)
         
         num_channels = image.shape[0]
         ndims = image.ndim - 1
@@ -652,7 +726,12 @@ class BiasFieldCorruption(nn.Module):
         # element-wise multiplication (step 5)
         bf_augmented_image = torch.mul(bias_field_tensor, image)
 
-        return bf_augmented_image, label, prior, None
+        output = {
+            'image': bf_augmented_image,
+            'label': label,
+            'prior': prior,
+                 }
+        return output
 
 
 # generate an initial synthetic scan G by sampling a GMM conditioned on L described in SynthSeg paper
@@ -671,7 +750,7 @@ class SampleConditionalGMM(nn.Module):
         self.prior_std = hyperparameters.get("prior_std", [5, 25])
         self.verbose = True if hyperparameters.get("verbose") else False
 
-    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
+    def forward(self, input, debugsaveprefix=None):
         """
         Generate a synthetic image (num_channels) by sampling a Gaussian Mixture Model conditioned on a label map given as input.
         Each channel is sampled independently.
@@ -689,6 +768,12 @@ class SampleConditionalGMM(nn.Module):
             logging.debug(f"'freeseg.augmentation.augmentbase.SampleConditionalGMM'")
         
         assert (self.generation_labels is not None), 'generation_labels is needed for sampleConditionalGMM'
+
+        image = input.get("image", None)
+        label = input.get("label", None)
+        prior = input.get("prior", None)
+        voxsize = input.get("voxsize", None)
+        geom = input.get("geom", None)
         
         # sample means and stds of Gaussian distributions of the GMM
         num_classes = len(self.generation_labels)
@@ -728,7 +813,12 @@ class SampleConditionalGMM(nn.Module):
                 gauss_samples = means[n_channel, labelid] + stds[n_channel, labelid] * torch.randn(indices_count, device=label.device)   # N(means[n_channel, labelid] + stds[n_channel, labelid])
                 sampled_image[n_channel][label_indices] = gauss_samples
  
-        return sampled_image, label, prior, None
+        output = {
+            'image': sampled_image,
+            'label': label,
+            'prior': prior,
+                 }
+        return output
 
 
 class RescaleVolume(nn.Module):
@@ -747,13 +837,19 @@ class RescaleVolume(nn.Module):
         self.verbose = True if hyperparameters.get("verbose") else False
 
 
-    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
+    def forward(self, input, debugsaveprefix=None):
         """
         Applies intensity rescaling to the image volume. All channels are scaled separately.
         """
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.RescaleVolume'")
 
+        image = input.get("image", None)
+        label = input.get("label", None)
+        prior = input.get("prior", None)
+        voxsize = input.get("voxsize", None)
+        geom = input.get("geom", None)
+        
         if (self.use_positive_only):
             image = image[image > 0]
             
@@ -782,7 +878,12 @@ class RescaleVolume(nn.Module):
         image = torch.clip(image, min=m, max=M)
         image = self.new_min + (image - m) / (M - m + torch.finfo(torch.float32).eps) * (self.new_max - self.new_min)
         
-        return image, label, prior, None
+        output = {
+            'image': image,
+            'label': label,
+            'prior': prior,
+                 }
+        return output
 
 
 class GaussianBlur(nn.Module):
@@ -793,14 +894,14 @@ class GaussianBlur(nn.Module):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # ??? sample sigma from max_sigma ???
-        self.sigma = hyperparameters.get("gaussian_blur_sigma", None)
+        self.sigma = hyperparameters.get("gaussian_blur_max_sigma", 2)
         self.truncate = hyperparameters.get("gaussian_blur_truncate", 2.5)
         self.radius = hyperparameters.get("gaussian_blur_radius", None)
         self.sampling = hyperparameters.get("sampling_hyperparameters", True)
         self.verbose = True if hyperparameters.get("verbose") else False
 
 
-    def forward(self, image=None, label=None, prior=None, voxsize=None, geom=None, debugsaveprefix=None):
+    def forward(self, input, debugsaveprefix=None):
         """
         Applies gaussian smoothing to the image volume.
 
@@ -812,11 +913,17 @@ class GaussianBlur(nn.Module):
 
         assert (self.sigma is not None), \
             f"freeseg.augmentation.augmentbase.GaussianBlur(): need to specify gaussian_blur_sigma"
-            
+
+        image = input.get("image", None)
+        label = input.get("label", None)
+        prior = input.get("prior", None)
+        voxsize = input.get("voxsize", None)
+        geom = input.get("geom", None)
+
         ndims = image.ndim - 1
         in_channels = image.shape[0]
         conv = getattr(nn.functional, f'conv{ndims}d')
-        sigma = self.sigma
+        sigma = np.random.uniform(0, self.sigma) if (self.sampling) else self.sigma
         if (np.isscalar(sigma)):
             sigma = [sigma] * ndims
 
@@ -840,4 +947,9 @@ class GaussianBlur(nn.Module):
         image_blurred = conv(image.unsqueeze(0), gaussian_filter, groups=groups, padding="same")
 
         # remove batch dimension before returning
-        return image_blurred.squeeze(0), label, prior, None
+        output = {
+            'image': image_blurred.squeeze(0),
+            'label': label,
+            'prior': prior,
+                 }
+        return output
