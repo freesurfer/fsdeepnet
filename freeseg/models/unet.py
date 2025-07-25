@@ -87,25 +87,28 @@ class ConvBlock(nn.Module):
 class UNet(nn.Module):
     def __init__(self, model_arch_dict):
 
-        num_channels = model_arch_dict["num_channels"]
-        ndims = model_arch_dict["ndims"]
-        nb_features = model_arch_dict["nb_features"]
-        nb_levels = model_arch_dict["nb_levels"]
-        nb_labels = model_arch_dict["nb_labels"]
-        feat_mult = model_arch_dict["feat_mult"]
-        conv_size = model_arch_dict["conv_size"]
-        pool_size = model_arch_dict["pool_size"]
-        nb_conv_per_level = model_arch_dict["nb_conv_per_level"]
-        use_residuals = model_arch_dict["use_residuals"]
-        use_batchnorm = model_arch_dict["use_batchnorm"]
-        activation = model_arch_dict["activation"]
-        add_priors = model_arch_dict["add_priors"]
-        refine_conv = model_arch_dict["refine_conv"]
-        final_pred_activation = model_arch_dict["final_pred_activation"]
-        weight_init = model_arch_dict["weight_init"]
-        bn_track_running_stats = model_arch_dict["bn_track_running_stats"]
-        upsample_interpolation = model_arch_dict["upsample_interpolation"]
-        skip_connect_from = model_arch_dict["skip_connect_from"]
+        self._setdefault_arch_dict()
+        self._update_arch_dict(model_arch_dict)
+
+        num_channels = self._model_arch_dict["num_channels"]
+        ndims = self._model_arch_dict["ndims"]
+        nb_features = self._model_arch_dict["nb_features"]
+        nb_levels = self._model_arch_dict["nb_levels"]
+        nb_labels = self._model_arch_dict["nb_labels"]
+        feat_mult = self._model_arch_dict["feat_mult"]
+        conv_size = self._model_arch_dict["conv_size"]
+        pool_size = self._model_arch_dict["pool_size"]
+        nb_conv_per_level = self._model_arch_dict["nb_conv_per_level"]
+        use_residuals = self._model_arch_dict["use_residuals"]
+        use_batchnorm = self._model_arch_dict["use_batchnorm"]
+        activation = self._model_arch_dict["activation"]
+        add_priors = self._model_arch_dict["add_priors"]
+        refine_conv = self._model_arch_dict["refine_conv"]
+        final_pred_activation = self._model_arch_dict["final_pred_activation"]
+        weight_init = self._model_arch_dict["weight_init"]
+        bn_track_running_stats = self._model_arch_dict["bn_track_running_stats"]
+        upsample_interpolation = self._model_arch_dict["upsample_interpolation"]
+        skip_connect_from = self._model_arch_dict["skip_connect_from"]
 
         assert (weight_init == "xavier_uniform" or weight_init == "zeros"), \
             f"weight_init {weight_init} is not supported. The options are either 'xavier_uniform' or 'zeros'"
@@ -314,36 +317,44 @@ class UNet(nn.Module):
         return [x, x1]
 
 
-    @staticmethod
-    def setdefault_arch_dict(model_arch_dict):
-        model_arch_dict["__unetver__"] = __unetver__
+    def _setdefault_arch_dict(self):
+        self._model_arch_dict = {}
+        self._model_arch_dict["__unetver__"] = __unetver__
+        self._model_arch_dict["num_channels"] = 1
+        self._model_arch_dict["ndims"] = 3
+        self._model_arch_dict["nb_features"] = 24
+        self._model_arch_dict["nb_levels"] = 3
+        #self._model_arch_dict["nb_labels"] = ???
+        self._model_arch_dict["feat_mult"] = 1
+        self._model_arch_dict["conv_size"] = 3
+        self._model_arch_dict["pool_size"] = 2
+        self._model_arch_dict["nb_conv_per_level"] = 1
+        self._model_arch_dict["use_residuals"] = False
+        self._model_arch_dict["use_batchnorm"] = True
+        self._model_arch_dict["activation"] = "elu"
+        self._model_arch_dict["add_priors"] = False
+        self._model_arch_dict["refine_conv"] = False
+        self._model_arch_dict["final_pred_activation"] = "softmax"
+        self._model_arch_dict["weight_init"] = "xavier_uniform"
+        self._model_arch_dict["bn_track_running_stats"] = False
+        self._model_arch_dict["upsample_interpolation"] = "linear"
+        self._model_arch_dict["skip_connect_from"] = "batchnorm"
 
+
+    def _update_arch_dict(self, model_arch_dict):
         num_channels = model_arch_dict.get("num_channels", None)
         if (num_channels is None):
             # backward compatible - read older models with model_arch_dict["input_shape"] saved instead
             logging.warning(f"this is an older model file w/ 'input_shape' saved insted of 'num_channels'")
             input_shape = model_arch_dict["input_shape"]
             num_channels = input_shape[0]
+            del(model_arch_dict["input_shape"])
         model_arch_dict["num_channels"] = num_channels
 
-        model_arch_dict["ndims"] = model_arch_dict["ndims"]
-        model_arch_dict["nb_features"] = model_arch_dict["nb_features"]
-        model_arch_dict["nb_levels"] = model_arch_dict["nb_levels"]
-        model_arch_dict["nb_labels"] = model_arch_dict["nb_labels"]
-        model_arch_dict["feat_mult"] = model_arch_dict.get("feat_mult", 1)
-        model_arch_dict["conv_size"] = model_arch_dict.get("conv_size", 3)
-        model_arch_dict["pool_size"] = model_arch_dict.get("pool_size", 2)
-        model_arch_dict["nb_conv_per_level"] = model_arch_dict.get("nb_conv_per_level", 1)
-        model_arch_dict["use_residuals"] = model_arch_dict.get("use_residuals", False)
-        model_arch_dict["use_batchnorm"] = model_arch_dict.get("use_batchnorm", True)
-        model_arch_dict["activation"] = model_arch_dict.get("activation", "elu")
-        model_arch_dict["add_priors"] = model_arch_dict.get("add_priors", False)
-        model_arch_dict["refine_conv"] = model_arch_dict.get("refine_conv", False)
-        model_arch_dict["final_pred_activation"] = model_arch_dict.get("final_pred_activation", "softmax")
-        model_arch_dict["weight_init"] = model_arch_dict.get("weight_init", "xavier_uniform")
-        model_arch_dict["bn_track_running_stats"] = model_arch_dict.get("bn_track_running_stats", False)
-        model_arch_dict["upsample_interpolation"] = model_arch_dict.get("upsample_interpolation", "linear")
-        model_arch_dict["skip_connect_from"] = model_arch_dict.get("skip_connect_from", "batchnorm")
+        for k in (model_arch_dict.keys()):
+            self._model_arch_dict[k] = model_arch_dict[k]
 
-        return model_arch_dict
-        
+
+    @property
+    def arch_dict(self):
+        return self._model_arch_dict
