@@ -39,7 +39,6 @@ class AugmentVoxynth(AugmentBase):
         # remove duplicates
         self.valid_augmentations = list(set(self.valid_augmentations))
 
-        self.output_dir = output_dir   # used in apply_augmentations()
         if (device is None):
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if (verbose):

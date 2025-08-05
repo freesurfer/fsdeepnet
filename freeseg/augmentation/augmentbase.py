@@ -28,6 +28,8 @@ class AugmentBase:
                                     "sampleconditionalgmm",
                                     "rescalevolume",
                                     "gaussianblur",
+                                    "resamplevolume",
+                                    "mimicresolution",
                                    ]
         self.valid_augmentations = valid_augmentations_base.copy()
 
@@ -51,7 +53,8 @@ class AugmentBase:
         self.sampleconditionalgmm = SampleConditionalGMM(generation_labels, hp=hp.get('sampleconditionalgmm'), num_channels=num_channels, device=device, sampling_hp=sampling_hp, verbose=verbose)
         self.rescalevolume = RescaleVolume(hp=hp.get('rescalevolume'), device=device, sampling_hp=sampling_hp, verbose=verbose)
         self.gaussianblur = GaussianBlur(hp=hp.get('gaussianblur'), device=device, sampling_hp=sampling_hp, verbose=verbose)
-
+        self.resamplevolume = ResampleVolume(target_res, hp=hp.get('resamplevolume'), device=device, sampling_hp=sampling_hp, verbose=verbose)
+        self.mimicresolution = MimicResolution(hp=hp.get('mimicresolution'), device=device, sampling_hp=sampling_hp, verbose=verbose)
 
 class Flip(torch.nn.Module):
     def __init__(self, left_right_corresponding, hp=None, device=None, sampling_hp=True, verbose=False):
@@ -899,9 +902,8 @@ class GaussianBlur(torch.nn.Module):
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # ??? sample sigma from max_sigma ???
         hp = {} if (hp is None) else hp        
-        self.sigma = hp.get("gaussian_blur_max_sigma", 2)
+        self.max_sigma = hp.get("gaussian_blur_max_sigma", 2)
         self.truncate = hp.get("gaussian_blur_truncate", 2.5)
         self.radius = hp.get("gaussian_blur_radius", None)
         self.sampling = sampling_hp
@@ -918,7 +920,7 @@ class GaussianBlur(torch.nn.Module):
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.GaussianBlur'")
 
-        assert (self.sigma is not None), \
+        assert (self.max_sigma is not None), \
             f"freeseg.augmentation.augmentbase.GaussianBlur(): need to specify gaussian_blur_sigma"
 
         image = input.get("image", None)
@@ -930,7 +932,7 @@ class GaussianBlur(torch.nn.Module):
         ndims = image.ndim - 1
         in_channels = image.shape[0]
         conv = getattr(torch.nn.functional, f'conv{ndims}d')
-        sigma = np.random.uniform(0, self.sigma) if (self.sampling) else self.sigma
+        sigma = np.random.uniform(0, self.max_sigma) if (self.sampling) else self.max_sigma
         if (np.isscalar(sigma)):
             sigma = [sigma] * ndims
 
@@ -956,6 +958,146 @@ class GaussianBlur(torch.nn.Module):
         # remove batch dimension before returning
         output = {
             'image': image_blurred.squeeze(0),
+            'label': label,
+            'prior': prior,
+                 }
+        return output
+
+    
+class ResampleVolume(torch.nn.Module):
+    def __init__(self, target_res, hp=None, device=None, sampling_hp=True, verbose=False):
+        """
+        Resamples the volume to the given voxel size space
+        """
+        
+        super().__init__()
+        self.device = device
+        if (self.device is None):
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        hp = {} if (hp is None) else hp
+        self.target_res = target_res
+        self.sampling = sampling_hp
+        self.verbose = verbose
+
+
+    def forward(self, input, debugsaveprefix=None):
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augmentbase.ResampleVolume'")
+
+        image = input.get("image", None)
+        label = input.get("label", None)
+        prior = input.get("prior", None)
+        voxsize = input.get("voxsize", None)
+        geom = input.get("geom", None)
+
+        if (self.target_res is None):
+            output = {
+                'image': image,
+                'label': label,
+                'prior': prior,
+                     }
+            return output
+    
+        ndims = image.ndim - 1
+        image_shape = image.shape[1:]
+
+        factor = voxsize / self.target_res
+        step = 1.0 / factor
+
+        xyzs = [torch.arange(start=0, end=image_shape[d]-1, step=step[d], dtype=torch.float32, device=self.device) for d in range(ndims)]
+        x, y, z = torch.meshgrid(*xyzs, indexing='ij')
+        meshgrid = torch.stack((x, y, z), dim=-1)
+        
+        # scale meshgrid to range [-1, 1], which is expected by torch.nn.functional.grid_sample()
+        for d in range(ndims):
+           if image_shape[d] == 1:
+               meshgrid[..., d] *= 0
+           else:
+               meshgrid[..., d] *= 2 / (image_shape[d] - 1)
+               meshgrid[..., d] -= 1
+
+        meshgrid = meshgrid.flip(-1)
+
+        resampled_image = torch.nn.functional.grid_sample(image.unsqueeze(0), meshgrid.unsqueeze(0),
+                                                          mode="bilinear", padding_mode='zeros', align_corners=True)
+        resampled_label = torch.nn.functional.grid_sample(label.float().unsqueeze(0), meshgrid.unsqueeze(0),
+                                                          mode="nearest", padding_mode='zeros', align_corners=True)
+
+        from surfa.transform import ImageGeometry
+        new_geom = ImageGeometry(
+            shape=resampled_image.shape[2:],
+            voxsize=self.target_res,
+            rotation=geom.rotation,
+            center=geom.center)
+
+        output = {
+            'image': resampled_image.squeeze(0),
+            'label': resampled_label.squeeze(0).int(),
+            'prior': prior,
+            'geom':  new_geom,            
+                 }
+        return output
+
+
+class MimicResolution(torch.nn.Module):
+    def __init__(self, hp=None, device=None, sampling_hp=True, verbose=False):
+        """
+        Takes an image as input, and simulates data that has been acquired at low resolution.
+        The output is obtained by resampling the input twice:
+        - first at a resolution given as an input (i.e. the "acquisition" resolution),
+        - then at the output resolution (specified output shape).
+        """
+        
+        super().__init__()
+        self.device = device
+        if (self.device is None):
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        hp = {} if (hp is None) else hp
+        self.max_subsample_res = hp.get("max_subsample_res", 0.0)
+        self.sampling = sampling_hp
+        self.verbose = verbose
+
+
+    def forward(self, input, debugsaveprefix=None):
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augmentbase.MimicResolution'")
+
+        image = input.get("image", None)
+        label = input.get("label", None)
+        prior = input.get("prior", None)
+        voxsize = input.get("voxsize", None)
+        geom = input.get("geom", None)
+
+        ndims = image.ndim - 1
+        image_shape = image.shape[1:]
+
+        # sample the random resolution lower resolution from U(voxsize, max_subsample_res)
+        subsample_res = np.random.uniform(voxsize, self.max_subsample_res) if (self.sampling) else [self.max_subsample_res] * ndims
+        factor = tuple(voxsize / subsample_res)
+
+        mode = "trilinear" if (ndims == 3) else "bilinear"
+        
+        # ??? todo: perform gaussian blur ???
+        # ??? ... ???
+
+        # downsample the image to subsample_res
+        resampled_image = torch.nn.functional.interpolate(
+            image.unsqueeze(0),
+            scale_factor=factor,
+            mode=mode,
+            align_corners=True)
+        
+        # upsample it back to original res
+        resampled_image = torch.nn.functional.interpolate(
+            resampled_image,
+            size=image_shape,
+            mode=mode,
+            align_corners=True)
+
+        output = {
+            'image': resampled_image.squeeze(0),
             'label': label,
             'prior': prior,
                  }

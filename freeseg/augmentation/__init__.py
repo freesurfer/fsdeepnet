@@ -16,7 +16,10 @@ def apply_augmentations(augment_obj,
         import os
         import numpy as np
         from freeseg.utils import save_framedimage
-        debugsaveprefix0 = os.path.join(output_dir, save_volumes)
+
+        debugsaveprefix0 = os.path.join(output_dir, save_volumes)        
+        if (not os.path.exists(output_dir)):
+            os.makedirs(output_dir)
 
     if (debugsaveprefix0 is not None):
         save_framedimage(
@@ -61,20 +64,23 @@ def apply_augmentations(augment_obj,
         output = augment(input, debugsaveprefix=debugsaveprefix)
         image_tensor = output.get('image', None)
         label_tensor = output.get('label', None)
-        priors_tensor = output.get('prior', None) 
+        priors_tensor = output.get('prior', None)
+        geom = output.get('geom', None)
 
         # save augmented volumes
         if (debugsaveprefix is not None):
             save_framedimage(
                 image_tensor,
                 f"{debugsaveprefix}_image.mgz",
-                original_framedimage=original_image,            
+                original_framedimage=original_image,
+                geom=geom,
             )
             np.save(f"{debugsaveprefix}_image.npy", image_tensor.cpu().numpy().astype(np.float32))
             save_framedimage(
                 label_tensor,
                 f"{debugsaveprefix}_label.mgz",
-                original_framedimage=original_label,            
+                original_framedimage=original_label,
+                geom=geom,
             )
             np.save(f"{debugsaveprefix}_label.npy", label_tensor.cpu().numpy().astype(np.float32))
             if (priors_tensor is not None):
@@ -82,6 +88,7 @@ def apply_augmentations(augment_obj,
                     priors_tensor,
                     f"{debugsaveprefix}_prior.mgz",
                     original_framedimage=original_image,
+                    geom=geom,
                     dtype=float
                 )
                 np.save(f"{debugsaveprefix}_prior.npy", priors_tensor.cpu().numpy().astype(np.float32))

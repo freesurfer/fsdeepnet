@@ -51,7 +51,7 @@ def load_framedimage(file_path, orientation=None, device=None, ndims=3):
     return framedimage, framedimage_tensor, orig_orientation
 
 
-def save_framedimage(framedimage_tensor, output_file, original_framedimage=None, orientation=None, labels=None, onehotencoded=False, dtype=None):
+def save_framedimage(framedimage_tensor, output_file, original_framedimage=None, geom=None, orientation=None, labels=None, onehotencoded=False, dtype=None):
     """
     Save the augmented framedimage to a file.
     input tensor is non-batched [C, H, W (,D)] (ndims = tensor.ndim - 1)
@@ -76,10 +76,11 @@ def save_framedimage(framedimage_tensor, output_file, original_framedimage=None,
     other image/label is output as [H, W, (D,) C]
     """
     if (original_framedimage is not None):
+        geom = geom if (geom is not None) else original_framedimage.geom
         if (ndims == 2 and onehotencoded):
-            surfa_image = sf.Slice(np_image.squeeze(), geometry=original_framedimage.geom, labels=labels, metadata=original_framedimage.metadata)
+            surfa_image = sf.Slice(np_image.squeeze(), geometry=geom, labels=labels, metadata=original_framedimage.metadata)
         else:
-            surfa_image = sf.Volume(np_image.squeeze(), geometry=original_framedimage.geom, labels=labels, metadata=original_framedimage.metadata)
+            surfa_image = sf.Volume(np_image.squeeze(), geometry=geom, labels=labels, metadata=original_framedimage.metadata)
 
         # surfa.image.framed.reorient() is not yet implemented for 2D data            
         if (ndims == 3 and orientation is not None):
@@ -87,7 +88,7 @@ def save_framedimage(framedimage_tensor, output_file, original_framedimage=None,
     else:
         orientation = "RAS" if (orientation is None) else orientation
         rotation_matrix = sf.transform.orientation.orientation_to_rotation_matrix(orientation)
-        geom = sf.transform.geometry.ImageGeometry(shape=np_image.shape[:-1], voxsize=1, rotation=rotation_matrix)
+        geom = geom if (geom is not None) else sf.transform.geometry.ImageGeometry(shape=np_image.shape[:-1], voxsize=1, rotation=rotation_matrix)
         if (ndims == 2 and onehotencoded):
             surfa_image = sf.Slice(np_image.squeeze(), labels=labels, geometry=geom)
         else:
@@ -355,6 +356,7 @@ def create_augment_object(augment_classname, transforms, config, cohort='train',
                                  num_channels=config["dataset"]["expected_num_channels"],  # needed in sampleConditionalGMM
                                  left_right_corresponding=config["dataset"].get("left_right_corresponding", None),
                                  generation_labels=config["dataset"].get("expected_classes"),
+                                 target_res=config["preprocessing"].get("target_res"),
                                  output_dir=config["preprocessing"].get("augmentation_dir", None),
                                  device=device,
                                  sampling_hp=cfg_preprocess.get('sampling_hyperparameters', True),

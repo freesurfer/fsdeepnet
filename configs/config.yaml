@@ -28,7 +28,8 @@ preprocessing:
   augmentation_class: freeseg.augmentation.augmentbase.AugmentBase   # or freeseg.augmentation.augmentvoxynth.AugmentVoxynth
   sampling_hyperparameters: True
   verbose: False
-  crop_size: [160, 160, 160]  
+  crop_size: [160, 160, 160]
+  target_res: 1  # in mm
   #augmentation_dir: /path/to-save-augmented-data
   #bbox_labels: list of labels to make the bounding box
   augmentations:
@@ -62,6 +63,9 @@ preprocessing:
     - gaussianblur:
         gaussian_blur_max_sigma: 2
         gaussian_blur_truncate: 2.5
+    - mimicresolution:
+        max_subsample_res: 4  # in mm
+    #- resamplevolume:
     #- sampleConditionalGMM:
     #    prior_mean: [25, 225]
     #    prior_std: [5, 25]

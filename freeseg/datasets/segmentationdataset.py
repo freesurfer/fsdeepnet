@@ -37,8 +37,6 @@ class SegmentationDataset(torch.utils.data.Dataset):
 
         self.save_volumes = None
         self.output_dir = config["preprocessing"].get("augmentation_dir", None)
-        if ((self.output_dir is not None) and (not os.path.exists(self.output_dir))):
-            os.makedirs(self.output_dir)        
         if (keep_trainset_in_memory and self.output_dir is not None):
             logging.error(f"'--keep_trainset_in_memory' doesn't work with saving augmentation volumes") 
             raise ValueError("'--keep_trainset_in_memory' doesn't work with saving augmentation volumes")
