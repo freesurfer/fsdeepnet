@@ -9,8 +9,7 @@ def apply_augmentations(augment_obj,
                         original_label,
                         voxsize,
                         priors_tensor=None,
-                        save_volumes=None,
-                        augmentations_to_apply=None):
+                        save_volumes=None):
     output_dir = augment_obj.output_dir
     debugsaveprefix0 = None
     if (save_volumes is not None and output_dir is not None):
@@ -41,6 +40,7 @@ def apply_augmentations(augment_obj,
             )
             np.save(f"{debugsaveprefix0}_reoriented_prior.npy", priors_tensor.cpu().numpy().astype(np.float32))
 
+    augmentations_to_apply = augment_obj.transforms
     for idx, augment_name in enumerate(augmentations_to_apply):
         augment = getattr(augment_obj, augment_name, None)
         if (augment is None):
@@ -86,14 +86,18 @@ def apply_augmentations(augment_obj,
                 )
                 np.save(f"{debugsaveprefix}_prior.npy", priors_tensor.cpu().numpy().astype(np.float32))
 
+    # ??? todo: output final augmented image/label/label_onehot/prior ???
+    # ??? this is now implemented in segmentationdataset.py ???
+    
     return image_tensor, label_tensor, priors_tensor
 
     
-def check_augmentations(augment_obj, augmentations_to_apply):
+def check_augmentations(augment_obj):
     """
     check if all requested augmentations are valid and any duplicated augmentations
     """
 
+    augmentations_to_apply = augment_obj.transforms
     for augmentation in (augmentations_to_apply):
         assert (augmentation in augment_obj.valid_augmentations), \
             f"Unknown augmentation '{augmentation}'. Supported augmentations {augment_obj.valid_augmentations}. "

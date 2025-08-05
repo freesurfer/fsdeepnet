@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 
 from freeseg.training import Training
 from freeseg.config import Config
-from freeseg.utils import set_deterministic_training, print_vm_peak, config_logger, get_class, remove_duplicates, load_datasets
+from freeseg.utils import set_deterministic_training, print_vm_peak, config_logger, get_class, remove_duplicates, load_dataset, create_augment_object
 from freeseg.metrics import WeightedL2Loss, DiceLoss
 
 """
@@ -122,10 +122,8 @@ def main():
         mainlogger.info("'augment2.Augment2' is specified in config.")
         mainlogger.info("Change 'augment2.Augment2' to 'augmentbase.AugmentBase' since augmentations in augment2.Augment2 are now implemented in augmentbase.AugmentBase")
         augmentation_class = "freeseg.augmentation.augmentbase.AugmentBase"
-    
-    train_augmentations = remove_duplicates(config["preprocessing"].get("train_augmentations"))
-    # enforce "centercrop"/"rescalevolume" for evaluation_augmentations
-    evaluation_augmentations = ["centercrop", "rescalevolume"]
+
+    train_augmentations = remove_duplicates(Config.get_augmentations(config["preprocessing"].get("augmentations")))
     num_workers = config["preprocessing"].get("num_workers", 0)
     pin_memory = config["preprocessing"].get("pin_memory", False)
     persistent_workers = config["preprocessing"].get("persistent_workers", False)
@@ -144,14 +142,12 @@ def main():
     label_mapping = {label:i for i, label in enumerate(labels_segmentation)}
     inverse_label_mapping = {v: k for k, v in label_mapping.items()}
     config["dataset"]["label_mapping"] = label_mapping
-    train_dataset, validation_dataset, _ = load_datasets(config, augmentation_class,
-                                                         train_augmentations, evaluation_augmentations,
-                                                         device=preprocessing_device, check_augment=args.check_augment, keep_trainset_in_memory=args.keep_trainset_in_memory,
-                                                         train_cohort=args.train_cohort, validation_cohort=args.validation_cohort)
-    perform_evaluation = config["training"].get("perform_evaluation", False)
-    if (perform_evaluation and validation_dataset is None):
-        mainlogger.error(f"No 'validation' set in {config['dataset']['dataset_list_file']} to perform evaluation")
-        return
+    train_augmentations = remove_duplicates(Config.get_augmentations(config["preprocessing"].get("augmentations")))
+    train_augment_obj = create_augment_object(augmentation_class, train_augmentations, config, cohort="train", device=preprocessing_device)
+    train_dataset = load_dataset(config, train_augment_obj,
+                                 device=preprocessing_device,
+                                 keep_trainset_in_memory=args.keep_trainset_in_memory,
+                                 cohort=args.train_cohort)
 
     # Create training DataLoader
     train_loader = DataLoader(train_dataset, batch_size=config["training"]["batch_size"], shuffle=True,
@@ -165,7 +161,21 @@ def main():
     
     # create validation DataLoader
     validation_loader = None
+    perform_evaluation = config["training"].get("perform_evaluation", False)
     if (perform_evaluation):
+        # enforce "centercrop"/"rescalevolume" for evaluation_augmentations
+        val_augmentations = ["centercrop", "rescalevolume"]
+        config["evaluation"]["augmentations"] = val_augmentations
+        val_augment_obj = create_augment_object(augmentation_class, val_augmentations, config, cohort="validation", device=preprocessing_device)
+        # to keep validation_dataset in memory,
+        # validation_dataset.preload() needs to be called
+        validation_dataset = load_dataset(config, val_augment_obj,
+                                          device=preprocessing_device,
+                                          cohort=args.validation_cohort)
+        if (validation_dataset is None):
+            mainlogger.error(f"No 'validation' set in {config['dataset']['dataset_list_file']} to perform evaluation")
+            return    
+
         best_model_metric = config["training"]["best_model_metric"]
         validation_loader = DataLoader(validation_dataset, batch_size=config["training"]["batch_size"], shuffle=False)
 
@@ -191,12 +201,11 @@ def main():
         mainlogger.info(f"best_model_metric: {best_model_metric}")
     mainlogger.info("Preprocessing Device: {}".format(preprocessing_device) + (f' (GPU index: {gpu_index})' if (gpu_index is not None) else ''))
     mainlogger.info(f"Preprocessing augmentation_class: {augmentation_class}")
-    mainlogger.info(f"Preprocessing train_augmentations: {train_augmentations}")
+    mainlogger.info(f"Preprocessing augmentations: {train_augmentations}")
     mainlogger.info(f"Preprocessing pin_memory: {pin_memory}")
     mainlogger.info(f"Preprocessing num_workers: {num_workers}")
     mainlogger.info(f"Preprocessing prefetch_factor: {prefetch_factor}")
     mainlogger.info(f"Preprocessing persistent_workers: {persistent_workers}")
-    #mainlogger.info(f"Preprocessing check_augment: {args.check_augment}")
     mainlogger.info(f"Preprocessing sampling_hyperparameters: {config['preprocessing'].get('sampling_hyperparameters', True)}")
 
     mainlogger.info(f"batch_size: {config['training']['batch_size']}")
@@ -269,7 +278,6 @@ def argument_parse():
     parser.add_argument("--write_tensorboard_summary", action='store_true', help="Write tensorboard summary")
     parser.add_argument("--perform_evaluation", action='store_true', help="Perform evaluation after each epoch")
     parser.add_argument("--best_model_metric", type=str, default=None, choices=["loss", "dice"], help="Metric for saving the best model (loss or dice)")
-    parser.add_argument("--check_augment", action='store_true', help="Reject augmentations not having all the labels")
     parser.add_argument("--weight_init", type=str, help="How to init network weights, 'zeros' or 'xavier_uniform'")
     parser.add_argument('--vmp', action='store_true', help='Enable printing of vmpeak at the end.')
     parser.add_argument('--logfile', type=str, help='Set logfile (default is freeseg_train.log)')

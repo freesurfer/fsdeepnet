@@ -9,7 +9,7 @@ import numpy as np
 import shutil
 
 from freeseg.config import Config
-from freeseg.utils import set_deterministic_training, remove_duplicates, load_datasets, get_class
+from freeseg.utils import set_deterministic_training, remove_duplicates, load_dataset, get_class, create_augment_object
 
 """
 Usage: test_preprocessing.py 
@@ -17,7 +17,6 @@ Usage: test_preprocessing.py
        [--augment]
        [--deterministic]
        [--outdir <augmentation_output_dir>]
-       [--check_augment]
        [--image <im1 im2 ...> --label <lb1 lb2 ...> [--priors <...>]]
        [--dataset_list_file <dataset_list_file> --cohort <train|validation|test>]
        [--crop_size <W H D>]
@@ -102,19 +101,19 @@ def main():
         logging.info("'augment2.Augment2' is specified in config.")
         logging.info("Change 'augment2.Augment2' to 'augmentbase.AugmentBase' since augmentations in augment2.Augment2 are now implemented in augmentbase.AugmentBase")
         augmentation_class = "freeseg.augmentation.augmentbase.AugmentBase"
-    train_augmentations = remove_duplicates(config["preprocessing"].get("train_augmentations"))
-    evaluation_augmentations = remove_duplicates(config["evaluation"].get("evaluation_augmentations"))
+    train_augmentations = remove_duplicates(Config.get_augmentations(config["preprocessing"].get("augmentations")))
+    train_augment_obj = create_augment_object(augmentation_class, train_augmentations, config, cohort="train", device=preprocessing_device)    
     if (args.image is not None and args.label is not None):
         logging.info("Loading dataset: SegmentationDataset(...)")
         dataset_classname = config["dataset"].get("dataset_classname", "freeseg.datasets.segmentationdataset.SegmentationDataset")
         py_dataset_cls = get_class(dataset_classname, "freeseg.datasets.segmentationdataset")
-        train_dataset = py_dataset_cls(config, augmentation_class,
+        train_dataset = py_dataset_cls(config, train_augment_obj,
                                        image=args.image, label=args.label, priors=args.priors,
-                                       transform=train_augmentations, device=preprocessing_device, check_augment=args.check_augment)
+                                       device=preprocessing_device)
     else:
         logging.info("Loading dataset: load_dataset(...)")
-        train_dataset, _, _ = load_datasets(config, augmentation_class,
-            train_augmentations, evaluation_augmentations, device=preprocessing_device, check_augment=args.check_augment, train_cohort=args.cohort)    
+        train_dataset = load_dataset(config, train_augment_obj,
+                                     device=preprocessing_device, cohort=args.cohort)    
 
     sample_input_shape, unique_classes, label_lookup = train_dataset.preload()
     input_shape = sample_input_shape[1:]
@@ -122,7 +121,7 @@ def main():
     logging.info("Training Device: {}".format(device))
     logging.info("Preprocessing Device: {}".format(preprocessing_device))
     logging.info(f"Preprocessing augmentation_class: {augmentation_class}")
-    logging.info(f"Preprocessing train_augmentations: {train_augmentations}")
+    logging.info(f"Preprocessing augmentations: {train_augmentations}")
     logging.info(f"batch_size: {config['training']['batch_size']}")
     logging.info(f"crop_size: {crop_size}")
     logging.info(f"deterministic: {deterministic}")
@@ -152,7 +151,6 @@ def argument_parse():
     parser.add_argument("--augment", action='store_true', help="Perform augmentation on input image/label.")
     parser.add_argument("--deterministic", action='store_true', help="deterministic training")
     parser.add_argument("--outdir", type=str, help="Path to augmentation output (needed for augmenting)")
-    parser.add_argument("--check_augment", action='store_true', help="Reject augmentations not having all the labels")
     parser.add_argument("--image", nargs="+", type=str, help="Input image volume(s)")
     parser.add_argument("--label", nargs="+", type=str, help="Input label map(s)")
     parser.add_argument("--priors", nargs="+", type=str, help="Input priors")

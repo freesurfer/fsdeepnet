@@ -4,22 +4,33 @@ import numpy as np
 import numpy.random as npr
 import math
 import torch
-import torch.nn as nn
 from freeseg import voxynth
 from freeseg.augmentation.augmentbase import AugmentBase
-from freeseg.utils import save_framedimage, get_ras_axes, bbox, centroid
+from freeseg.utils import save_framedimage, get_ras_axes, bbox, centroid, remove_duplicates
 
 class AugmentVoxynth(AugmentBase):
-    def __init__(self, hyperparameters,
+    def __init__(self, hp,
+                 transforms,
+                 crop_size,
+                 num_channels=1,
                  left_right_corresponding=None,
+                 bbox_labels=None,
                  generation_labels=None,
+                 target_res=None,
                  output_dir=None,                 
-                 device=None):
-        super().__init__(hyperparameters,
+                 device=None,
+                 sampling_hp=True,
+                 verbose=False):
+        super().__init__(hp, transforms, crop_size,
+                         num_channels=num_channels,
                          left_right_corresponding=left_right_corresponding,
+                         bbox_labels=bbox_labels,
                          generation_labels=generation_labels,
+                         target_res=target_res,
                          output_dir=output_dir,                 
-                         device=device)
+                         device=device,
+                         sampling_hp=sampling_hp,
+                         verbose=verbose)
 
         valid_augmentations = ["biasfieldcorruption",
                                "intensityaugmentation",
@@ -28,37 +39,35 @@ class AugmentVoxynth(AugmentBase):
         # remove duplicates
         self.valid_augmentations = list(set(self.valid_augmentations))
 
-        self.hyperparameters = hyperparameters        
-        self.left_right_corresponding = left_right_corresponding
-        self.generation_labels = generation_labels
-        self.output_dir = output_dir
-        self.device = device
-        if (self.device is None):
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.verbose = True if self.hyperparameters.get("verbose") else False
-        if (self.verbose):
+        self.output_dir = output_dir   # used in apply_augmentations()
+        if (device is None):
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if (verbose):
             logging.debug(f"'freeseg.augmentation.augmentvoxynth.AugmentVoxynth' constructor")        
 
-        # set up augmentations
-        self.biasfieldcorruption = BiasFieldCorruption(self.hyperparameters, device=self.device)
-        self.intensityaugmentation = IntensityAugmentation(self.hyperparameters, device=self.device)
-        self.biasfieldcorruptionandintensityaugmentation = BiasFieldCorruptionAndIntensityAugmentation(self.hyperparameters, device=self.device)
+        self.transforms = transforms
+
+        # set up augmentations requested
+        self.biasfieldcorruption = BiasFieldCorruption(hp=hp.get('biasfieldcorruption'), device=device, sampling_hp=sampling_hp, verbose=verbose)
+        self.intensityaugmentation = IntensityAugmentation(hp=hp.get('intensityaugmentation'), device=device, sampling_hp=sampling_hp, verbose=verbose)
+        self.biasfieldcorruptionandintensityaugmentation = BiasFieldCorruptionAndIntensityAugmentation(hp=hp.get('biasfieldcorruptionandintensityaugmentation'), device=device, sampling_hp=sampling_hp, verbose=verbose)
 
 
-class BiasFieldCorruption(nn.Module):
-    def __init__(self, hyperparameters, device=None):
+class BiasFieldCorruption(torch.nn.Module):
+    def __init__(self, hp=None, device=None, sampling_hp=True, verbose=False):
         super().__init__()
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.bias_field_probability = hyperparameters.get("bias_field_probability", 0.5)
-        self.bias_field_max_magnitude = hyperparameters.get("bias_field_max_magnitude", 0.1)
-        self.bias_field_smoothing_range = hyperparameters.get("bias_field_smoothing_range", None)
-        self.bias_field_scale = hyperparameters.get("bias_field_scale", .025)
-        self.bias_field_generation_method = hyperparameters.get("bias_field_generation_method", "blur")
-        self.sampling = hyperparameters.get("sampling_hyperparameters", True)
-        self.verbose = True if hyperparameters.get("verbose") else False
+        hp = {} if (hp is None) else hp            
+        self.bias_field_probability = hp.get("bias_field_probability", 0.5)
+        self.bias_field_max_magnitude = hp.get("bias_field_max_magnitude", 0.1)
+        self.bias_field_smoothing_range = hp.get("bias_field_smoothing_range", None)
+        self.bias_field_scale = hp.get("bias_field_scale", .025)
+        self.bias_field_generation_method = hp.get("bias_field_generation_method", "blur")
+        self.sampling = sampling_hp
+        self.verbose = verbose
 
         assert (self.bias_field_generation_method == "blur" or self.bias_field_generation_method == "upsample"), \
             f"bias_field_generation_method {self.bias_field_generation_method} is not supported. The options are either 'blur' or 'upsample'"
@@ -114,19 +123,20 @@ class BiasFieldCorruption(nn.Module):
         return output
 
 
-class IntensityAugmentation(nn.Module):
-    def __init__(self, hyperparameters, device=None):
+class IntensityAugmentation(torch.nn.Module):
+    def __init__(self, hp=None, device=None, sampling_hp=True, verbose=False):
         super().__init__()
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            
-        self.added_noise_probability = hyperparameters.get("added_noise_probability", 0.5)
-        self.added_noise_max_sigma = hyperparameters.get("added_noise_max_sigma", 0.05)
-        self.gamma_scaling_probability = hyperparameters.get("gamma_scaling_probability", 0.5)
-        self.gamma_scaling_max = hyperparameters.get("gamma_scaling_max", 0.8)
-        self.sampling = hyperparameters.get("sampling_hyperparameters", True)
-        self.verbose = True if hyperparameters.get("verbose") else False
+
+        hp = {} if (hp is None) else hp            
+        self.added_noise_probability = hp.get("added_noise_probability", 0.5)
+        self.added_noise_max_sigma = hp.get("added_noise_max_sigma", 0.05)
+        self.gamma_scaling_probability = hp.get("gamma_scaling_probability", 0.5)
+        self.gamma_scaling_max = hp.get("gamma_scaling_max", 0.8)
+        self.sampling = sampling_hp
+        self.verbose = verbose
             
     def forward(self, input, debugsaveprefix=None):
         """Applies blurring and resampling to the image volume."""
@@ -157,28 +167,30 @@ class IntensityAugmentation(nn.Module):
 
 
 # biasfieldcorruption + intensityaugmentation in one voxynth.augment.image_augment() call
-class BiasFieldCorruptionAndIntensityAugmentation(nn.Module):
-    def __init__(self, hyperparameters, device=None):
+class BiasFieldCorruptionAndIntensityAugmentation(torch.nn.Module):
+    def __init__(self, hp=None, device=None, sampling_hp=True, verbose=False):
         super().__init__()
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        hp = {} if (hp is None) else hp
+
         # intensityaugmentation
-        self.added_noise_probability = hyperparameters.get("added_noise_probability", 0.5)
-        self.added_noise_max_sigma = hyperparameters.get("added_noise_max_sigma", 0.05)
-        self.gamma_scaling_probability = hyperparameters.get("gamma_scaling_probability", 0.5)
-        self.gamma_scaling_max = hyperparameters.get("gamma_scaling_max", 0.8)
+        self.added_noise_probability = hp.get("added_noise_probability", 0.5)
+        self.added_noise_max_sigma = hp.get("added_noise_max_sigma", 0.05)
+        self.gamma_scaling_probability = hp.get("gamma_scaling_probability", 0.5)
+        self.gamma_scaling_max = hp.get("gamma_scaling_max", 0.8)
 
         # biasfieldcorruption
-        self.bias_field_probability = hyperparameters.get("bias_field_probability", 0.5)
-        self.bias_field_max_magnitude = hyperparameters.get("bias_field_max_magnitude", 0.1)
-        self.bias_field_smoothing_range = hyperparameters.get("bias_field_smoothing_range", None)
-        self.bias_field_scale = hyperparameters.get("bias_field_scale", .025)
-        self.bias_field_generation_method = hyperparameters.get("bias_field_generation_method", "blur")
+        self.bias_field_probability = hp.get("bias_field_probability", 0.5)
+        self.bias_field_max_magnitude = hp.get("bias_field_max_magnitude", 0.1)
+        self.bias_field_smoothing_range = hp.get("bias_field_smoothing_range", None)
+        self.bias_field_scale = hp.get("bias_field_scale", .025)
+        self.bias_field_generation_method = hp.get("bias_field_generation_method", "blur")
 
-        self.sampling = hyperparameters.get("sampling_hyperparameters", True)
-        self.verbose = True if hyperparameters.get("verbose") else False
+        self.sampling = sampling_hp
+        self.verbose = verbose
         
         assert (self.bias_field_generation_method == "blur" or self.bias_field_generation_method == "upsample"), \
             f"bias_field_generation_method {self.bias_field_generation_method} is not supported. The options are either 'blur' or 'upsample'"

@@ -305,18 +305,12 @@ def remove_duplicates(inlist, lowercase=True):
     return outlist
 
 
-def load_datasets(
+def load_dataset(
     config,
     dataaugment,
-    train_augmentations=None,
-    validation_augmentations=None,
-    test_augmentations=None,
     device=None,
-    check_augment=False,
     keep_trainset_in_memory=False,
-    train_cohort=[],
-    validation_cohort=[],
-    test_cohort=[]
+    cohort=[],
 ):
     if (device is None):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -326,42 +320,47 @@ def load_datasets(
     dataset_classname = config["dataset"].get("dataset_classname", "freeseg.datasets.segmentationdataset.SegmentationDataset")
     py_dataset_cls = get_class(dataset_classname, "freeseg.datasets.segmentationdataset")
 
-    dataset = Config.retrieve_dataset_cohorts(dataset_dict, train_cohort)
-    train_dataset = None
-    if (dataset):
-        train_dataset = py_dataset_cls(
+    dset_cohort = Config.retrieve_dataset_cohorts(dataset_dict, cohort)
+    dataset = None
+    if (dset_cohort):
+        dataset = py_dataset_cls(
             config,
             dataaugment,
-            dataset_dict=dataset,            
-            transform=train_augmentations,
+            dataset_dict=dset_cohort,            
             device=device,
-            check_augment=check_augment,
             keep_trainset_in_memory=keep_trainset_in_memory
         )
 
-    dataset = Config.retrieve_dataset_cohorts(dataset_dict, validation_cohort)
-    validation_dataset = None
-    if (dataset):
-        validation_dataset = py_dataset_cls(
-            config,
-            dataaugment,
-            dataset_dict=dataset,            
-            transform=validation_augmentations,
-            device=device
-        )
+    return dataset
 
-    dataset = Config.retrieve_dataset_cohorts(dataset_dict, test_cohort)
-    test_dataset = None
-    if (dataset):
-        test_dataset = py_dataset_cls(
-            config,
-            dataaugment,
-            dataset_dict=dataset,            
-            transform=test_augmentations,
-            device=device
-        )
 
-    return train_dataset, validation_dataset, test_dataset
+def create_augment_object(augment_classname, transforms, config, cohort='train', device=None):
+    if (device is None):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+    # create data augment object
+    assert (augment_classname is not None), "Must provide an data augmentation class"
+    cfg_preprocess = config["preprocessing"]
+    if (cohort == "validation"):
+        cfg_preprocess = config["evaluation"]
+        transfer_keys = ["crop_size", "verbose", "augmentation_dir"]
+        for key in transfer_keys:
+            if (key not in cfg_preprocess):
+                cfg_preprocess[key] = config["preprocessing"].get(key)
+
+    py_augment_cls = get_class(augment_classname, "freeseg.augmentation.augmentbase")
+    augment_obj = py_augment_cls(Config.list2dict(cfg_preprocess["augmentations"]),
+                                 transforms,
+                                 config["preprocessing"]['crop_size'],
+                                 num_channels=config["dataset"]["expected_num_channels"],  # needed in sampleConditionalGMM
+                                 left_right_corresponding=config["dataset"].get("left_right_corresponding", None),
+                                 generation_labels=config["dataset"].get("expected_classes"),
+                                 output_dir=config["preprocessing"].get("augmentation_dir", None),
+                                 device=device,
+                                 sampling_hp=cfg_preprocess.get('sampling_hyperparameters', True),
+                                 verbose=cfg_preprocess.get('verbose', False))
+
+    return augment_obj
 
 
 # ================================================================================================

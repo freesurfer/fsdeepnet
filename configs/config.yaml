@@ -13,13 +13,13 @@ model:
   nb_conv_per_level: 2
   use_batchnorm: True
   bn_track_running_stats: False
-  activation: "elu"
+  activation: elu
   ndims: 3
   conv_size: 3
   pool_size: 2
   use_residuals: False
   refine_conv: False
-  final_pred_activation: "softmax"
+  final_pred_activation: softmax
   weight_init: xavier_uniform  # or zeros
   upsample_interpolation: linear  # linear or nearest
   skip_connect_from: batchnorm    # batchnorm or encoder
@@ -28,79 +28,44 @@ preprocessing:
   augmentation_class: freeseg.augmentation.augmentbase.AugmentBase   # or freeseg.augmentation.augmentvoxynth.AugmentVoxynth
   sampling_hyperparameters: True
   verbose: False
-  train_augmentations: [
-    # "flip",          # need to define left_right_corresponding
-    "spatialdeformation",
-    # only one type of cropping should be listed
-    "centercrop",            # crop around the image cener
-    #"randomcrop",         # crop from a randomly selected point
-    #"randomcentercrop",  # crop around a randomly selected point
-    "biasfieldcorruption",
-    "intensityaugmentation",
-    ]
+  crop_size: [160, 160, 160]  
   #augmentation_dir: /path/to-save-augmented-data
   #bbox_labels: list of labels to make the bounding box
-  flip_prob: 0.5
-  crop_size: [160, 160, 160]
-  
-  # spatialtransform parameters (AugmentBase)
-  affine_probability: 1.0
-  max_translation: 30  # mm
-  max_rotation: 20     # angles as degrees
-  max_shearing: 0.015  
-  max_scaling: 1.2     # scaling factor
-  warp_probability: 1
-  warp_integrations: 7
-  warp_generation_method: "upsample"   # "blur" or "upsample"
-  warp_smoothing_range: [10.62, 10.62]
-  warp_magnitude_range: [0, 3]
-  # to equate with hypothalamus/SynthSeg implementation,
-  # 1. warp_generation_method: "blur"
-  #    - voxel size of the hypothalamus/SynthSeg vector field
-  #      voxelsize=1/nonlin_scale=25 (nonlin_scale=.04)
-  #    - set fwhm=voxelsize
-  #    - gstd=fwhm/sqrt(log(256))=25/sqrt(log(256))=10.62
-  # 2. warp_generation_method: "upsample"
-  #    warp_smoothing_range=1/nonlin_scale=25 (nonlin_scale=.04)
-
-  
-  # intensityaugmentation parameters (AugmentBase)
-  added_noise_probability: 1 #0.5
-  added_noise_max_sigma: 1.0
-  gamma_scaling_probability: 1
-  gamma_scaling_max: 0.59
-  # gamma_scaling_max is used differently in 'augmentbase.IntensityAugmentation' and 'augmentvoxynth.IntensityAugmentation'
-  # a. in 'augmentbase.IntensityAugmentation',
-  #    gamma is randomly sampled from zero-mean gaussian distribution with fixed std=gamma_scaling_max
-  # b. in 'augmentvoxynth.IntensityAugmentation', gamma is randomly sampled from uniform distribution between +-gamma_scaling_max
-  # c. to make them equivalent:
-  #    set 'augmentvoxynth.IntensityAugmentation' gamma_scaling_max to FWHM/2 of 'augmentbase.IntensityAugmentation'
-  #    ex. gamma_scaling_max=FWHM/2=(gstd*sqrt(log(256.0)))/2=0.59, gstd=0.5
-
-
-  # biasfieldcorruption parameters (AugmentBase)
-  bias_field_probability: 1 # Ben: turned on if bias_field_std > 0
-  bias_field_max_magnitude: 0.5
-  bias_field_generation_method: "blur"   # this is for augmentbase.biasfieldcorruption only, it is either "blur" or "upsample"
-  bias_field_scale: 0.025
-  # bias_field_smoothing_range: [16.98, 16.98]
-  # bias_field_smoothing_range is deprecated, bias_field_scale is recommended
-  # for backward compatibility, bias_field_smoothing_range will be respected if it is specified;
-  # otherwise, it is computed as following for 'augmentvoxynth.BiasFieldCorruption':
-  # 1. bias_field_generation_method: "blur"
-  #    - voxel size of the bias field in 'BiasFieldCorruption':   
-  #      voxel_size=1/bias_scale=40 (bias_field_scale=.025)
-  #    - set fwhm=voxelsize
-  #    - gstd=fwhm/sqrt(log(256))=40/sqrt(log(256))=16.98
-  #      bias_field_smoothing_range=[gstd, gstd]
-  # 2. bias_field_generation_method: "upsample:
-  #    bias_field_smoothing_range=[1/bias_scale, 1/bias_scale] (bias_field_scale=.025)
-
-
-  # sampleConditionalGMM parameters (AugmentBase)
-  prior_mean: [25, 225]
-  prior_std: [5, 25]
-  prior_distribution: "uniform"
+  augmentations:
+    #- flip:
+    #    flip_prob: 0.5    
+    - spatialdeformation:
+        affine_probability: 1.0
+        max_translation: 30  # mm
+        max_rotation: 20     # angles as degrees
+        max_shearing: 0.015  
+        max_scaling: 1.2     # scaling factor
+        warp_probability: 1
+        warp_integrations: 7
+        warp_generation_method: "upsample"   # "blur" or "upsample"
+        warp_smoothing_range: [10.62, 10.62]
+        warp_magnitude_range: [0, 3]
+    # only one type of cropping should be listed
+    - centercrop:           # crop around the image cener
+    #- randomcrop           # crop from a randomly selected point
+    #- randomcentercrop     # crop around a randomly selected point    
+    - biasfieldcorruption:
+        bias_field_probability: 1 # Ben: turned on if bias_field_std > 0
+        bias_field_max_magnitude: 0.5
+        bias_field_generation_method: "blur"   # this is for augmentvoxynth.biasfieldcorruption only, it is either "blur" or "upsample"
+        bias_field_scale: 0.025
+    - intensityaugmentation:
+        added_noise_probability: 1 #0.5
+        added_noise_max_sigma: 1.0
+        gamma_scaling_probability: 1
+        gamma_scaling_max: 0.59
+    - gaussianblur:
+        gaussian_blur_max_sigma: 2
+        gaussian_blur_truncate: 2.5
+    #- sampleConditionalGMM:
+    #    prior_mean: [25, 225]
+    #    prior_std: [5, 25]
+    #    prior_distribution: "uniform"
 
 training:
   deterministic: False

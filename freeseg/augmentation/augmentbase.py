@@ -3,64 +3,68 @@ import numpy as np
 import numpy.random as npr
 import math
 import torch
-import torch.nn as nn
 from freeseg import voxynth
-from freeseg.utils import get_ras_axes, bbox, centroid
+from freeseg.utils import get_ras_axes, bbox, centroid, remove_duplicates
 from freeseg.filter import Filter
 
 class AugmentBase:
-    def __init__(self, hyperparameters,
+    def __init__(self, hp,
+                 transforms,
+                 crop_size,
+                 num_channels=1,
                  left_right_corresponding=None,
+                 bbox_labels=None,
                  generation_labels=None,
+                 target_res=None,
                  output_dir=None,                 
-                 device=None):
-        self.valid_augmentations_base = ["flip",
-                                         "spatialdeformation",
-                                         "randomcrop", "randomcentercrop", "centercrop", "centroidcrop",
-                                         "biasfieldcorruption",
-                                         "intensityaugmentation",
-                                         "sampleconditionalgmm",
-                                         "rescalevolume",
-                                         "gaussianblur",
-                                        ]
-        self.valid_augmentations = self.valid_augmentations_base.copy()
+                 device=None,
+                 sampling_hp=True,
+                 verbose=False):
+        valid_augmentations_base = ["flip",
+                                    "spatialdeformation",
+                                    "randomcrop", "randomcentercrop", "centercrop", "centroidcrop",
+                                    "biasfieldcorruption",
+                                    "intensityaugmentation",
+                                    "sampleconditionalgmm",
+                                    "rescalevolume",
+                                    "gaussianblur",
+                                   ]
+        self.valid_augmentations = valid_augmentations_base.copy()
 
-        self.hyperparameters = hyperparameters        
-        self.left_right_corresponding = left_right_corresponding
-        self.generation_labels = generation_labels
-        self.output_dir = output_dir
-        self.device = device
-        if (self.device is None):
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.verbose = True if self.hyperparameters.get("verbose") else False
-        if (self.verbose):
+        self.output_dir = output_dir   # used in apply_augmentations()
+        if (device is None):
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if (verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.AugmentBase' constructor")
 
+        self.transforms = transforms
+        
         # set up augmentations
-        self.flip = Flip(self.hyperparameters, device=self.device, left_right_corresponding=self.left_right_corresponding)
-        self.spatialdeformation = SpatialDeformation(self.hyperparameters, device=self.device)
-        self.randomcrop = RandomCrop(self.hyperparameters, device=self.device, mode='random')
-        self.randomcentercrop = RandomCrop(self.hyperparameters, device=self.device, mode='center')
-        self.centercrop = CenterCrop(self.hyperparameters, device=self.device)
-        self.centroidcrop = CentroidCrop(self.hyperparameters, device=self.device)
-        self.biasfieldcorruption = BiasFieldCorruption(self.hyperparameters, device=self.device)
-        self.intensityaugmentation = IntensityAugmentation(self.hyperparameters, device=self.device)
-        self.sampleconditionalgmm = SampleConditionalGMM(self.hyperparameters, self.generation_labels, device=self.device)
-        self.rescalevolume = RescaleVolume(self.hyperparameters, device=self.device)
-        self.gaussianblur = GaussianBlur(self.hyperparameters, device=self.device)
+        self.flip = Flip(left_right_corresponding, hp=hp.get('flip'), device=device, sampling_hp=sampling_hp, verbose=verbose)
+        self.spatialdeformation = SpatialDeformation(hp=hp.get('spatialdeformation'), device=device, sampling_hp=sampling_hp, verbose=verbose)
+        self.randomcrop = RandomCrop(crop_size, bbox_labels=bbox_labels, hp=hp.get('randomcrop'), device=device, mode='random', sampling_hp=sampling_hp, verbose=verbose)
+        self.randomcentercrop = RandomCrop(crop_size, bbox_labels=bbox_labels, hp=hp.get('randomcentercrop'), device=device, mode='center', sampling_hp=sampling_hp, verbose=verbose)
+        self.centercrop = CenterCrop(crop_size, hp=hp.get('centercrop'), device=device, sampling_hp=sampling_hp, verbose=verbose)
+        self.centroidcrop = CentroidCrop(crop_size, hp=hp.get('centroidcrop'), device=device, sampling_hp=sampling_hp, verbose=verbose)
+        self.biasfieldcorruption = BiasFieldCorruption(hp=hp.get('biasfieldcorruption'), device=device, sampling_hp=sampling_hp, verbose=verbose)
+        self.intensityaugmentation = IntensityAugmentation(hp=hp.get('intensityaugmentation'), device=device, sampling_hp=sampling_hp, verbose=verbose)
+        self.sampleconditionalgmm = SampleConditionalGMM(generation_labels, hp=hp.get('sampleconditionalgmm'), num_channels=num_channels, device=device, sampling_hp=sampling_hp, verbose=verbose)
+        self.rescalevolume = RescaleVolume(hp=hp.get('rescalevolume'), device=device, sampling_hp=sampling_hp, verbose=verbose)
+        self.gaussianblur = GaussianBlur(hp=hp.get('gaussianblur'), device=device, sampling_hp=sampling_hp, verbose=verbose)
 
 
-class Flip(nn.Module):
-    def __init__(self, hyperparameters, device=None, left_right_corresponding=None):
+class Flip(torch.nn.Module):
+    def __init__(self, left_right_corresponding, hp=None, device=None, sampling_hp=True, verbose=False):
         super().__init__()
 
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        hp = {} if (hp is None) else hp        
+        self.flip_prob = hp.get("flip_prob", 0.5)
         self.left_right_corresponding = left_right_corresponding
-        self.flip_prob = hyperparameters.get("flip_prob", 0.5)
-        self.verbose = True if hyperparameters.get("verbose") else False
+        self.verbose = verbose
 
     # ??? todo: flip priors ???        
     def forward(self, input, debugsaveprefix=None):
@@ -109,26 +113,27 @@ class Flip(nn.Module):
         return output
 
 
-class SpatialDeformation(nn.Module):
-    def __init__(self, hyperparameters, device=None):
+class SpatialDeformation(torch.nn.Module):
+    def __init__(self, hp=None, device=None, sampling_hp=True, verbose=False):
         super().__init__()
 
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.affine_probability = hyperparameters.get("affine_probability", 1.0)
-        self.max_translation = hyperparameters.get("max_translation", 5.0)
-        self.max_rotation = hyperparameters.get("max_rotation", 5.0)
-        self.max_shearing = hyperparameters.get("max_shearing", 0.015)        
-        self.max_scaling = hyperparameters.get("max_scaling", 1.1)
-        self.warp_probability = hyperparameters.get("warp_probability", 1.0)
-        self.warp_integrations = hyperparameters.get("warp_integrations", 7)
-        self.warp_generation_method = hyperparameters.get("warp_generation_method", "upsample")
-        self.warp_smoothing_range = hyperparameters.get("warp_smoothing_range", [10, 20])
-        self.warp_magnitude_range = hyperparameters.get("warp_magnitude_range", [1, 2])
-        self.sampling = hyperparameters.get("sampling_hyperparameters", True)
-        self.verbose = True if hyperparameters.get("verbose") else False
+        hp = {} if (hp is None) else hp            
+        self.affine_probability = hp.get("affine_probability", 1.0)
+        self.max_translation = hp.get("max_translation", 5.0)
+        self.max_rotation = hp.get("max_rotation", 5.0)
+        self.max_shearing = hp.get("max_shearing", 0.015)        
+        self.max_scaling = hp.get("max_scaling", 1.1)
+        self.warp_probability = hp.get("warp_probability", 1.0)
+        self.warp_integrations = hp.get("warp_integrations", 7)
+        self.warp_generation_method = hp.get("warp_generation_method", "upsample")
+        self.warp_smoothing_range = hp.get("warp_smoothing_range", [10, 20])
+        self.warp_magnitude_range = hp.get("warp_magnitude_range", [1, 2])
+        self.sampling = sampling_hp
+        self.verbose = verbose
 
     def forward(self, input, debugsaveprefix=None):
         """Applies a random spatial transformation to image and label volumes."""
@@ -200,18 +205,17 @@ class SpatialDeformation(nn.Module):
         return output
 
 
-class RandomCrop(nn.Module):
-    def __init__(self, hyperparameters, device=None, mode='random'):
+class RandomCrop(torch.nn.Module):
+    def __init__(self, crop_size, bbox_labels=None, hp=None, device=None, mode='random', sampling_hp=True, verbose=False):
         super().__init__()
         self.mode = mode
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        crop_size = hyperparameters.get("crop_size", None)
         self.crop_size = torch.tensor(crop_size, device=self.device)
-        self.bbox_labels = hyperparameters.get("bbox_labels", None)
-        self.verbose = True if hyperparameters.get("verbose") else False
+        self.bbox_labels = bbox_labels
+        self.verbose = verbose
 
     def forward(self, input, debugsaveprefix=None):
         """
@@ -387,16 +391,15 @@ class RandomCrop(nn.Module):
         return output
     
 
-class CentroidCrop(nn.Module):
-    def __init__(self, hyperparameters, device=None):
+class CentroidCrop(torch.nn.Module):
+    def __init__(self, crop_size, hp=None, device=None, sampling_hp=True, verbose=False):
         super().__init__()
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        crop_size = hyperparameters.get("crop_size", None)
         self.crop_size = torch.tensor(crop_size, device=self.device)
-        self.verbose = True if hyperparameters.get("verbose") else False
+        self.verbose = verbose
 
     def forward(self, input, debugsaveprefix=None):
         """Applies a crop centered around a specified point or the image center.
@@ -473,16 +476,15 @@ class CentroidCrop(nn.Module):
         return output
 
 
-class CenterCrop(nn.Module):
-    def __init__(self, hyperparameters, device=None):
+class CenterCrop(torch.nn.Module):
+    def __init__(self, crop_size, hp=None, device=None, sampling_hp=True, verbose=False):
         super().__init__()
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        crop_size = hyperparameters.get("crop_size", None)
         self.crop_size = torch.tensor(crop_size, device=self.device)
-        self.verbose = True if hyperparameters.get("verbose") else False
+        self.verbose = verbose
 
     def forward(self, input, debugsaveprefix=None):
         """Applies a crop centered around a specified point or the image center.
@@ -554,20 +556,21 @@ class CenterCrop(nn.Module):
 #     Finally, intensities are rescaled between [0,1] with min-max normalisation.
 #     Additional examples of augmented images are shown in the Supplementary materials (Fig. S1).
 #   "
-class IntensityAugmentation(nn.Module):
-    def __init__(self, hyperparameters, device=None):
+class IntensityAugmentation(torch.nn.Module):
+    def __init__(self, hp=None, device=None, sampling_hp=True, verbose=False):
         super().__init__()
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.noise_std = hyperparameters.get("added_noise_max_sigma", 1.0)  # default is 0 for SynthSeg, no white noise added
-        self.normalize = hyperparameters.get("normalize", True)
-        self.gamma_std = hyperparameters.get("gamma_scaling_max", 0.5)
-        self.prob_noise = hyperparameters.get("added_noise_probability", 0.95)
-        self.prob_gamma = hyperparameters.get("gamma_scaling_probability", 1)
-        self.sampling = hyperparameters.get("sampling_hyperparameters", True)
-        self.verbose = True if hyperparameters.get("verbose") else False        
+        hp = {} if (hp is None) else hp
+        self.noise_std = hp.get("added_noise_max_sigma", 1.0)  # default is 0 for SynthSeg, no white noise added
+        self.normalize = hp.get("normalize", True)
+        self.gamma_std = hp.get("gamma_scaling_max", 0.5)
+        self.prob_noise = hp.get("added_noise_probability", 0.95)
+        self.prob_gamma = hp.get("gamma_scaling_probability", 1)
+        self.sampling = sampling_hp
+        self.verbose = verbose
 
     def forward(self, input, debugsaveprefix=None):
         """
@@ -653,18 +656,19 @@ class IntensityAugmentation(nn.Module):
 #    and upscale it to image size with linear interpolation. Then, we take the voxel-wise exponential to ensure the non-negativity of this field.
 #    Finally, we multiply the spatially deformed scan by the obtained bias field to corrupt its intensities (Fig. 1(c)).
 #  "
-class BiasFieldCorruption(nn.Module):
-    def __init__(self, hyperparameters, device=None):
+class BiasFieldCorruption(torch.nn.Module):
+    def __init__(self, hp=None, device=None, sampling_hp=True, verbose=False):
         super().__init__()
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.bias_field_std = hyperparameters.get("bias_field_max_magnitude", .7)  # SynthSeg
-        self.bias_scale = hyperparameters.get("bias_field_scale", .025)
-        self.prob = hyperparameters.get("bias_field_probability", 0.95)
-        self.sampling = hyperparameters.get("sampling_hyperparameters", True)
-        self.verbose = True if hyperparameters.get("verbose") else False        
+        hp = {} if (hp is None) else hp            
+        self.bias_field_std = hp.get("bias_field_max_magnitude", .7)  # SynthSeg
+        self.bias_scale = hp.get("bias_field_scale", .025)
+        self.prob = hp.get("bias_field_probability", 0.95)
+        self.sampling = sampling_hp
+        self.verbose = verbose
 
     def forward(self, input, debugsaveprefix=None):
         """
@@ -736,19 +740,20 @@ class BiasFieldCorruption(nn.Module):
 
 # generate an initial synthetic scan G by sampling a GMM conditioned on L described in SynthSeg paper
 # (https://www.sciencedirect.com/science/article/pii/S1361841523000506)
-class SampleConditionalGMM(nn.Module):
-    def __init__(self, hyperparameters, generation_labels, device=None):
+class SampleConditionalGMM(torch.nn.Module):
+    def __init__(self, generation_labels, hp=None, num_channels=1, device=None, sampling_hp=True, verbose=False):
         super().__init__()
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        hp = {} if (hp is None) else hp            
         self.generation_labels = generation_labels
-        self.num_channels = hyperparameters.get("num_channels", 1)  # dataset expected_num_channels
-        self.prior_distribution = hyperparameters.get("prior_distribution", "uniform")  # 'normal'
-        self.prior_mean = hyperparameters.get("prior_mean", [25, 225])
-        self.prior_std = hyperparameters.get("prior_std", [5, 25])
-        self.verbose = True if hyperparameters.get("verbose") else False
+        self.num_channels = num_channels  # dataset expected_num_channels
+        self.prior_distribution = hp.get("prior_distribution", "uniform")  # 'normal'
+        self.prior_mean = hp.get("prior_mean", [25, 225])
+        self.prior_std = hp.get("prior_std", [5, 25])
+        self.verbose = verbose
 
     def forward(self, input, debugsaveprefix=None):
         """
@@ -821,20 +826,21 @@ class SampleConditionalGMM(nn.Module):
         return output
 
 
-class RescaleVolume(nn.Module):
-    def __init__(self, hyperparameters, device=None):
+class RescaleVolume(torch.nn.Module):
+    def __init__(self, hp=None, device=None, sampling_hp=True, verbose=False):
         super().__init__()
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.new_min = hyperparameters.get("new_min", 0.0)
-        self.new_max = hyperparameters.get("new_max", 1.0)
-        self.min_percentile = hyperparameters.get("min_percentile", 0.5)
-        self.max_percentile = hyperparameters.get("max_percentile", 99.5)
-        self.use_positive_only = hyperparameters.get("use_positive_only", False)
-        self.sampling = hyperparameters.get("sampling_hyperparameters", True)
-        self.verbose = True if hyperparameters.get("verbose") else False
+        hp = {} if (hp is None) else hp            
+        self.new_min = hp.get("new_min", 0.0)
+        self.new_max = hp.get("new_max", 1.0)
+        self.min_percentile = hp.get("min_percentile", 0.5)
+        self.max_percentile = hp.get("max_percentile", 99.5)
+        self.use_positive_only = hp.get("use_positive_only", False)
+        self.sampling = sampling_hp
+        self.verbose = verbose
 
 
     def forward(self, input, debugsaveprefix=None):
@@ -886,19 +892,20 @@ class RescaleVolume(nn.Module):
         return output
 
 
-class GaussianBlur(nn.Module):
-    def __init__(self, hyperparameters, device=None):
+class GaussianBlur(torch.nn.Module):
+    def __init__(self, hp=None, device=None, sampling_hp=True, verbose=False):
         super().__init__()
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # ??? sample sigma from max_sigma ???
-        self.sigma = hyperparameters.get("gaussian_blur_max_sigma", 2)
-        self.truncate = hyperparameters.get("gaussian_blur_truncate", 2.5)
-        self.radius = hyperparameters.get("gaussian_blur_radius", None)
-        self.sampling = hyperparameters.get("sampling_hyperparameters", True)
-        self.verbose = True if hyperparameters.get("verbose") else False
+        hp = {} if (hp is None) else hp        
+        self.sigma = hp.get("gaussian_blur_max_sigma", 2)
+        self.truncate = hp.get("gaussian_blur_truncate", 2.5)
+        self.radius = hp.get("gaussian_blur_radius", None)
+        self.sampling = sampling_hp
+        self.verbose = verbose
 
 
     def forward(self, input, debugsaveprefix=None):
@@ -922,7 +929,7 @@ class GaussianBlur(nn.Module):
 
         ndims = image.ndim - 1
         in_channels = image.shape[0]
-        conv = getattr(nn.functional, f'conv{ndims}d')
+        conv = getattr(torch.nn.functional, f'conv{ndims}d')
         sigma = np.random.uniform(0, self.sigma) if (self.sampling) else self.sigma
         if (np.isscalar(sigma)):
             sigma = [sigma] * ndims

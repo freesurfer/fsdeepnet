@@ -12,7 +12,7 @@ import shutil
 from torch.utils.data import DataLoader
 
 from freeseg.config import Config
-from freeseg.utils import DataGenerator, set_deterministic_training, load_datasets
+from freeseg.utils import DataGenerator, set_deterministic_training, load_dataset, remove_duplicates, create_augment_object
 
 
 """
@@ -111,8 +111,10 @@ def main():
     inverse_label_mapping = {v: k for k, v in label_mapping.items()}
     config["dataset"]["label_mapping"] = label_mapping
     augmentation_class = config["preprocessing"].get("augmentation_class", "freeseg.augmentation.augmentbase.AugmentBase")
-    train_dataset, _, _ = load_datasets(config, augmentation_class,
-                                        config["preprocessing"].get("train_augmentations"), config["evaluation"].get("evaluation_augmentations"), device=preprocessing_device, train_cohort=args.cohort)
+    train_augmentations = remove_duplicates(Config.get_augmentations(config["preprocessing"].get("augmentations")))
+    train_augment_obj = create_augment_object(augmentation_class, train_augmentations, config, cohort="train", device=preprocessing_device)    
+    train_dataset = load_dataset(config, train_augment_obj,
+                                 device=preprocessing_device, cohort=args.cohort)
 
     # Create training DataLoader
     train_loader = DataLoader(train_dataset, batch_size=config["training"]["batch_size"], shuffle=True,

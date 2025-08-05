@@ -2,13 +2,12 @@ import os
 import logging
 import numpy as np
 import torch
-from torch.utils.data import Dataset
 
 from freeseg import augmentation
 from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot, get_class, remove_duplicates
 
-class SegmentationDataset(Dataset):
-    def __init__(self, config, augmentation_class=None, dataset_dict=None, image=None, label=None, priors=None, transform=None, device=None, check_augment=False, keep_trainset_in_memory=False):
+class SegmentationDataset(torch.utils.data.Dataset):
+    def __init__(self, config, augment_obj, dataset_dict=None, image=None, label=None, priors=None, device=None, keep_trainset_in_memory=False):
         """
         SegmentationDataset Constructor
 
@@ -20,35 +19,29 @@ class SegmentationDataset(Dataset):
           Input label map(s)
         """
 
-        assert (augmentation_class is not None), "Must provide an data augmentation class"
         assert ((dataset_dict is not None) or (image is not None and label is not None)), \
             "Must provide input image/label using 'dataset_dict' or 'image/label'"
 
         self.num_entries = len(dataset_dict) if (dataset_dict is not None) else len(image)
         self.num_channels = config["dataset"]["expected_num_channels"]
         self.ndims = config["model"]["ndims"]
-        self.config = config
-        self.augment_para = config["preprocessing"]
-        self.augment_para["num_channels"] = self.num_channels  # needed in sampleConditionalGMM 
-        self.transform = remove_duplicates(transform)
+        self.expected_classes = config["dataset"]["expected_classes"]
+        self.num_classes = len(sorted(config["dataset"]["expected_classes"]))
+        self.label_mapping = config["dataset"]["label_mapping"]
+
+        assert (self.ndims == 3 or self.ndims == 2), "Model supports 3D or 2D"
+                
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.num_classes = len(sorted(config["dataset"]["expected_classes"]))
-        self.label_mapping = config["dataset"]["label_mapping"]
-        self.check_augment = check_augment
-
-        assert (self.ndims == 3 or self.ndims == 2), "Model supports 3D or 2D"
 
         self.save_volumes = None
-        self.output_dir = self.augment_para.get("augmentation_dir", None)
+        self.output_dir = config["preprocessing"].get("augmentation_dir", None)
         if ((self.output_dir is not None) and (not os.path.exists(self.output_dir))):
             os.makedirs(self.output_dir)        
         if (keep_trainset_in_memory and self.output_dir is not None):
             logging.error(f"'--keep_trainset_in_memory' doesn't work with saving augmentation volumes") 
             raise ValueError("'--keep_trainset_in_memory' doesn't work with saving augmentation volumes")
-        if (check_augment):
-            raise ValueError("'--check_augment' is experimental. It is not working yet. ")
 
         self.keep_trainset_in_memory = keep_trainset_in_memory
         self.images = []
@@ -72,15 +65,9 @@ class SegmentationDataset(Dataset):
         if (self.haspriors()):
             assert (len(self.label_files) == len(self.priors_files)), "label and priors need to be the same length"
 
-        # create data augment object
-        augment_class = get_class(augmentation_class, "freeseg.augmentation.augmentbase")
-        self.data_augment = augment_class(self.augment_para,
-                                          left_right_corresponding=self.config["dataset"].get("left_right_corresponding", None),
-                                          generation_labels=self.config["dataset"].get("expected_classes"),
-                                          output_dir=self.output_dir,
-                                          device=self.device)
-        if (self.transform is not None):
-            augmentation.check_augmentations(self.data_augment, self.transform)
+        self.data_augment = augment_obj
+        if (self.data_augment is not None):
+            augmentation.check_augmentations(self.data_augment)
         
 
     def haspriors(self):
@@ -89,6 +76,7 @@ class SegmentationDataset(Dataset):
     
     def __len__(self):
         return self.num_entries
+
 
     def __getitem__(self, index):
         image_path = self.image_files[index]
@@ -119,63 +107,36 @@ class SegmentationDataset(Dataset):
             label_tensor  = self.label_tensors[index]
             priors_tensor = self.prior_tensors[index]
 
-        # Apply data augmentation if transform is specified
-        if self.transform:
-            trycount = 1 if (self.check_augment) else None
-            while (True):
-                # image.geom.voxsize returned from surfa.load_volume() is (3, 1)
-                # extract voxsizes to match {image_tensor.ndim-1}D data
-                # make it writeable or voxynth.augment.image_augment() will complain non-writable numpy array
-                voxsize = np.copy(image.geom.voxsize[:image_tensor.ndim-1])
-                augmented_image_tensor, augmented_label_tensor, augmented_priors_tensor = \
-                    augmentation.apply_augmentations(
-                        self.data_augment,
-                        image_tensor,
-                        label_tensor,
-                        image,
-                        label,
-                        voxsize=voxsize,
-                        priors_tensor=priors_tensor,
-                        save_volumes=(self.save_volumes + f"_try{trycount}") if (trycount is not None) else self.save_volumes,
-                        augmentations_to_apply=self.transform,
-                    )
+        # Apply data augmentation
+        if (self.data_augment is not None):
+            # image.geom.voxsize returned from surfa.load_volume() is (3, 1)
+            # extract voxsizes to match {image_tensor.ndim-1}D data
+            # make it writeable or voxynth.augment.image_augment() will complain non-writable numpy array
+            voxsize = np.copy(image.geom.voxsize[:image_tensor.ndim-1])
+            augmented_image_tensor, augmented_label_tensor, augmented_priors_tensor = \
+                augmentation.apply_augmentations(
+                    self.data_augment,
+                    image_tensor,
+                    label_tensor,
+                    image,
+                    label,
+                    voxsize=voxsize,
+                    priors_tensor=priors_tensor,
+                    save_volumes=self.save_volumes,
+                )
                 
-                # ??? (2024-11-22) the logic is not working ???
-                # check if augmented label contains all the labels                             
-                # compare the voxel counts of all labels
-                havealllabels = True                               
-                if (self.check_augment):
-                    if (torch.count_nonzero(augmented_label_tensor) < torch.count_nonzero(label_tensor)):
-                        if (self.output_dir is not None):
-                            out_image = os.path.join(self.output_dir, self.save_volumes + f"_rejected{trycount}_image.mgz")
-                            save_framedimage(augmented_image_tensor, out_image, original_framedimage=image)
-                            out_label = os.path.join(self.output_dir, self.save_volumes + f"_rejected{trycount}_label.mgz")
-                            save_framedimage(augmented_label_tensor, out_label, original_framedimage=label)
-                        havealllabels = False                        
-            
-                if (havealllabels):
-                    # freeseg.utils.remap_labels() and freeseg.utils.onehot() expect batched tensor [N, 1, H, W(, D)]
-                    # add batch axis before calling remap_labels() and onehot()
-                    augmented_label_tensor = augmented_label_tensor.int().unsqueeze(0)
-                    onehot_augmented_label_tensor = remap_labels(augmented_label_tensor, self.label_mapping)
-                    onehot_augmented_label_tensor = onehot(onehot_augmented_label_tensor, num_classes=self.num_classes, device=self.device)
-                    # remove the added batch axis, DataLoader will batch the tensor based on batch_size
-                    onehot_augmented_label_tensor = onehot_augmented_label_tensor.squeeze(0)
-                    
-                    if (self.output_dir is not None):
-                        out_image = os.path.join(self.output_dir, self.save_volumes + f"_augmented_image.mgz")
-                        save_framedimage(augmented_image_tensor, out_image, original_framedimage=image)
-                        out_label = os.path.join(self.output_dir, self.save_volumes + f"_augmented_label.mgz")
-                        save_framedimage(augmented_label_tensor, out_label, original_framedimage=label)
-                        out_label_onehot = os.path.join(self.output_dir, self.save_volumes + f"_augmented_label_onehot.mgz")
-                        save_framedimage(onehot_augmented_label_tensor, out_label_onehot, onehotencoded=True)
-                        if (augmented_priors_tensor is not None):
-                            out_prior = os.path.join(self.output_dir, self.save_volumes + f"_augmented_prior.mgz")
-                            save_framedimage(augmented_priors_tensor, out_prior, original_framedimage=sfprior, dtype=float)                        
-                    break
+            # freeseg.utils.remap_labels() and freeseg.utils.onehot() expect batched tensor [N, 1, H, W(, D)]
+            # add batch axis before calling remap_labels() and onehot()
+            augmented_label_tensor = augmented_label_tensor.int().unsqueeze(0)
+            onehot_augmented_label_tensor = remap_labels(augmented_label_tensor, self.label_mapping)
+            onehot_augmented_label_tensor = onehot(onehot_augmented_label_tensor, num_classes=self.num_classes, device=self.device)
+            # remove the added batch axis, DataLoader will batch the tensor based on batch_size
+            onehot_augmented_label_tensor = onehot_augmented_label_tensor.squeeze(0)
 
-                trycount = trycount + 1
-                logging.info(f"Reject {self.save_volumes} augmentation, retry #{trycount} ...")               
+            # ??? todo: move the logic to augmentation.__init__.py
+            if (self.output_dir is not None):
+                out_label_onehot = os.path.join(self.output_dir, self.save_volumes + f"_augmented_label_onehot.mgz")
+                save_framedimage(onehot_augmented_label_tensor, out_label_onehot, onehotencoded=True)
 
             if (augmented_priors_tensor is None):
                 # torch.utils.data.DataLoader can't return NoneType, make an empty tensor with 0 elements
@@ -242,7 +203,7 @@ class SegmentationDataset(Dataset):
             unique_values = np.unique(label.data).astype(int).tolist()
             unique_classes.update(unique_values)
 
-        expected_classes = self.config["dataset"]["expected_classes"]
+        expected_classes = self.expected_classes
         """
         assert (sorted(unique_classes) == expected_classes), \
             f"Expected classes {expected_classes}, but got {sorted(unique_classes)}"

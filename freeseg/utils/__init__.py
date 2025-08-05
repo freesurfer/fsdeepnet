@@ -11,5 +11,6 @@ from .utility import gpu_report
 from .utility import config_logger
 from .utility import get_class
 from .utility import remove_duplicates
-from .utility import load_datasets
+from .utility import load_dataset
+from .utility import create_augment_object
 from .utility import get_ras_axes
