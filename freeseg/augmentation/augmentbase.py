@@ -73,20 +73,21 @@ class Flip(torch.nn.Module):
     def forward(self, input, debugsaveprefix=None):
         """Applies a random left-right flip to image and label volumes."""
         """Swaps left-right labels on label volume."""
-        if (np.random.rand() >= self.flip_prob):
-            # no flipping
-            return image, label
-
-        assert geom is not None, 'geom should not be None when applying flipping'
-        assert self.left_right_corresponding is not None, 'left_right_corresponding should not be None when applying flipping'
-        if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentbase.Flip'")
 
         image = input.get("image", None)
         label = input.get("label", None)
         prior = input.get("prior", None)
         voxsize = input.get("voxsize", None)
         geom = input.get("geom", None)
+
+        if (np.random.rand() >= self.flip_prob):
+            # no flipping
+            return dict(image=image, label=label)
+
+        assert geom is not None, 'geom should not be None when applying flipping'
+        assert self.left_right_corresponding is not None, 'left_right_corresponding should not be None when applying flipping'
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augmentbase.Flip'")
 
         aff = geom.vox2world.matrix
         ndims = len(image.shape[1:])
@@ -175,10 +176,11 @@ class SpatialDeformation(torch.nn.Module):
 
         if (debugsaveprefix is not None):
             # trf is displacement in crs
-            from surfa.transform import Warp
-            trf_cpu = trf.cpu().detach().numpy().astype(np.float32)
-            warp = Warp(trf_cpu, source=geom, target=geom, format=Warp.Format.disp_crs)
-            warp.save(f"{debugsaveprefix}_warp_dispcrs.mgz")
+            if (trf is not None):
+                from surfa.transform import Warp
+                trf_cpu = trf.cpu().detach().numpy().astype(np.float32)
+                warp = Warp(trf_cpu, source=geom, target=geom, format=Warp.Format.disp_crs)
+                warp.save(f"{debugsaveprefix}_warp_dispcrs.mgz")
 
             if (aff_matrix is not None):
                 from surfa.transform import Affine
@@ -431,10 +433,10 @@ class CentroidCrop(torch.nn.Module):
         image_shape = torch.tensor(image.shape[1:], device=image.device)
         #crop_size = torch.tensor(crop_size, device=image.device)
 
-        crop_idx = None
         if (not torch.any(image_shape > self.crop_size)):
-            return image, label, prior, crop_idx
+            return dict(image=image, label=label, prior=prior, crop_idx=None)
 
+        crop_idx = None        
         center_point = None
         # calculate the center point to crop the image/label around    
         if (label is not None):
@@ -516,10 +518,10 @@ class CenterCrop(torch.nn.Module):
         image_shape = torch.tensor(image.shape[1:], device=image.device)
         #crop_size = torch.tensor(crop_size, device=image.device)
 
-        crop_idx = None
         if (not torch.any(image_shape > self.crop_size)):
-            return image, label, prior, crop_idx
+            return dict(image=image, label=label, prior=prior, crop_idx=None)
 
+        crop_idx = None        
         zero_tensor = torch.zeros(image.ndim-1, device=image.device, dtype=int)
         crop_half = (self.crop_size/2).int()
         center_point = (image_shape/2).int()   #tuple(dim // 2 for dim in image_shape)
@@ -697,20 +699,20 @@ class BiasFieldCorruption(torch.nn.Module):
                         otherwise, use bias_field_std as the standard deviation of a centred normal distribution
         """
 
-        if (self.sampling and (not np.random.rand() < self.prob or self.bias_field_std <= 0)):
-            if (self.verbose):
-                logging.debug(f"'freeseg.augmentation.augmentbase.BiasFieldCorruption' - Skipped prob={self.prob}, bias_field_std={self.bias_field_std}")
-            return image, label, prior, None
-    
-        if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentbase.BiasFieldCorruption'")
-
         image = input.get("image", None)
         label = input.get("label", None)
         prior = input.get("prior", None)
         voxsize = input.get("voxsize", None)
         geom = input.get("geom", None)
         
+        if (self.sampling and (not np.random.rand() < self.prob or self.bias_field_std <= 0)):
+            if (self.verbose):
+                logging.debug(f"'freeseg.augmentation.augmentbase.BiasFieldCorruption' - Skipped prob={self.prob}, bias_field_std={self.bias_field_std}")
+            return dict(image=image, label=label, prior=prior, crop_idx=None)
+    
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augmentbase.BiasFieldCorruption'")
+
         num_channels = image.shape[0]
         ndims = image.ndim - 1
         image_shape = image.shape[1:]
