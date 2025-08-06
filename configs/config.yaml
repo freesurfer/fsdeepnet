@@ -11,8 +11,8 @@ model:
   nb_features: 24 
   feat_mult: 2
   nb_conv_per_level: 2
-  use_batchnorm: True
-  bn_track_running_stats: False
+  norm: batch  # or instance
+  track_running_stats: False
   activation: elu
   ndims: 3
   conv_size: 3
@@ -22,7 +22,7 @@ model:
   final_pred_activation: softmax
   weight_init: xavier_uniform  # or zeros
   upsample_interpolation: linear  # linear or nearest
-  skip_connect_from: batchnorm    # batchnorm or encoder
+  skip_connect: norm    # norm or encoder
 
 preprocessing:
   augmentation_class: freeseg.augmentation.augmentbase.AugmentBase   # or freeseg.augmentation.augmentvoxynth.AugmentVoxynth

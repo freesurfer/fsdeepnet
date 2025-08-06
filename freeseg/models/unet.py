@@ -13,7 +13,6 @@ class ConvBlock(nn.Module):
         conv_size=3,
         nb_conv_per_level=1,
         use_residuals=False,
-        use_batchnorm=True,
         activation="elu",
         weight_init="xavier_uniform"
     ):
@@ -100,31 +99,34 @@ class UNet(nn.Module):
         pool_size = self._model_arch_dict["pool_size"]
         nb_conv_per_level = self._model_arch_dict["nb_conv_per_level"]
         use_residuals = self._model_arch_dict["use_residuals"]
-        use_batchnorm = self._model_arch_dict["use_batchnorm"]
+        norm = self._model_arch_dict["norm"]
         activation = self._model_arch_dict["activation"]
         add_priors = self._model_arch_dict["add_priors"]
         refine_conv = self._model_arch_dict["refine_conv"]
         final_pred_activation = self._model_arch_dict["final_pred_activation"]
         weight_init = self._model_arch_dict["weight_init"]
-        bn_track_running_stats = self._model_arch_dict["bn_track_running_stats"]
+        track_running_stats = self._model_arch_dict["track_running_stats"]
         upsample_interpolation = self._model_arch_dict["upsample_interpolation"]
-        skip_connect_from = self._model_arch_dict["skip_connect_from"]
+        skip_connect = self._model_arch_dict["skip_connect"]
 
-        assert (weight_init == "xavier_uniform" or weight_init == "zeros"), \
-            f"weight_init {weight_init} is not supported. The options are either 'xavier_uniform' or 'zeros'"
-        assert (upsample_interpolation == "linear" or upsample_interpolation == "nearest"), \
-            f"upsample_interpolation {upsample_interpolation} is not supported. The options are either 'linear' or 'nearest'"
-        assert (skip_connect_from == "batchnorm" or skip_connect_from == "encoder"), \
-            f"skip_connect_from {skip_connect_from} is not supported. The options are either 'batchnorm' or 'encoder'"
-        if (skip_connect_from == "batchnorm"):
-            assert(use_batchnorm), f"use_batchnorm needs to be 'True' for skip_connect_from '{skip_connect_from}'"
+        if (norm is not None):
+            assert (norm in ["batch", "instance"]), \
+                f"norm '{norm}' is not supported. The options are either 'batch' or 'instance'"
+        assert (weight_init in ["xavier_uniform", "zeros"]), \
+            f"weight_init '{weight_init}' is not supported. The options are either 'xavier_uniform' or 'zeros'"
+        assert (upsample_interpolation in ["linear", "nearest"]), \
+            f"upsample_interpolation '{upsample_interpolation}' is not supported. The options are either 'linear' or 'nearest'"
+        assert (skip_connect in ["norm", "encoder"]), \
+            f"skip_connect '{skip_connect}' is not supported. The options are 'norm' or 'encoder'"
+        if (skip_connect == "norm"):
+            assert(norm is not None), f"norm needs to be 'batch' or 'instance' for skip_connect '{skip_connect}'"
                 
         classifier_weight_init = weight_init
         """
         if (add_priors):
             classifier_weight_init = "zeros"
         """
-        logging.info(f"UNet: encoder/decoder use_batchnorm={use_batchnorm}, bn_track_running_stats={bn_track_running_stats}, upsample_interpolation={upsample_interpolation}, skip_connect_from={skip_connect_from}")
+        logging.info(f"UNet: encoder/decoder norm={norm}, track_running_stats={track_running_stats}, upsample_interpolation={upsample_interpolation}, skip_connect={skip_connect}")
         logging.info(f"UNet: weight_init={weight_init}, classifier weight_init={classifier_weight_init}")
 
         super().__init__()
@@ -132,7 +134,6 @@ class UNet(nn.Module):
         self.add_priors = add_priors
         self.refine_conv = refine_conv
         self.final_pred_activation = final_pred_activation
-        self.use_batchnorm = use_batchnorm
 
         convL = getattr(nn, "Conv%dd" % ndims)
         pool = getattr(nn, "MaxPool%dd" % ndims)
@@ -144,8 +145,12 @@ class UNet(nn.Module):
         Set track_running_stats=False, this module does not track such statistics, and initializes statistics buffers running_mean and running_var as None.
         When these buffers are None, this module always uses batch statistics in both training and eval modes.
         """
-        self.batchnorm = getattr(nn, "BatchNorm%dd" % ndims)
-
+        self.norm = None
+        if (norm is not None and norm == 'batch'):
+            self.norm = getattr(nn, "BatchNorm%dd" % ndims)
+        elif (norm is not None and norm == 'instance'):
+            self.norm = getattr(nn, "InstanceNorm%dd" % ndims)
+            
         # Encoder (Contracting path)
         self.encoder = nn.ModuleList()
         in_channels = num_channels
@@ -161,22 +166,21 @@ class UNet(nn.Module):
                     conv_size=conv_size,
                     nb_conv_per_level=nb_conv_per_level,
                     use_residuals=use_residuals,
-                    use_batchnorm=self.use_batchnorm,
                     activation=activation,
                     weight_init=weight_init
                 )
             )
-            if (self.use_batchnorm):
-                if (bn_track_running_stats):  # match synthseg
-                    encoder.append(self.batchnorm(nb_lvl_feats, track_running_stats=True, momentum=0.99, eps=0.001))
+            if (self.norm is not None):
+                if (track_running_stats):  # match synthseg
+                    encoder.append(self.norm(nb_lvl_feats, track_running_stats=True, momentum=0.99, eps=0.001, affine=True))
                 else:
-                    encoder.append(self.batchnorm(nb_lvl_feats, track_running_stats=False))
+                    encoder.append(self.norm(nb_lvl_feats, track_running_stats=False, affine=True))
             encoder.append(pool(kernel_size=pool_size, stride=pool_size))
 
             self.encoder.append(encoder)
             in_channels = nb_lvl_feats
 
-        self.skip_connect_idx = 1 if (skip_connect_from == "batchnorm") else 0
+        self.skip_connect_idx = 1 if (skip_connect == "norm") else 0
                 
         # Bottleneck
         nb_lvl_feats = nb_features * (feat_mult**(nb_levels - 1))
@@ -189,16 +193,15 @@ class UNet(nn.Module):
                 conv_size=conv_size,
                 nb_conv_per_level=nb_conv_per_level,
                 use_residuals=use_residuals,
-                use_batchnorm=self.use_batchnorm,
                 activation=activation,
                 weight_init=weight_init
             )
         )
-        if (self.use_batchnorm):
-            if (bn_track_running_stats):  # match synthseg
-                self.bottleneck.append(self.batchnorm(nb_lvl_feats, track_running_stats=True, momentum=0.99, eps=0.001))
+        if (self.norm is not None):
+            if (track_running_stats):  # match synthseg
+                self.bottleneck.append(self.norm(nb_lvl_feats, track_running_stats=True, momentum=0.99, eps=0.001, affine=True))
             else:
-                self.bottleneck.append(self.batchnorm(nb_lvl_feats, track_running_stats=False))
+                self.bottleneck.append(self.norm(nb_lvl_feats, track_running_stats=False, affine=True))
 
         # Decoder (Expansive path)
         self.decoder = nn.ModuleList()
@@ -229,16 +232,15 @@ class UNet(nn.Module):
                     conv_size=conv_size,
                     nb_conv_per_level=nb_conv_per_level,
                     use_residuals=use_residuals,
-                    use_batchnorm=self.use_batchnorm,
                     activation=activation,
                     weight_init=weight_init
                 )
             )
-            if (self.use_batchnorm):
-                if (bn_track_running_stats):  # match synthseg
-                    decoder.append(self.batchnorm(nb_lvl_feats, track_running_stats=True, momentum=0.99, eps=0.001))
+            if (self.norm is not None):
+                if (track_running_stats):  # match synthseg
+                    decoder.append(self.norm(nb_lvl_feats, track_running_stats=True, momentum=0.99, eps=0.001, affine=True))
                 else:
-                    decoder.append(self.batchnorm(nb_lvl_feats, track_running_stats=False))
+                    decoder.append(self.norm(nb_lvl_feats, track_running_stats=False, affine=True))
             self.decoder.append(decoder)
 
         # Classification layer (Compute likelihood prediction)
@@ -265,8 +267,8 @@ class UNet(nn.Module):
         # Encoder (Contracting path)
         for encoder in self.encoder:
             for idx, layer in enumerate(encoder):
-                x = layer(x) # ConvBlock + batchnorm(optional) + maxpool
-                if (idx == self.skip_connect_idx): # ConvBlock or batchnorm
+                x = layer(x) # ConvBlock + batch/instance norm (optional) + maxpool
+                if (idx == self.skip_connect_idx): # ConvBlock or batch/instance norm
                     skip_connections.append(x)
 
         # Bottleneck
@@ -285,8 +287,8 @@ class UNet(nn.Module):
             x = torch.cat([skip_connection, x], dim=1)
             x = decoder[idx](x) # ConvBlock
             idx = idx + 1
-            if (self.use_batchnorm):
-                x = decoder[idx](x) # bn
+            if (self.norm is not None):
+                x = decoder[idx](x) # batch/instance norm
         
         # Classification layern (Compute likelihood prediction)
         x1 = x = self.classifier(x)
@@ -330,29 +332,58 @@ class UNet(nn.Module):
         self._model_arch_dict["pool_size"] = 2
         self._model_arch_dict["nb_conv_per_level"] = 1
         self._model_arch_dict["use_residuals"] = False
-        self._model_arch_dict["use_batchnorm"] = True
+        self._model_arch_dict["norm"] = None
         self._model_arch_dict["activation"] = "elu"
         self._model_arch_dict["add_priors"] = False
         self._model_arch_dict["refine_conv"] = False
         self._model_arch_dict["final_pred_activation"] = "softmax"
         self._model_arch_dict["weight_init"] = "xavier_uniform"
-        self._model_arch_dict["bn_track_running_stats"] = False
+        self._model_arch_dict["track_running_stats"] = False
         self._model_arch_dict["upsample_interpolation"] = "linear"
-        self._model_arch_dict["skip_connect_from"] = "batchnorm"
+        self._model_arch_dict["skip_connect"] = "norm"
 
 
     def _update_arch_dict(self, model_arch_dict):
         num_channels = model_arch_dict.get("num_channels", None)
         if (num_channels is None):
             # backward compatible - read older models with model_arch_dict["input_shape"] saved instead
-            logging.warning(f"this is an older model file w/ 'input_shape' saved insted of 'num_channels'")
+            logging.warning(f"this is an older model file w/ 'input_shape' saved instead of 'num_channels'")
             input_shape = model_arch_dict["input_shape"]
             num_channels = input_shape[0]
             del(model_arch_dict["input_shape"])
         model_arch_dict["num_channels"] = num_channels
 
+        # backward compatibility
+        # read older models before 'norm' is introduced, model_arch_dict["use_batchnorm"] is saved instead
+        if ("use_batchnorm" in model_arch_dict):
+            logging.warning(f"read old config entry 'use_batchnorm', use 'norm' instead to specify normalization type")
+            use_batchnorm = model_arch_dict["use_batchnorm"]
+            norm = "batch" if (use_batchnorm) else None
+            del(model_arch_dict["use_batchnorm"])
+            model_arch_dict["norm"] = norm
+
+        # backward compatibility
+        # 'skip_connect_from' is renamed to 'skip_connect'
+        if ("skip_connect_from" in model_arch_dict):
+            logging.warning(f"read old config entry 'skip_connect_from', it is rename to 'skip_connect'")
+            model_arch_dict["skip_connect"] = model_arch_dict["skip_connect_from"]
+            del(model_arch_dict["skip_connect_from"])            
+            if (model_arch_dict["skip_connect"] == "batchnorm"):
+                model_arch_dict["skip_connect"] = "norm"
+
+        # backward compatibility
+        # 'bn_track_running_stats' is renamed to 'track_running_stats'
+        if ("bn_track_running_stats" in model_arch_dict):
+            logging.warning(f"read old config entry 'bn_track_running_stats', it is rename to 'track_running_stats'")
+            model_arch_dict["track_running_stats"] = model_arch_dict["bn_track_running_stats"]
+            del(model_arch_dict["bn_track_running_stats"])            
+
+        # update self._model_arch_dict
         for k in (model_arch_dict.keys()):
             self._model_arch_dict[k] = model_arch_dict[k]
+
+        if (self._model_arch_dict["norm"] is None):
+            self._model_arch_dict["skip_connect"] = "encoder"
 
 
     @property
