@@ -160,11 +160,6 @@ class Prediction:
         pred_suffix = 'prediction'
         posteriors_suffix = 'posteriors'
 
-        # if 'codenames' is provided, use it as the output filename prefix;
-        # otherwise, use sequential numbers (starting from 1) padded with leading zeros
-        if (codenames is None):
-            codenames = [str(nn).zfill(4) for nn in range(1, len(path_images)+1)]
-                    
         # convert path to absolute paths
         if (not isinstance(path_images, list)):
             path_images = os.path.abspath(path_images)
@@ -172,31 +167,22 @@ class Prediction:
                 path_labels = os.path.abspath(path_labels)
             if (path_priors is not None):
                 path_priors = os.path.abspath(path_priors)
-            
-        if (isinstance(path_images, list)):
-            # list of images
-            if (not os.path.exists(out_segmentations)):
-                os.makedirs(out_segmentations)
-            assert os.path.isdir(out_segmentations), '%s need to be a directory to segment list of images' % (out_segmentations)
 
+        convert_single = False
+        # expand image/label into list
+        if (isinstance(path_images, list)):
+            # case 1: list of images
             if (path_labels is not None):
                 assert os.path.isdir(path_labels), '%s need to be a directory\n' % (path_images, path_labels)
                 path_labels = sorted(glob.glob(os.path.join(path_labels, '*.nii.gz')) +
                                      glob.glob(os.path.join(path_labels, '*.nii')) +
                                      glob.glob(os.path.join(path_labels, '*.mgz')))
-                
-            # pre-generate all *_predict* filenames
-            out_segmentations = [os.path.join(out_segmentations, f"{codenames[idx]}."+os.path.basename(p)) for idx, p in enumerate(path_images)]
-            out_segmentations = [p.replace('.nii', '.%s.nii' % pred_suffix) for p in out_segmentations]
-            out_segmentations = [p.replace('.mgz', '.%s.mgz' % pred_suffix) for p in out_segmentations]
         elif (os.path.isdir(path_images)):
+            # case 2: directory of images
             if (path_labels is not None):
                 assert os.path.isdir(path_labels), 'both %s and %s need to be directory' % (path_images, path_labels)
             if (path_priors is not None):
                 assert os.path.isdir(path_priors), 'both %s and %s need to be directory' % (path_images, path_priors)
-            if (not os.path.exists(out_segmentations)):
-                os.makedirs(out_segmentations)
-            assert os.path.isdir(out_segmentations), 'both %s and %s need to be directory' % (path_images, out_segmentations)
 
             # get all images in the directory
             path_images = sorted(glob.glob(os.path.join(path_images, '*.nii.gz')) +
@@ -214,17 +200,13 @@ class Prediction:
                 path_priors = sorted(glob.glob(os.path.join(path_priors, '*.nii.gz')) +
                                      glob.glob(os.path.join(path_priors, '*.nii')) +
                                      glob.glob(os.path.join(path_priors, '*.mgz')))
-
-            # pre-generate all *_predict* filenames
-            out_segmentations = [os.path.join(out_segmentations, f"{codenames[idx]}."+os.path.basename(p)) for idx, p in enumerate(path_images)]
-            out_segmentations = [p.replace('.nii', '.%s.nii' % pred_suffix) for p in out_segmentations]
-            out_segmentations = [p.replace('.mgz', '.%s.mgz' % pred_suffix) for p in out_segmentations]
         else:
-            # single image
+            # case 3: single image
             assert os.path.isfile(path_images), 'file does not exist: %s \n' \
                                                 'please make sure the path and the extension are correct' % path_images
             assert (not os.path.isdir(out_segmentations)), 'both %s and %s need to be files' % (path_images, out_segmentations)
-                
+
+            convert_single = True
             if (path_labels is not None):
                 assert os.path.isfile(path_labels), 'both %s and %s need to be file \n' % (path_images, path_labels)
                 path_labels = [path_labels]
@@ -234,7 +216,23 @@ class Prediction:
                 
             path_images = [path_images]
             out_segmentations = [out_segmentations]
+            
+        # if 'codenames' is provided, use it as the output filename prefix;
+        # otherwise, use sequential numbers (starting from 1) padded with leading zeros
+        if (codenames is None):
+               codenames = [str(nn).zfill(4) for nn in range(1, len(path_images)+1)]
+            
+        if (not convert_single):
+            # case 1 & 2
+            if (not os.path.exists(out_segmentations)):
+                os.makedirs(out_segmentations)
+            assert os.path.isdir(out_segmentations), '%s need to be a directory to segment multiple images' % (out_segmentations)
 
+            # pre-generate all *_predict* filenames
+            out_segmentations = [os.path.join(out_segmentations, f"{codenames[idx]}."+os.path.basename(p)) for idx, p in enumerate(path_images)]
+            out_segmentations = [p.replace('.nii', '.%s.nii' % pred_suffix) for p in out_segmentations]
+            out_segmentations = [p.replace('.mgz', '.%s.mgz' % pred_suffix) for p in out_segmentations]            
+                    
         # check path_images, path_labels, path_priors, and out_segmentations have the same length
         assert (len(path_images) == len(out_segmentations)), "input images and output segmentations need to be the same length"
         if (path_labels is not None):
@@ -268,8 +266,8 @@ class Prediction:
                     f"Expected prior shape [self.num_classes, *image_tensor.shape[1:]], but got {list(prior_tensor.shape)}"
 
             list_predictions.append(path_images[i])
-            self._curr_codename = f"{codenames[i]}_{str(i)}"
             if (self._debug):
+                self._curr_codename = f"{codenames[i]}_{str(i)}"
                 logging.debug("output re-oriented image/prior ...")
                 out_reoriented_image = os.path.join(self._out_debug_dir, f"{self._curr_codename}_image.reoriented.RAS.mgz")
                 save_framedimage(image_tensor, out_reoriented_image, original_framedimage=sfimage)
