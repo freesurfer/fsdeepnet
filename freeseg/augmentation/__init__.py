@@ -9,15 +9,20 @@ def apply_augmentations(augment_obj,
                         original_label,
                         voxsize,
                         priors_tensor=None,
-                        save_volumes=None):
+                        orig_fpath=None,
+                        index=None):
     output_dir = augment_obj.output_dir
     debugsaveprefix0 = None
-    if (save_volumes is not None and output_dir is not None):
+    if (orig_fpath is not None and output_dir is not None):
         import os
         import numpy as np
         from freeseg.utils import save_framedimage
 
-        debugsaveprefix0 = os.path.join(output_dir, save_volumes)        
+        if (index is not None):
+            volumeprefix = f"{index+1:04d}."+os.path.splitext(os.path.basename(orig_fpath))[0]
+        else:
+            volumeprefix = os.path.splitext(os.path.basename(orig_fpath))[0]
+        debugsaveprefix0 = os.path.join(output_dir, volumeprefix)        
         if (not os.path.exists(output_dir)):
             os.makedirs(output_dir)
 

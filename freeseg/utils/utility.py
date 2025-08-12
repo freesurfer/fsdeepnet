@@ -9,7 +9,6 @@ import surfa as sf
 import torch
 import yaml
 
-from freeseg.config import Config
 
 def load_framedimage(file_path, orientation=None, device=None, ndims=3):
     """
@@ -304,65 +303,6 @@ def remove_duplicates(inlist, lowercase=True):
             outlist.append(t_lower)
 
     return outlist
-
-
-def load_dataset(
-    config,
-    dataaugment,
-    device=None,
-    keep_trainset_in_memory=False,
-    cohort=[],
-):
-    if (device is None):
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    dataset_dict = Config.load_dataset_list(config["dataset"]["dataset_list_file"])
-
-    dataset_classname = config["dataset"].get("dataset_classname", "freeseg.datasets.segmentationdataset.SegmentationDataset")
-    py_dataset_cls = get_class(dataset_classname, "freeseg.datasets.segmentationdataset")
-
-    dset_cohort = Config.retrieve_dataset_cohorts(dataset_dict, cohort)
-    dataset = None
-    if (dset_cohort):
-        dataset = py_dataset_cls(
-            config,
-            dataaugment,
-            dataset_dict=dset_cohort,            
-            device=device,
-            keep_trainset_in_memory=keep_trainset_in_memory
-        )
-
-    return dataset
-
-
-def create_augment_object(augment_classname, transforms, config, cohort='train', device=None):
-    if (device is None):
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
-    # create data augment object
-    assert (augment_classname is not None), "Must provide an data augmentation class"
-    cfg_preprocess = config["preprocessing"]
-    if (cohort == "validation"):
-        cfg_preprocess = config["evaluation"]
-        transfer_keys = ["crop_size", "verbose", "augmentation_dir"]
-        for key in transfer_keys:
-            if (key not in cfg_preprocess):
-                cfg_preprocess[key] = config["preprocessing"].get(key)
-
-    py_augment_cls = get_class(augment_classname, "freeseg.augmentation.augmentbase")
-    augment_obj = py_augment_cls(Config.list2dict(cfg_preprocess["augmentations"]),
-                                 transforms,
-                                 config["preprocessing"]['crop_size'],
-                                 num_channels=config["dataset"]["expected_num_channels"],  # needed in sampleConditionalGMM
-                                 left_right_corresponding=config["dataset"].get("left_right_corresponding", None),
-                                 generation_labels=config["dataset"].get("expected_classes"),
-                                 target_res=config["preprocessing"].get("target_res"),
-                                 output_dir=config["preprocessing"].get("augmentation_dir", None),
-                                 device=device,
-                                 sampling_hp=cfg_preprocess.get('sampling_hyperparameters', True),
-                                 verbose=cfg_preprocess.get('verbose', False))
-
-    return augment_obj
 
 
 # ================================================================================================

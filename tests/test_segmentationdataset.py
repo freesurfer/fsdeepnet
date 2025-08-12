@@ -8,26 +8,23 @@ import argparse
 import numpy as np
 import shutil
 
+from freeseg.training import Training
 from freeseg.config import Config
-from freeseg.utils import set_deterministic_training, remove_duplicates, load_dataset, get_class, create_augment_object
 
 """
 Usage: test_preprocessing.py 
        --config <config.yaml>
        [--augment]
        [--deterministic]
-       [--outdir <augmentation_output_dir>]
-       [--image <im1 im2 ...> --label <lb1 lb2 ...> [--priors <...>]]
+       [--augmentation_dir <augmentation_output_dir>]
        [--dataset_list_file <dataset_list_file> --cohort <train|validation|test>]
        [--crop_size <W H D>]
        [--batch_size <n>]
        [--cpu]
        [--verbose]
 
-    * - The input image/label is taken from one of the following:
-        1. '--image <im1 im2 ...> --label <lb1 lb2 ...>'
-        2. '--dataset_list_file <dataset_list_file>' or 
-           config.yaml entry ["dataset"]["dataset_list_file"]
+    * - The input image/label is taken from '--dataset_list_file <dataset_list_file>' or 
+        config.yaml entry ["dataset"]["dataset_list_file"]
       - If augment = False (default), perform dataset checking only, no data augmentation.
 """
 
@@ -42,102 +39,14 @@ logging.basicConfig(
 
 
 def main():
-    logging.info("CWD: " + os.getcwd())
-    logging.info(' '.join(sys.argv))
-    
     args = argument_parse()
-
-    if (args.cpu):
-        os.environ["CUDA_VISIBLE_DEVICES"]=""
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    preprocessing_device = device
-
-    # Load config file
-    config = Config.load(args.config)
-
-    # overwrite config with command line options
-    if (args.dataset_list_file is not None):
-        config["dataset"]["dataset_list_file"] = args.dataset_list_file    
-    if (args.crop_size is not None):
-        config["preprocessing"]["crop_size"] = args.crop_size
-    if (args.deterministic is not None):
-        config["training"]["deterministic"] = args.deterministic        
-    if (args.batch_size is not None):
-        config["training"]["batch_size"] = args.batch_size
-    if (args.outdir is not None):
-        config["preprocessing"]["augmentation_dir"] = args.outdir
-    if (args.verbose):
-        config["preprocessing"]["verbose"] = args.verbose
-        
-    # Access updated configuration values
-    crop_size = config["preprocessing"]["crop_size"]
-    deterministic = config["training"].get("deterministic", False)
-    if (deterministic):
-        # ??? todo: for multi-process dataloader, use worker_init_fn() and generator to preserve reproducibility
-        #           see https://pytorch.org/docs/stable/notes/randomness.html
-        set_deterministic_training()
-
-    output_folder = config["preprocessing"].get("augmentation_dir", None)
-    if (args.augment):
-        assert (output_folder is not None), "Need to specify augmentation output directory"
-        if (not os.path.exists(output_folder)):
-            os.makedirs(output_folder)    
-
-        # save config and dataset_list_file
-        shutil.copyfile(args.config, os.path.join(output_folder, "config.yaml"))
-        if (args.image is None or args.label is None):
-            assert (config["dataset"].get("dataset_list_file", None) is not None), \
-                "No input images are available. Use '--dataset_list_file <dataset_list_file>' or " \
-                "'--image <im1 im2 ...> --label <lb1 lb2 ...>' to specify dataset."
-            shutil.copyfile(config["dataset"]["dataset_list_file"], os.path.join(output_folder, "dataset_list.yaml"))
-        
-    # create training dataset with the desired augmentations specified
-    labels_segmentation = sorted(config["dataset"]["expected_classes"])
-    label_mapping = {label:i for i, label in enumerate(labels_segmentation)}
-    inverse_label_mapping = {v: k for k, v in label_mapping.items()}
-    config["dataset"]["label_mapping"] = label_mapping
-    augmentation_class = config["preprocessing"].get("augmentation_class", "freeseg.augmentation.augmentbase.AugmentBase")
-    if ("Augment2" in augmentation_class):
-        logging.info("'augment2.Augment2' is specified in config.")
-        logging.info("Change 'augment2.Augment2' to 'augmentbase.AugmentBase' since augmentations in augment2.Augment2 are now implemented in augmentbase.AugmentBase")
-        augmentation_class = "freeseg.augmentation.augmentbase.AugmentBase"
-    train_augmentations = remove_duplicates(Config.get_augmentations(config["preprocessing"].get("augmentations")))
-    train_augment_obj = create_augment_object(augmentation_class, train_augmentations, config, cohort="train", device=preprocessing_device)    
-    if (args.image is not None and args.label is not None):
-        logging.info("Loading dataset: SegmentationDataset(...)")
-        dataset_classname = config["dataset"].get("dataset_classname", "freeseg.datasets.segmentationdataset.SegmentationDataset")
-        py_dataset_cls = get_class(dataset_classname, "freeseg.datasets.segmentationdataset")
-        train_dataset = py_dataset_cls(config, train_augment_obj,
-                                       image=args.image, label=args.label, priors=args.priors,
-                                       device=preprocessing_device)
-    else:
-        logging.info("Loading dataset: load_dataset(...)")
-        train_dataset = load_dataset(config, train_augment_obj,
-                                     device=preprocessing_device, cohort=args.cohort)    
-
-    sample_input_shape, unique_classes, label_lookup = train_dataset.preload()
-    input_shape = sample_input_shape[1:]
-
-    logging.info("Training Device: {}".format(device))
-    logging.info("Preprocessing Device: {}".format(preprocessing_device))
-    logging.info(f"Preprocessing augmentation_class: {augmentation_class}")
-    logging.info(f"Preprocessing augmentations: {train_augmentations}")
-    logging.info(f"batch_size: {config['training']['batch_size']}")
-    logging.info(f"crop_size: {crop_size}")
-    logging.info(f"deterministic: {deterministic}")
-    logging.info(f"sampling_hyperparameters: {config['preprocessing'].get('sampling_hyperparameters', True)}")
     
-    if (args.augment):
-        logging.info("Perform data augmentation ...")        
-        logging.info(f"Augmentation Output: {output_folder}")
-        logging.info(f"training config: saved as {output_folder}/config.yaml")
-        if (config["dataset"].get("dataset_list_file", None) is not None and os.path.exists(f"{output_folder}/dataset_list.yaml")):
-            logging.info(f"dataset list: saved as {output_folder}/dataset_list.yaml")
+    config = Config.process(args, require_train_outfolder=False, test_augment=args.augment)
+    config, _, _, _, _, train_dataset = Training.setup(config, create_loader=False, create_model=False)
+    Config.print(config, logging)
 
-        # output segmentation_labels.npy in training directory
-        f_segmentation_labels = os.path.join(output_folder, "segmentation_labels.npy")
-        np.save(f_segmentation_labels, np.array(sorted(unique_classes)).astype(int))
-        
+    if (args.augment):
+        logging.info("Perform data augmentation ...")
         for idx in range(len(train_dataset)):
             index, image_tensor, onehot_label_tensor, priors_tensor = train_dataset[idx]
 
@@ -150,12 +59,9 @@ def argument_parse():
     parser.add_argument("--config", type=str, required=True, help="Path to the configuration file")
     parser.add_argument("--augment", action='store_true', help="Perform augmentation on input image/label.")
     parser.add_argument("--deterministic", action='store_true', help="deterministic training")
-    parser.add_argument("--outdir", type=str, help="Path to augmentation output (needed for augmenting)")
-    parser.add_argument("--image", nargs="+", type=str, help="Input image volume(s)")
-    parser.add_argument("--label", nargs="+", type=str, help="Input label map(s)")
-    parser.add_argument("--priors", nargs="+", type=str, help="Input priors")
+    parser.add_argument("--augmentation_dir", type=str, help="Path to augmentation output (needed for augmenting)")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
-    parser.add_argument("--cohort", nargs="+", type=str, default=['train'], help="Specify dataset cohort. Can be combinations of train, validation, or test")
+    parser.add_argument("--train_cohort", nargs="+", type=str, default=['train'], help="Specify dataset cohort. Can be combinations of train, validation, or test")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     parser.add_argument("--batch_size", type=int, help="Batch size for DataLoader")
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")

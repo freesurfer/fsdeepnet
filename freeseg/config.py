@@ -1,9 +1,135 @@
+import os
 import sys
+import torch
 import logging
 import datetime
 import yaml
+import numpy as np
+import shutil
+
+
+from freeseg.utils import config_logger
 
 class Config:
+    @staticmethod
+    def process(args, require_train_outfolder=True, test_augment=False):
+        ### load config.yaml
+        config = Config.load(args.config)
+
+        ### update config with commandline user options
+        config = Config.update(config, args)
+
+        ### argument checks
+        if ('checkpoint' in args and args.checkpoint is not None):
+            if not os.path.isfile(args.checkpoint):
+                mainlogger.error('ERROR: file does not exist: %s' % args.checkpoint)
+                sys.exit(1)
+
+        output_folder = None
+        if (require_train_outfolder):
+            output_folder = config["training"].get("train_output_folder", None)
+            assert (output_folder is not None), "Use '--train_output_folder <>' or 'train_output_folder' in config.yaml to specify training output directory"
+        elif (test_augment):
+            output_folder = config["preprocessing"].get("augmentation_dir", None)
+            assert (output_folder is not None), "Use '--augmentation_dir <>' to specify augmentation output directory"
+        assert (config["dataset"].get("dataset_list_file", None) is not None), "Use '--dataset_list_file <dataset.yaml>' or 'dataset_list_file' in config.yaml to specify the dataset"
+
+        crop_size = config["preprocessing"]["crop_size"]
+        nb_levels = config["model"]["nb_levels"]
+        ndims = config["model"]["ndims"]
+        assert (np.all(np.array(crop_size) % (2**(nb_levels-1)) == 0)), f"crop_size {crop_size} needs to be divisible by 2^{nb_levels-1}"
+        assert (ndims == len(crop_size)), f"crop_size {crop_size} is not for {ndims}D"
+
+        ### setup and configure root and main logger
+        if (output_folder is not None):
+            output_folder = os.path.abspath(output_folder)
+            if (not os.path.exists(output_folder)):
+                os.makedirs(output_folder)
+        logfile = None
+        if (require_train_outfolder):
+            logfile = args.logfile if ('logfile' in args and args.logfile is not None) else os.path.join(output_folder, "freeseg_train.log")
+            config_logger(logfile=logfile)
+
+        ### save updated config and dataset_list_file
+        cmd = ' '.join(sys.argv)
+        cwd = os.getcwd()
+        now = datetime.datetime.now()
+        dt_nowstring = str(now).replace(' ', '.').replace(':', '.')
+        config_saveas, dataset_list_saveas = None, None
+        if (output_folder is not None):
+            # copy the user input config.yaml
+            shutil.copyfile(args.config, os.path.join(output_folder, f"input_config.{dt_nowstring}.yaml"))
+            config_saveas = os.path.join(output_folder, f"config.{dt_nowstring}.yaml")
+            # save the config updated with command line args
+            Config.save(config, cwd=cwd, cmd=cmd, saveas=config_saveas)
+            dataset_list_saveas = os.path.join(output_folder, "dataset_list.yaml")
+            shutil.copyfile(config["dataset"]["dataset_list_file"], dataset_list_saveas)
+
+        ### in the rest of the function, config will be re-arranged and updated for the training setup
+        ### update config.dataloader options
+        num_workers = config["dataloader"].get("num_workers", 0)
+        pin_memory = config["dataloader"].get("pin_memory", False)
+        persistent_workers = config["dataloader"].get("persistent_workers", False)
+        prefetch_factor = config["dataloader"].get("prefetch_factor", 2)
+        if (num_workers == 0):
+            prefetch_factor = None
+            persistent_workers = False
+        config["dataloader"].update({"batch_size": config["training"]["batch_size"],
+                                     "num_workers": num_workers,
+                                     "pin_memory": pin_memory,
+                                     "persistent_workers": persistent_workers,
+                                     "prefetch_factor": prefetch_factor})
+
+        ### update config.dataset options
+        labels_segmentation = sorted(config["dataset"]["expected_classes"])
+        label_mapping = {label:i for i, label in enumerate(labels_segmentation)}
+        inverse_label_mapping = {v: k for k, v in label_mapping.items()}
+        config["dataset"].update({"ndims": config["model"]["ndims"],
+                                  "batch_size": config["training"]["batch_size"],
+                                  "segmentation_labels": labels_segmentation,
+                                  "label_mapping": label_mapping,
+                                  "inverse_label_mapping": inverse_label_mapping,
+                                  "crop_size": crop_size})
+    
+        ### set training, preprocessing devices
+        if ('cpu' in args and args.cpu):
+            os.environ["CUDA_VISIBLE_DEVICES"]=""
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+            gpu_index = torch.cuda.current_device()
+        else:
+            device = torch.device("cpu")
+            gpu_index = None
+        # force data preprocessing (augmentation) to run on CPU is pin_memory = True or num_worker > 0
+        if (config["dataloader"]["pin_memory"] or config["dataloader"]["num_workers"] > 0):
+            preprocessing_device = torch.device("cpu")
+        else:
+            preprocessing_device = device
+
+        ### update config options
+        config.update({"cmd": cmd,
+                       "cwd": cwd,
+                       "now": now,
+                       "device": device,
+                       "gpu_index": gpu_index,
+                       "preprocessing_device": preprocessing_device,
+                       "checkpoint": args.checkpoint if ('checkpoint' in args) else None,
+                       "ctab": args.ctab if ('ctab' in args) else None,
+                       "keep_trainset_in_memory": args.keep_trainset_in_memory if ('keep_trainset_in_memory' in args) else False,
+                       "logfile": logfile,
+                       "output_folder": output_folder,
+                       "train_augmentations": None,
+                       "vmp": args.vmp if ('vmp' in args) else False,
+                       "debug": args.debug if ('debug' in args) else False,
+                       "verbose": args.verbose if ('verbose' in args) else False,
+                       "train_cohort": args.train_cohort if ('train_cohort' in args) else None,
+                       "validation_cohort": args.validation_cohort if ('validation_cohort' in args) else None,
+                       "config_saveas": config_saveas,
+                       "dataset_list_saveas": dataset_list_saveas})
+                
+        return config
+
+
     @staticmethod
     def load(config_file):
         with open(config_file, 'r', encoding='utf-8') as file:
@@ -11,6 +137,125 @@ class Config:
         return config
 
 
+    @staticmethod
+    # update the input config with commandline user options
+    # NOTES: need to first check if the argument is available because
+    #        update(), process() is shared between freeseg_train.py,
+    #        test_dataloader.py, test_segmentationdataset.py that have different argument set
+    def update(config, args):
+        # backward compatibility - handle config.yaml w/o 'dataloader' section
+        if ('dataloader' not in config):
+            config['dataloader'] = {}
+
+        # overwrite config with command line options
+        if ('verbose' in args and args.verbose):  # bool
+            config["preprocessing"]["verbose"] = args.verbose
+        if ('model_name' in args and args.model_name is not None):
+            config["model"]["name"] = args.model_name
+        if ('weight_init' in args and args.weight_init is not None):
+            config["model"]["weight_init"] = args.weight_init
+        if ('nb_levels' in args and args.nb_levels is not None):
+            config["model"]["nb_levels"] = args.nb_levels
+        if ('nb_features' in args and args.nb_features is not None):
+            config["model"]["nb_features"] = args.nb_features
+        if ('feat_mult' in args and args.feat_mult is not None):
+            config["model"]["feat_mult"] = args.feat_mult
+        if ('nb_conv_per_level' in args and args.nb_conv_per_level is not None):
+            config["model"]["nb_conv_per_level"] = args.nb_conv_per_level
+        if ('conv_size' in args and args.conv_size is not None):
+            config["model"]["conv_size"] = args.conv_size
+        if ('pool_size' in args and args.pool_size is not None):
+            config["model"]["pool_size"] = args.pool_size
+        if ('use_residuals' in args and args.use_residuals): # bool
+            config["model"]["use_residuals"] = args.use_residuals
+        if ('wl2_epochs' in args and args.wl2_epochs is not None):
+            config["training"]["wl2_epochs"] = args.wl2_epochs
+        if ('dice_epochs' in args and args.dice_epochs is not None):
+            config["training"]["dice_epochs"] = args.dice_epochs
+        if ('learning_rate' in args and args.learning_rate is not None):
+            config["training"]["learning_rate"] = args.learning_rate
+        if ('dataset_list_file' in args and args.dataset_list_file is not None):
+            config["dataset"]["dataset_list_file"] = args.dataset_list_file
+        if ('crop_size' in args and args.crop_size is not None):
+            config["preprocessing"]["crop_size"] = args.crop_size
+        if ('train_output_folder' in args and args.train_output_folder is not None):
+            config["training"]["train_output_folder"] = args.train_output_folder
+        if ('augmentation_dir' in args and args.augmentation_dir is not None):
+            config["preprocessing"]["augmentation_dir"] = args.augmentation_dir
+        if ('deterministic' in args and args.deterministic): # bool
+            config["training"]["deterministic"] = args.deterministic
+        if ('batch_size' in args and args.batch_size is not None):
+            config["training"]["batch_size"] = args.batch_size
+        if ('write_tensorboard_summary' in args and args.write_tensorboard_summary): # bool
+            config["training"]["write_tensorboard_summary"] = args.write_tensorboard_summary
+        if ('perform_evaluation' in args and args.perform_evaluation): # bool
+            config["training"]["perform_evaluation"] = args.perform_evaluation
+        if ('best_model_metric' in args and args.best_model_metric is not None):
+            config["training"]["best_model_metric"] = args.best_model_metric
+        if ('num_workers' in args and args.num_workers is not None):
+            config["dataloader"]["num_workers"] = args.num_workers
+        if ('prefetch_factor' in args and args.prefetch_factor is not None):
+            config["dataloader"]["prefetch_factor"] = args.prefetch_factor
+        if ('pin_memory' in args and args.pin_memory): # bool
+            config["dataloader"]["pin_memory"] = args.pin_memory
+        if ('persistent_workers' in args and args.persistent_workers): # bool
+            config["dataloader"]["persistent_workers"] = args.persistent_workers
+
+        return config
+
+
+    @staticmethod
+    def print(cfg, logger=None):
+        if (logger is None):
+            logger = logging
+
+        # print the command
+        cwd = cfg["cwd"]
+        cmd = cfg["cmd"]
+        now = cfg["now"]
+        dt_nowstring = str(now).replace(' ', '.').replace(':', '.')
+        logger.info("===================== Current date and time: " + str(now) + " =====================")
+        logger.info("*** augmentation classes implemented: augmentbase.AugmentBase, augmentvoxynth.AugmentVoxynth ***")
+        logger.info("CWD: " + cwd)
+        logger.info("CMD: " + cmd)
+        logger.info("")
+
+        logger.info("Training Device: {}".format(cfg['device']) + (f' (GPU index: {cfg["gpu_index"]})' if (cfg.get('gpu_index') is not None) else ''))
+        if (cfg["checkpoint"] is not None):
+            logger.info(f"resume training from model: {cfg['checkpoint']}")
+            logger.info(f"optimizer: {cfg['training'].get('optimizer', 'torch.optim.Adam')}")
+        if (cfg["training"].get("wl2_epochs", 0) > 0):
+            logger.info(f"wl2_epochs: {cfg['training'].get('wl2_epochs')}")
+            logger.info(f"wl2_metrics: {cfg['training'].get('wl2_metrics', 'freeseg.metrics.WeightedL2Loss')}")
+        if (cfg["training"].get("dice_epochs", 0) > 0):
+            logger.info(f"dice_epochs: {cfg['training'].get('dice_epochs')}")
+            logger.info(f"model_metrics: {cfg['training'].get('model_metrics', 'freeseg.metrics.DiceLoss')}")
+        logger.info(f"batch_size: {cfg['training']['batch_size']}")
+        logger.info(f"crop_size: {cfg['preprocessing']['crop_size']}")
+
+        logger.info(f"keep_trainset_in_memory: {cfg['keep_trainset_in_memory']}")
+        logger.info(f"deterministic: {cfg['preprocessing'].get('deterministic', False)}")
+        perform_evaluation = cfg['training'].get('perform_evaluation', False)
+        logger.info(f"perform_evaluation: {perform_evaluation}")
+        if (perform_evaluation):
+            logger.info(f"best_model_metric: {cfg['training'].get('best_model_metric')}")
+        logger.info("Preprocessing Device: {}".format(cfg['preprocessing_device']) + (f' (GPU index: {cfg["gpu_index"]})' if (cfg.get('gpu_index') is not None) else ''))
+        logger.info(f"Preprocessing augmentation_class: {cfg['preprocessing']['augmentation_class']}")
+        logger.info(f"Preprocessing augmentations: {cfg['train_augmentations']}")
+        logger.info(f"Preprocessing sampling_hyperparameters: {cfg['preprocessing'].get('sampling_hyperparameters', True)}")
+        logger.info(f"Preprocessing num_workers: {cfg['dataloader']['num_workers']}")
+        logger.info(f"Preprocessing persistent_workers: {cfg['dataloader']['persistent_workers']}")
+        logger.info(f"Preprocessing pin_memory: {cfg['dataloader']['pin_memory']}")
+        logger.info(f"Preprocessing prefetch_factor: {cfg['dataloader']['prefetch_factor']}")
+
+        logger.info(f"color table: {cfg['ctab']}")
+        logger.info(f"output_folder: {cfg['output_folder']}")
+        logger.info(f"training config: saved as {cfg['config_saveas']}")
+        logger.info(f"dataset list: saved as {cfg['dataset_list_saveas']}")
+        logger.info(f"training log: {cfg['logfile']}")
+        logger.info("")
+
+    
     @staticmethod
     # can't get yaml.safe_dump() to save in the correct format
     def save(config, cwd=None, cmd=None, saveas=None, indent=0, sort_keys=False, debug=False):

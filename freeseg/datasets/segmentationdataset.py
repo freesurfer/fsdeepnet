@@ -7,27 +7,21 @@ from freeseg import augmentation
 from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot, get_class, remove_duplicates
 
 class SegmentationDataset(torch.utils.data.Dataset):
-    def __init__(self, config, augment_obj, dataset_dict=None, image=None, label=None, priors=None, device=None, keep_trainset_in_memory=False):
+    def __init__(self, dset_profile, augment_obj, dataset_dict, device=None, keep_trainset_in_memory=False, preload=False, augdir=None):
         """
         SegmentationDataset Constructor
 
-        dataset_dict : dict (optional)
+        dataset_dict : dict
           Input dataset dict containing input image volumes and label maps
-        image : list (optional)
-          Input image volume(s)
-        label : list (optional)
-          Input label map(s)
         """
 
-        assert ((dataset_dict is not None) or (image is not None and label is not None)), \
-            "Must provide input image/label using 'dataset_dict' or 'image/label'"
-
-        self.num_entries = len(dataset_dict) if (dataset_dict is not None) else len(image)
-        self.num_channels = config["dataset"]["expected_num_channels"]
-        self.ndims = config["model"]["ndims"]
-        self.expected_classes = config["dataset"]["expected_classes"]
-        self.num_classes = len(sorted(config["dataset"]["expected_classes"]))
-        self.label_mapping = config["dataset"]["label_mapping"]
+        self.dset_profile = dset_profile
+        self.num_entries = len(dataset_dict)
+        self.num_channels = dset_profile["expected_num_channels"]
+        self.ndims = dset_profile["ndims"]
+        self.expected_classes = dset_profile["expected_classes"]
+        self.num_classes = len(sorted(dset_profile["expected_classes"]))
+        self.label_mapping = dset_profile["label_mapping"]
 
         assert (self.ndims == 3 or self.ndims == 2), "Model supports 3D or 2D"
                 
@@ -35,9 +29,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.save_volumes = None
-        self.output_dir = config["preprocessing"].get("augmentation_dir", None)
-        if (keep_trainset_in_memory and self.output_dir is not None):
+        if (keep_trainset_in_memory and augdir is not None):
             logging.error(f"'--keep_trainset_in_memory' doesn't work with saving augmentation volumes") 
             raise ValueError("'--keep_trainset_in_memory' doesn't work with saving augmentation volumes")
 
@@ -53,11 +45,6 @@ class SegmentationDataset(torch.utils.data.Dataset):
                 self.label_files.append(item["label_filepath"])
                 if (item.get("prior_filepath")):
                     self.priors_files.append(item["prior_filepath"])
-        elif (image is not None and label is not None):
-            self.image_files = image
-            self.label_files = label
-            if (priors is not None):
-                self.priors_files = priors
 
         assert (len(self.image_files) == len(self.label_files)), "image and label need to be the same length"
         if (self.haspriors()):
@@ -66,6 +53,15 @@ class SegmentationDataset(torch.utils.data.Dataset):
         self.data_augment = augment_obj
         if (self.data_augment is not None):
             augmentation.check_augmentations(self.data_augment)
+
+        if (preload):
+            input_shape, unique_classes, label_lookup = self.preload()
+            self.dset_profile.update({"num_samples": self.num_entries,
+                                      "input_shape": input_shape[1:],
+                                      "num_channels": input_shape[0],
+                                      "unique_classes": unique_classes,
+                                      "priors": self.haspriors(),
+                                      "label_lookup": label_lookup})
         
 
     def haspriors(self):
@@ -90,10 +86,6 @@ class SegmentationDataset(torch.utils.data.Dataset):
             if (self.haspriors()):
                 priors_path = self.priors_files[index]        
                 sfprior, priors_tensor, _  = load_framedimage(priors_path, orientation="RAS", device=self.device, ndims=self.ndims)
-
-            if (self.output_dir is not None):
-                # where/whether to save preprocessed data
-                self.save_volumes = f"{index+1:04d}."+os.path.splitext(os.path.basename(image_path))[0]
         else:
             # retrieve preloaded data
             # saving augmentated volumes will not work when keep_trainset_in_memory=True
@@ -120,7 +112,8 @@ class SegmentationDataset(torch.utils.data.Dataset):
                     label,
                     voxsize=voxsize,
                     priors_tensor=priors_tensor,
-                    save_volumes=self.save_volumes,
+                    orig_fpath=image_path,
+                    index=index
                 )
                 
             # freeseg.utils.remap_labels() and freeseg.utils.onehot() expect batched tensor [N, 1, H, W(, D)]
@@ -131,10 +124,12 @@ class SegmentationDataset(torch.utils.data.Dataset):
             # remove the added batch axis, DataLoader will batch the tensor based on batch_size
             onehot_augmented_label_tensor = onehot_augmented_label_tensor.squeeze(0)
 
+            """
             # ??? todo: move the logic to augmentation.__init__.py
             if (self.output_dir is not None):
                 out_label_onehot = os.path.join(self.output_dir, self.save_volumes + f"_augmented_label_onehot.mgz")
                 save_framedimage(onehot_augmented_label_tensor, out_label_onehot, onehotencoded=True)
+            """
 
             if (augmented_priors_tensor is None):
                 # torch.utils.data.DataLoader can't return NoneType, make an empty tensor with 0 elements
@@ -217,3 +212,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
         logging.info(f"  Number of channels: {input_shape[0]}")
     
         return input_shape, unique_classes, label_lookup
+
+    @property
+    def profile(self):
+        return self.dset_profile
