@@ -305,6 +305,19 @@ def remove_duplicates(inlist, lowercase=True):
     return outlist
 
 
+def unique_unsorted(arr):
+    # get unique elements and their first appearance indices
+    unique_elements, first_indices = np.unique(arr, return_index=True)
+
+    # sort the indices to preserve original order
+    sorted_indices = np.sort(first_indices)
+
+    # get unique elements in original order
+    unique_in_order = unique_elements[sorted_indices]
+
+    return unique_in_order
+
+
 # ================================================================================================
 #                                        Lab2Im Utilities
 # ================================================================================================

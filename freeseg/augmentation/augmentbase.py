@@ -15,6 +15,8 @@ class AugmentBase:
                  left_right_corresponding=None,
                  bbox_labels=None,
                  generation_labels=None,
+                 generation_classes=None,
+                 segmentation_labels=None,
                  target_res=None,
                  output_dir=None,                 
                  device=None,
@@ -30,6 +32,7 @@ class AugmentBase:
                                     "gaussianblur",
                                     "resamplevolume",
                                     "mimicresolution",
+                                    "remaplabels",
                                    ]
         self.valid_augmentations = valid_augmentations_base.copy()
 
@@ -50,11 +53,13 @@ class AugmentBase:
         self.centroidcrop = CentroidCrop(crop_size, hp=hp.get('centroidcrop'), device=device, sampling_hp=sampling_hp, verbose=verbose)
         self.biasfieldcorruption = BiasFieldCorruption(hp=hp.get('biasfieldcorruption'), device=device, sampling_hp=sampling_hp, verbose=verbose)
         self.intensityaugmentation = IntensityAugmentation(hp=hp.get('intensityaugmentation'), device=device, sampling_hp=sampling_hp, verbose=verbose)
-        self.sampleconditionalgmm = SampleConditionalGMM(generation_labels, hp=hp.get('sampleconditionalgmm'), num_channels=num_channels, device=device, sampling_hp=sampling_hp, verbose=verbose)
+        self.sampleconditionalgmm = SampleConditionalGMM(generation_labels, generation_classes, hp=hp.get('sampleconditionalgmm'), num_channels=num_channels, device=device, sampling_hp=sampling_hp, verbose=verbose)
         self.rescalevolume = RescaleVolume(hp=hp.get('rescalevolume'), device=device, sampling_hp=sampling_hp, verbose=verbose)
         self.gaussianblur = GaussianBlur(hp=hp.get('gaussianblur'), device=device, sampling_hp=sampling_hp, verbose=verbose)
         self.resamplevolume = ResampleVolume(target_res, hp=hp.get('resamplevolume'), device=device, sampling_hp=sampling_hp, verbose=verbose)
         self.mimicresolution = MimicResolution(hp=hp.get('mimicresolution'), device=device, sampling_hp=sampling_hp, verbose=verbose)
+        self.remaplabels = RemapLabels(generation_labels, dest_labels=segmentation_labels, hp=hp.get('remaplabels'), device=device, sampling_hp=sampling_hp, verbose=verbose)
+
 
 class Flip(torch.nn.Module):
     def __init__(self, left_right_corresponding, hp=None, device=None, sampling_hp=True, verbose=False):
@@ -90,7 +95,10 @@ class Flip(torch.nn.Module):
             logging.debug(f"'freeseg.augmentation.augmentbase.Flip'")
 
         aff = geom.vox2world.matrix
-        ndims = len(image.shape[1:])
+        if (image is not None):
+            ndims = len(image.shape[1:])
+        else:
+            ndims = len(label.shape[1:])
         
         # swap left-right labels
         n_left_right_labels = len(self.left_right_corresponding)
@@ -106,8 +114,10 @@ class Flip(torch.nn.Module):
         # find the left-right axis
         axis = get_ras_axes(aff, ndims)[0]
 
-        # image, label have shape [B, R, A, S]
-        flipped_image = image.flip([axis+1])
+        # image, label ([C, H, W(, D)]) have been reoriented to RAS
+        flipped_image = None
+        if (image is not None):
+            flipped_image = image.flip([axis+1])
         flipped_label = label.flip([axis+1])
     
         output = {
@@ -157,7 +167,7 @@ class SpatialDeformation(torch.nn.Module):
         """
         # voxsize is default to 1        
         trf, aff_matrix = voxynth.transform.random_transform(
-            shape=image.shape[1:],
+            shape=label.shape[1:],
             device=self.device,
             affine_probability=self.affine_probability,
             max_translation=self.max_translation,
@@ -189,13 +199,15 @@ class SpatialDeformation(torch.nn.Module):
                 # aff_matrix is vox2vox mapping from target to source, which rotates around the image center
                 # convert it to a standard-format affine that rotates around the corner (origin)
                 center = np.eye(4)
-                center[:3, -1] = -(np.asarray(image.shape[1:]) - 1)/2
+                center[:3, -1] = -(np.asarray(label.shape[1:]) - 1)/2
                 aff_matrix_cpu = np.linalg.inv(center) @ aff_matrix_cpu @ center
 
                 affine = Affine(aff_matrix_cpu, source=geom, target=geom)
                 affine.save(f"{debugsaveprefix}_vox2vox_trg2src.lta")
 
-        transformed_image = voxynth.transform.spatial_transform(image, trf)
+        transformed_image = None
+        if (image is not None):
+            transformed_image = voxynth.transform.spatial_transform(image, trf)
         transformed_label = voxynth.transform.spatial_transform(label, trf, method="nearest")
 
         transformed_priors = None
@@ -243,13 +255,17 @@ class RandomCrop(torch.nn.Module):
         geom = input.get("geom", None)
             
         # assuming image and label have the same dimensions
-        image_shape = torch.tensor(image.shape[1:], device=image.device)
-        image_ndims = len(image_shape)
+        if (image is not None):
+            vol_shape = torch.tensor(image.shape[1:], device=image.device)
+            device = image.device
+        else:
+            vol_shape = torch.tensor(label.shape[1:], device=label.device)
+            device = label.device
+        
+        vol_ndims = len(vol_shape)
 
-        #crop_size = torch.tensor(crop_size, device=image.device)
-    
-        bbox_upper = torch.zeros(image_ndims, device=image.device, dtype=int)
-        bbox_lower = image_shape
+        bbox_upper = torch.zeros(vol_ndims, device=device, dtype=int)
+        bbox_lower = vol_shape
         if (self.bbox_labels is not None):
             # calculate lower and upper bounds for the label bounding box
             bbox_lower, bbox_upper = bbox(label, self.bbox_labels, verbose=self.verbose)
@@ -263,11 +279,11 @@ class RandomCrop(torch.nn.Module):
                 raise exception
             """
 
-        zero_tensor = torch.zeros(image_ndims, device=image.device, dtype=int)
+        zero_tensor = torch.zeros(vol_ndims, device=device, dtype=int)
         if (self.mode == 'random'):
             if (self.bbox_labels is None):
                 crop_min_val = zero_tensor
-                crop_max_val = image_shape - self.crop_size
+                crop_max_val = vol_shape - self.crop_size
             else:
                 """
                 |           |                    |            |
@@ -286,7 +302,7 @@ class RandomCrop(torch.nn.Module):
                     bound1     = [ 96  96  96]
                     bound2     = [160 160 160]
                 """
-                bound1 = image_shape - self.crop_size
+                bound1 = vol_shape - self.crop_size
                 bound2 = self.crop_size
 
                 # minimum to crop so that it will include bbox_upper
@@ -296,14 +312,14 @@ class RandomCrop(torch.nn.Module):
                 crop_max_val = torch.minimum(bbox_lower, bound1)
 
             # U[crop_min_val, crop_max_val)            
-            start_coords = ((crop_min_val - crop_max_val) * torch.rand(image_ndims, device=image.device) + crop_max_val).int()
+            start_coords = ((crop_min_val - crop_max_val) * torch.rand(vol_ndims, device=device) + crop_max_val).int()
             end_coords   = start_coords + self.crop_size
         elif (self.mode == 'center'):
             half_crop = (self.crop_size/2).int()
         
             if (self.bbox_labels is None):
                 start_center = half_crop
-                end_center = image_shape - half_crop
+                end_center = vol_shape - half_crop
             else:
                 """
                 |                     |       |              |       |                   |
@@ -328,7 +344,7 @@ class RandomCrop(torch.nn.Module):
                 # initial values for start_center and end_center
                 # where [bbox_lower, bbox_upper] is within [bound1, bound2]
                 start_center = half_crop.clone()  # make a copy for start_center to be modified later
-                end_center = image_shape - half_crop
+                end_center = vol_shape - half_crop
 
                 bound1 = end_center - half_crop
                 bound2 = start_center + half_crop
@@ -342,14 +358,14 @@ class RandomCrop(torch.nn.Module):
                     start_center += torch.maximum(zero_tensor,  distance)
 
             # U[start_center, end_center)
-            center_point = ((start_center - end_center) * torch.rand(image_ndims, device=image.device) + end_center).int()
+            center_point = ((start_center - end_center) * torch.rand(vol_ndims, device=device) + end_center).int()
             start_coords = torch.maximum(center_point-half_crop, zero_tensor)
-            end_coords   = torch.minimum(center_point+half_crop, image_shape)
+            end_coords   = torch.minimum(center_point+half_crop, vol_shape)
                 
         # Calculate the crop indices
         crop_idx = torch.concat((start_coords, end_coords)).int()
         if (self.verbose):
-            dbg_msg = f"randomcrop({self.mode}) - {image_shape.tolist()} => {self.crop_size.tolist()}, "
+            dbg_msg = f"randomcrop({self.mode}) - {vol_shape.tolist()} => {self.crop_size.tolist()}, "
             if (self.bbox_labels is not None):
                 dbg_msg += f"bbox: {bbox_lower.tolist()} - {bbox_upper.tolist()}, "
             if (self.mode == 'center'):
@@ -362,7 +378,7 @@ class RandomCrop(torch.nn.Module):
             
         # check if bbox_lower/bbox_upper are inside start_coords/end_coords
         if (torch.any(bbox_lower < start_coords) or torch.any(bbox_upper > end_coords)):
-            dbg_msg = f"***CROPPING WARNING*** randomcrop({self.mode}) - {image_shape.tolist()} => {self.crop_size.tolist()}, "
+            dbg_msg = f"***CROPPING WARNING*** randomcrop({self.mode}) - {vol_shape.tolist()} => {self.crop_size.tolist()}, "
             if (self.bbox_labels is not None):
                 dbg_msg += f"bbox: {bbox_lower.tolist()} - {bbox_upper.tolist()}, "
             if (self.mode == 'center'):
@@ -378,16 +394,16 @@ class RandomCrop(torch.nn.Module):
             raise exception
             """
 
-        if (image_ndims == 3):
+        if (vol_ndims == 3):
             output = {
-                'image': image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]],
+                'image': image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (image is not None) else None,
                 'label': label[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (label is not None) else None,
                 'prior': prior[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (prior is not None) else None,
                 'crop_idx': crop_idx,
                      }
         else:
             output = {
-                'image': image[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]],
+                'image': image[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (image is not None) else None,
                 'label': label[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (label is not None) else None,
                 'prior': prior[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (prior is not None) else None,
                 'crop_idx': crop_idx,
@@ -430,10 +446,15 @@ class CentroidCrop(torch.nn.Module):
         geom = input.get("geom", None)            
         
         # input image is non-batched tensor
-        image_shape = torch.tensor(image.shape[1:], device=image.device)
-        #crop_size = torch.tensor(crop_size, device=image.device)
-
-        if (not torch.any(image_shape > self.crop_size)):
+        if (image is not None):
+            vol_shape = torch.tensor(image.shape[1:], device=image.device)
+            device = image.device
+        else:
+            vol_shape = torch.tensor(label.shape[1:], device=label.device)
+            device = label.device
+        vol_ndims = len(vol_shape)
+        
+        if (not torch.any(vol_shape > self.crop_size)):
             return dict(image=image, label=label, prior=prior, crop_idx=None)
 
         crop_idx = None        
@@ -442,37 +463,37 @@ class CentroidCrop(torch.nn.Module):
         if (label is not None):
             center_point = centroid(label.squeeze(0), verbose=self.verbose)
 
-        zero_tensor = torch.zeros(image.ndim-1, device=image.device, dtype=int)
+        zero_tensor = torch.zeros(vol_ndims, device=device, dtype=int)
         crop_half = (self.crop_size/2).int()
         if (center_point is None):
-            center_point = (image_shape/2).int()   #tuple(dim // 2 for dim in image_shape)
+            center_point = (vol_shape/2).int()   #tuple(dim // 2 for dim in vol_shape)
         else:
             # adjust the calculated center so that croppred image will have crop_size
             if (torch.any(center_point < crop_half)):
                 distance = crop_half - center_point
                 center_point += torch.maximum(zero_tensor,  distance)    
-            if (torch.any(center_point > (image_shape - crop_half))):
-                distance = center_point - (image_shape - crop_half)
+            if (torch.any(center_point > (vol_shape - crop_half))):
+                distance = center_point - (vol_shape - crop_half)
                 center_point -= torch.maximum(zero_tensor,  distance)
 
         # Calculate the starting and ending indices for the crop region
         start_coords = torch.maximum(zero_tensor, center_point - crop_half)
-        end_coords = torch.minimum(center_point + crop_half, image_shape)
+        end_coords = torch.minimum(center_point + crop_half, vol_shape)
         crop_idx = torch.concat((start_coords, end_coords))
         if (self.verbose):
             logging.debug(f"adjusted crop center: {center_point.tolist()}, crop indices: {crop_idx.tolist()}")
 
-        ndims = len(image.shape[1:])
-        if (ndims == 3):
+        #ndims = len(label.shape[1:])
+        if (vol_ndims == 3):
             output = {
-                'image': image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]],
+                'image': image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (image is not None) else None,
                 'label': label[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (label is not None) else None,
                 'prior': prior[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (prior is not None) else None,
                 'crop_idx': crop_idx
                      }
         else:
             output = {
-                'image': image[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]],
+                'image': image[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (image is not None) else None,
                 'label': label[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (label is not None) else None,
                 'prior': prior[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (prior is not None) else None,
                 'crop_idx': crop_idx
@@ -515,35 +536,41 @@ class CenterCrop(torch.nn.Module):
         geom = input.get("geom", None)
         
         # input image is non-batched tensor
-        image_shape = torch.tensor(image.shape[1:], device=image.device)
-        #crop_size = torch.tensor(crop_size, device=image.device)
+        if (image is not None):
+            vol_shape = torch.tensor(image.shape[1:], device=image.device)
+            #ndims = len(image.shape[1:])
+            device = image.device
+        else:
+            vol_shape = torch.tensor(label.shape[1:], device=label.device)
+            #ndims = len(label.shape[1:])
+            device = label.device
+        vol_ndims = len(vol_shape)
 
-        if (not torch.any(image_shape > self.crop_size)):
+        if (not torch.any(vol_shape > self.crop_size)):
             return dict(image=image, label=label, prior=prior, crop_idx=None)
 
         crop_idx = None        
-        zero_tensor = torch.zeros(image.ndim-1, device=image.device, dtype=int)
+        zero_tensor = torch.zeros(vol_ndims, device=device, dtype=int)
         crop_half = (self.crop_size/2).int()
-        center_point = (image_shape/2).int()   #tuple(dim // 2 for dim in image_shape)
+        center_point = (vol_shape/2).int()   #tuple(dim // 2 for dim in vol_shape)
 
         # Calculate the starting and ending indices for the crop region
         start_coords = torch.maximum(zero_tensor, center_point - crop_half)
-        end_coords = torch.minimum(center_point + crop_half, image_shape)
+        end_coords = torch.minimum(center_point + crop_half, vol_shape)
         crop_idx = torch.concat((start_coords, end_coords))
         if (self.verbose):
             logging.debug(f"crop center: {center_point.tolist()}, crop indices: {crop_idx.tolist()}")
 
-        ndims = len(image.shape[1:])
-        if (ndims == 3):
+        if (vol_ndims == 3):
             output = {
-                'image': image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]],
+                'image': image[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (image is not None) else None,
                 'label': label[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (label is not None) else None,
                 'prior': prior[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] if (prior is not None) else None,
                 'crop_idx': crop_idx,
                      }
         else:
             output = {
-                'image': image[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]],
+                'image': image[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (image is not None) else None,
                 'label': label[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (label is not None) else None,
                 'prior': prior[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] if (prior is not None) else None,
                 'crop_idx': crop_idx,
@@ -746,14 +773,15 @@ class BiasFieldCorruption(torch.nn.Module):
 # generate an initial synthetic scan G by sampling a GMM conditioned on L described in SynthSeg paper
 # (https://www.sciencedirect.com/science/article/pii/S1361841523000506)
 class SampleConditionalGMM(torch.nn.Module):
-    def __init__(self, generation_labels, hp=None, num_channels=1, device=None, sampling_hp=True, verbose=False):
+    def __init__(self, generation_labels, generation_classes, hp=None, num_channels=1, device=None, sampling_hp=True, verbose=False):
         super().__init__()
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         hp = {} if (hp is None) else hp            
-        self.generation_labels = generation_labels
+        self.generation_labels  = generation_labels
+        self.generation_classes = generation_classes,
         self.num_channels = num_channels  # dataset expected_num_channels
         self.prior_distribution = hp.get("prior_distribution", "uniform")  # 'normal'
         self.prior_mean = hp.get("prior_mean", [25, 225])
@@ -776,8 +804,6 @@ class SampleConditionalGMM(torch.nn.Module):
 
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.SampleConditionalGMM'")
-        
-        assert (self.generation_labels is not None), 'generation_labels is needed for sampleConditionalGMM'
 
         image = input.get("image", None)
         label = input.get("label", None)
@@ -785,9 +811,13 @@ class SampleConditionalGMM(torch.nn.Module):
         voxsize = input.get("voxsize", None)
         geom = input.get("geom", None)
         
+        assert (label is not None), 'label is needed for sampleConditionalGMM'
+        assert (self.generation_labels is not None), 'generation_labels is needed for sampleConditionalGMM'
+        assert (self.generation_classes is not None), 'generation_classes is needed for sampleConditionalGMM'        
+        
         # sample means and stds of Gaussian distributions of the GMM
-        num_classes = len(self.generation_labels)
-        prior_shape = (self.num_channels, num_classes)
+        n_classes = len(np.unique(self.generation_classes))
+        prior_shape = n_classes
         if self.prior_distribution == 'uniform':
             means = np.random.uniform(low=self.prior_mean[0], high=self.prior_mean[1], size=prior_shape)
             stds  = np.random.uniform(low=self.prior_std[0], high=self.prior_std[1], size=prior_shape)
@@ -811,21 +841,26 @@ class SampleConditionalGMM(torch.nn.Module):
             means[0] = npr.uniform(0, 15)
             stds[0] = npr.uniform(0, 5)
 
+        # get gaussian mean/std for each generation label
+        means = means[self.generation_classes]
+        stds  = stds[self.generation_classes]
+        
         # generate synthetic image
         label = label.squeeze(0)   # remove the channel axis
         sampled_image = torch.zeros((self.num_channels, *label.shape), device=label.device)
-        for labelid in range(num_classes):
-            label_indices = (label == self.generation_labels[labelid])
+        for idx_label in range(len(self.generation_labels)):
+            label_indices = (label == self.generation_labels[idx_label])
             indices_count = label_indices.sum()
 
             # each channel is sampled independently
             for n_channel in range(self.num_channels):
-                gauss_samples = means[n_channel, labelid] + stds[n_channel, labelid] * torch.randn(indices_count, device=label.device)   # N(means[n_channel, labelid] + stds[n_channel, labelid])
+                # N(means[labelid] + stds[labelid])
+                gauss_samples = means[idx_label] + stds[idx_label] * torch.randn(indices_count, device=label.device)
                 sampled_image[n_channel][label_indices] = gauss_samples
  
         output = {
             'image': sampled_image,
-            'label': label,
+            'label': label.unsqueeze(0), # add back the channel axis
             'prior': prior,
                  }
         return output
@@ -1104,3 +1139,60 @@ class MimicResolution(torch.nn.Module):
             'prior': prior,
                  }
         return output
+
+
+class RemapLabels(torch.nn.Module):
+    def __init__(self, source_labels, dest_labels=None, hp=None, device=None, sampling_hp=True, verbose=False):
+        super().__init__()
+        self.device = device
+        if (self.device is None):
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        hp = {} if (hp is None) else hp            
+        self.source_labels  = source_labels
+        self.dest_labels = dest_labels
+        self.sampling = sampling_hp
+        self.verbose = verbose
+        if (self.dest_labels is None):
+            self.source_labels = np.unique(self.source_labels)
+            self.dest_labels = np.arange(len(self.source_labels), dtype='int32')
+
+        self.mapping = None
+        if (len(self.source_labels) == len(self.dest_labels) and np.all(self.source_labels == self.dest_labels)):
+            logging.info(f"'freeseg.augmentation.augmentbase.RemapLabels': source_labels same as dest_labels")
+            return
+
+        # build the mapping from source labels to dest labels        
+        self.mapping = {}        
+        for src, dest in zip(self.source_labels, self.dest_labels):
+            self.mapping.update({src:dest})
+        
+
+    def forward(self, input, debugsaveprefix=None):
+        """
+        Map source labels to dest labels
+        """    
+
+        if (self.verbose):
+            logging.debug(f"'freeseg.augmentation.augmentbase.RemapLabels'")
+
+        image = input.get("image", None)
+        label = input.get("label", None)
+        prior = input.get("prior", None)
+        voxsize = input.get("voxsize", None)
+        geom = input.get("geom", None)
+
+        if (self.mapping is None):
+            return dict(image=image, label=label, prior=prior)
+        
+        remapped_label = torch.zeros_like(label)
+        for src, dest in self.mapping.items():
+            remapped_label[label == src] = dest
+ 
+        output = {
+            'image': image,
+            'label': remapped_label,
+            'prior': prior,
+                 }
+        return output
+

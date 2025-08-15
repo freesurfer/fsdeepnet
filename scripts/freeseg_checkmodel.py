@@ -3,6 +3,7 @@
 import os
 import logging
 import sys
+import numpy
 import torch
 import argparse
 
@@ -52,10 +53,15 @@ def main():
         # Load config file
         config = Config.load(args.config)
 
+        segmentation_labels = config["dataset"]["segmentation_labels"]
+        if (isinstance(segmentation_labels, str)):
+            segmentation_labels = numpy.load(segmentation_labels)
+        nb_labels = len(numpy.unique(segmentation_labels))
+
         # create the model
         model_arch_dict = config["model"]
         model_arch_dict["num_channels"] = config["dataset"]["expected_num_channels"]
-        model_arch_dict["nb_labels"] = len(config["dataset"]["expected_classes"])
+        model_arch_dict["nb_labels"] = nb_labels
         #model_arch_dict["add_priors"] = train_dataset_dict.get("priors", False)
         
         the_model_name = model_arch_dict.get("name", None)
@@ -76,7 +82,7 @@ def main():
         assert the_model_name is not None, "Model name is not available."
 
         model_arch_dict = checkpoint.model_arch_dict
-        n_channels = checkpoint.train_dataset_dict["num_channels"]
+        n_channels = model_arch_dict["num_channels"]
 
     model_class = get_class(the_model_name, "freeseg.models.unet")
     model = model_class(model_arch_dict).to(device)

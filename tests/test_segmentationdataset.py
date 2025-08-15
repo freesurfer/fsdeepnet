@@ -41,8 +41,8 @@ logging.basicConfig(
 def main():
     args = argument_parse()
     
-    config = Config.process(args, require_train_outfolder=False, test_augment=args.augment)
-    config, _, _, _, _, train_dataset = Training.setup(config, create_loader=False, create_model=False)
+    config = Config.process(args, logger=logging, require_train_outfolder=False, test_augment=args.augment)
+    config, _, _, _, _, train_dataset = Training.setup(config, preload_dataset=False, create_loader=False, create_model=False)
     Config.print(config, logging)
 
     if (args.augment):

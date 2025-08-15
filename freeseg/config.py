@@ -12,7 +12,10 @@ from freeseg.utils import config_logger
 
 class Config:
     @staticmethod
-    def process(args, require_train_outfolder=True, test_augment=False):
+    def process(args, logger=None, require_train_outfolder=True, test_augment=False):
+        if (logger is None):
+            logger = logging
+
         ### load config.yaml
         config = Config.load(args.config)
 
@@ -40,6 +43,17 @@ class Config:
         assert (np.all(np.array(crop_size) % (2**(nb_levels-1)) == 0)), f"crop_size {crop_size} needs to be divisible by 2^{nb_levels-1}"
         assert (ndims == len(crop_size)), f"crop_size {crop_size} is not for {ndims}D"
 
+        ### print the command
+        now = datetime.datetime.now()
+        dt_nowstring = str(now).replace(' ', '.').replace(':', '.')
+        cmd = ' '.join(sys.argv)
+        cmdopts = cmd.split("--")
+        cwd = os.getcwd()
+        logger.info("===================== Current date and time: " + str(now) + " =====================")
+        logger.info("CWD: " + cwd)
+        logger.info("CMD: " + "\n\t\t\t\t\t--".join(cmdopts))
+        logger.info("")
+
         ### setup and configure root and main logger
         if (output_folder is not None):
             output_folder = os.path.abspath(output_folder)
@@ -47,14 +61,10 @@ class Config:
                 os.makedirs(output_folder)
         logfile = None
         if (require_train_outfolder):
-            logfile = args.logfile if ('logfile' in args and args.logfile is not None) else os.path.join(output_folder, "freeseg_train.log")
+            logfile = args.logfile if ('logfile' in args and args.logfile is not None) else os.path.join(output_folder, f"log.{dt_nowstring}")
             config_logger(logfile=logfile)
 
         ### save updated config and dataset_list_file
-        cmd = ' '.join(sys.argv)
-        cwd = os.getcwd()
-        now = datetime.datetime.now()
-        dt_nowstring = str(now).replace(' ', '.').replace(':', '.')
         config_saveas, dataset_list_saveas = None, None
         if (output_folder is not None):
             # copy the user input config.yaml
@@ -62,11 +72,13 @@ class Config:
             config_saveas = os.path.join(output_folder, f"config.{dt_nowstring}.yaml")
             # save the config updated with command line args
             Config.save(config, cwd=cwd, cmd=cmd, saveas=config_saveas)
-            dataset_list_saveas = os.path.join(output_folder, "dataset_list.yaml")
+            # cpoy dataset_list.yaml
+            dataset_list_saveas = os.path.join(output_folder, f"dataset_list.{dt_nowstring}.yaml")
             shutil.copyfile(config["dataset"]["dataset_list_file"], dataset_list_saveas)
 
-        ### in the rest of the function, config will be re-arranged and updated for the training setup
-        ### update config.dataloader options
+        ### IN THE REST OF THE FUNCTION,
+        ### CONFIG WILL BE RE-ARRANGED AND UPDATED TO BE USED IN TRAINING SETUP
+        ### UPDATE config.dataloader
         num_workers = config["dataloader"].get("num_workers", 0)
         pin_memory = config["dataloader"].get("pin_memory", False)
         persistent_workers = config["dataloader"].get("persistent_workers", False)
@@ -80,15 +92,38 @@ class Config:
                                      "persistent_workers": persistent_workers,
                                      "prefetch_factor": prefetch_factor})
 
-        ### update config.dataset options
-        labels_segmentation = sorted(config["dataset"]["expected_classes"])
-        label_mapping = {label:i for i, label in enumerate(labels_segmentation)}
+        ### UPDATE config.dataset
+        generation_labels  = config["dataset"].get("generation_labels", None)
+        generation_classes = config["dataset"].get("generation_classes", None)
+        segmentation_labels = config["dataset"].get("segmentation_labels", None)
+        if (generation_labels is not None and isinstance(generation_labels, str)):
+            generation_labels = np.load(generation_labels)
+        if (generation_classes is not None and isinstance(generation_classes, str)):
+            generation_classes = np.load(generation_classes)
+        if (segmentation_labels is not None and isinstance(segmentation_labels, str)):
+            segmentation_labels = np.load(segmentation_labels)
+        # save generation_labels, generation_classes, segmentation_labels
+        if (output_folder is not None):
+            f_npy = os.path.join(output_folder, "segmentation_labels.npy")
+            np.save(f_npy, np.array(sorted(segmentation_labels)).astype(int)) 
+            if (generation_labels is not None):
+                f_npy = os.path.join(output_folder, "generation_labels.npy")
+                np.save(f_npy, np.array(sorted(generation_labels)).astype(int))
+            if (generation_classes is not None):
+                f_npy = os.path.join(output_folder, "generation_classes.npy")
+                np.save(f_npy, np.array(sorted(generation_classes)).astype(int))
+        num_labels = len(np.unique(segmentation_labels))
+        label_mapping = {label:i for i, label in enumerate(np.unique(segmentation_labels))}
         inverse_label_mapping = {v: k for k, v in label_mapping.items()}
         config["dataset"].update({"ndims": config["model"]["ndims"],
                                   "batch_size": config["training"]["batch_size"],
-                                  "segmentation_labels": labels_segmentation,
+                                  "generation_labels"  : generation_labels if (generation_labels is not None) else segmentation_labels,
+                                  "generation_classes" : generation_classes, 
+                                  "segmentation_labels": segmentation_labels,
+                                  "left_right_corresponding": config["dataset"].get("left_right_corresponding", None),
                                   "label_mapping": label_mapping,
                                   "inverse_label_mapping": inverse_label_mapping,
+                                  "num_labels": num_labels,
                                   "crop_size": crop_size})
     
         ### set training, preprocessing devices
@@ -106,7 +141,7 @@ class Config:
         else:
             preprocessing_device = device
 
-        ### update config options
+        ### UPDATE config
         config.update({"cmd": cmd,
                        "cwd": cwd,
                        "now": now,
@@ -209,17 +244,7 @@ class Config:
         if (logger is None):
             logger = logging
 
-        # print the command
-        cwd = cfg["cwd"]
-        cmd = cfg["cmd"]
-        now = cfg["now"]
-        dt_nowstring = str(now).replace(' ', '.').replace(':', '.')
-        logger.info("===================== Current date and time: " + str(now) + " =====================")
-        logger.info("*** augmentation classes implemented: augmentbase.AugmentBase, augmentvoxynth.AugmentVoxynth ***")
-        logger.info("CWD: " + cwd)
-        logger.info("CMD: " + cmd)
         logger.info("")
-
         logger.info("Training Device: {}".format(cfg['device']) + (f' (GPU index: {cfg["gpu_index"]})' if (cfg.get('gpu_index') is not None) else ''))
         if (cfg["checkpoint"] is not None):
             logger.info(f"resume training from model: {cfg['checkpoint']}")
@@ -252,7 +277,7 @@ class Config:
         logger.info(f"output_folder: {cfg['output_folder']}")
         logger.info(f"training config: saved as {cfg['config_saveas']}")
         logger.info(f"dataset list: saved as {cfg['dataset_list_saveas']}")
-        logger.info(f"training log: {cfg['logfile']}")
+        logger.info(f"log file: {cfg['logfile']}")
         logger.info("")
 
     

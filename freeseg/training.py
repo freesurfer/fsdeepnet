@@ -72,7 +72,7 @@ class Training:
         self._setup_training_directory(train_output_folder)
 
         labels_segmentation = train_dataset_dict["segmentation_labels"]
-        self._num_labels = len(labels_segmentation)
+        self._num_labels = model_arch_dict["nb_labels"]
         self._label_mapping = train_dataset_dict["label_mapping"]
         self._inverse_label_mapping = train_dataset_dict["inverse_label_mapping"]
 
@@ -502,7 +502,7 @@ class Training:
     
 
     @staticmethod
-    def setup(config, create_loader=True, create_val_loader=True, create_model=True):
+    def setup(config, preload_dataset=False, create_loader=True, create_val_loader=True, create_model=True):
         """
         1. create training DataLoader, validation DataLoader, model, and optimizer
         2. update config
@@ -563,7 +563,9 @@ class Training:
                                          config["preprocessing"]['crop_size'],
                                          num_channels=config["dataset"]["expected_num_channels"],  # needed in sampleConditionalGMM
                                          left_right_corresponding=config["dataset"].get("left_right_corresponding", None),
-                                         generation_labels=config["dataset"].get("expected_classes"),
+                                         generation_labels=config["dataset"].get("generation_labels"),
+                                         generation_classes=config["dataset"].get("generation_classes"),
+                                         segmentation_labels=config["dataset"].get("segmentation_labels"),
                                          target_res=config["preprocessing"].get("target_res"),
                                          output_dir=config["preprocessing"].get("augmentation_dir", None),
                                          device=device,
@@ -576,8 +578,8 @@ class Training:
         ### create training DataLoader
         augmentation_class = config["preprocessing"].get("augmentation_class", "freeseg.augmentation.augmentbase.AugmentBase")
         if ("Augment2" in augmentation_class):
-            mainlogger.info("'augment2.Augment2' is specified in config.")
-            mainlogger.info("Change 'augment2.Augment2' to 'augmentbase.AugmentBase' since augmentations in augment2.Augment2 are now implemented in augmentbase.AugmentBase")
+            logging.info("'augment2.Augment2' is specified in config.")
+            logging.info("Change 'augment2.Augment2' to 'augmentbase.AugmentBase' since augmentations in augment2.Augment2 are now implemented in augmentbase.AugmentBase")
             augmentation_class = "freeseg.augmentation.augmentbase.AugmentBase"
 
         train_augmentations = remove_duplicates(Config.get_augmentations(config["preprocessing"].get("augmentations")))
@@ -585,7 +587,7 @@ class Training:
         train_dataset = load_dataset(config["dataset"], train_augment_obj,
                                      device=config["preprocessing_device"],
                                      keep_trainset_in_memory=config["keep_trainset_in_memory"],
-                                     cohort=config["train_cohort"], preload=True, augdir=config["preprocessing"].get("augmentation_dir", None))
+                                     cohort=config["train_cohort"], preload=preload_dataset, augdir=config["preprocessing"].get("augmentation_dir", None))
         train_loader = None        
         if (create_loader):
             train_loader = DataLoader(train_dataset, batch_size=config["dataloader"]["batch_size"], shuffle=True,
@@ -606,18 +608,18 @@ class Training:
                                               device=config["preprocessing_device"],
                                               cohort=config["validation_cohort"])
             if (validation_dataset is None):
-                mainlogger.warn(f"No 'validation' set in {config['dataset']['dataset_list_file']} to perform evaluation")
+                logging.warn(f"No 'validation' set in {config['dataset']['dataset_list_file']} to perform evaluation")
                 config["training"]["perform_evaluation"] = False
             else:
                 validation_loader = DataLoader(validation_dataset, batch_size=config["training"]["batch_size"], shuffle=False)
 
         ### output segmentation_labels.npy
         train_dataset_dict = train_dataset.profile
-        if (config["output_folder"] is not None):
-            unique_classes = train_dataset_dict["unique_classes"]
-            f_segmentation_labels = os.path.join(config["output_folder"], "segmentation_labels.npy")
-            np.save(f_segmentation_labels, np.array(sorted(unique_classes)).astype(int))
-        # update config.dataset
+        if (config["output_folder"] is not None and preload_dataset):
+            generation_labels = train_dataset_dict["reported_generation_labels"]
+            f_generation_labels = os.path.join(config["output_folder"], "reported_generation_labels.npy")
+            np.save(f_generation_labels, np.array(sorted(generation_labels)).astype(int))
+        # UPDATE config.dataset
         config["dataset"].update(train_dataset_dict)
 
         #### create the model to train
@@ -625,7 +627,7 @@ class Training:
         if (create_model):
             model_arch_dict = config["model"]
             model_arch_dict["num_channels"] = config["dataset"]["expected_num_channels"]
-            model_arch_dict["nb_labels"] = len(config["dataset"]["expected_classes"])
+            model_arch_dict["nb_labels"] = config["dataset"]["num_labels"]
             model_arch_dict["add_priors"] = train_dataset_dict.get("priors", False)
             model_arch_dict["weight_init"] =config["model"].get("weight_init", None)
 
@@ -646,7 +648,7 @@ class Training:
             #           see https://pytorch.org/docs/stable/notes/randomness.html
             set_deterministic_training()
 
-        ### update config
+        ### UPDATE config
         config.update({"train_augmentations": train_augmentations})
 
         return config, train_loader, validation_loader, model, optimizer_cls, train_dataset

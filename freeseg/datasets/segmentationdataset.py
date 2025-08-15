@@ -19,8 +19,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
         self.num_entries = len(dataset_dict)
         self.num_channels = dset_profile["expected_num_channels"]
         self.ndims = dset_profile["ndims"]
-        self.expected_classes = dset_profile["expected_classes"]
-        self.num_classes = len(sorted(dset_profile["expected_classes"]))
+        self.num_classes = dset_profile["num_labels"]
         self.label_mapping = dset_profile["label_mapping"]
 
         assert (self.ndims == 3 or self.ndims == 2), "Model supports 3D or 2D"
@@ -30,23 +29,30 @@ class SegmentationDataset(torch.utils.data.Dataset):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         if (keep_trainset_in_memory and augdir is not None):
-            logging.error(f"'--keep_trainset_in_memory' doesn't work with saving augmentation volumes") 
-            raise ValueError("'--keep_trainset_in_memory' doesn't work with saving augmentation volumes")
+            errmsg = f"'--keep_trainset_in_memory' doesn't work with saving augmentation volumes"
+            logging.error(errmsg) 
+            raise ValueError(errmsg)
+        if (keep_trainset_in_memory and not preload):
+            errmsg = f"'--keep_trainset_in_memory' only work with 'preload=True'"
+            logging.error(errmsg) 
+            raise ValueError(errmsg)
 
         self.keep_trainset_in_memory = keep_trainset_in_memory
-        self.images = []
+        self.images, self.labels = [], []
         self.image_tensors , self.label_tensors, self.prior_tensors = [], [], []
         
         # Extract image, label, priors file paths
         self.image_files, self.label_files, self.priors_files = [], [], []
         if (dataset_dict is not None):
             for item in dataset_dict:
-                self.image_files.append(item["image_filepath"])
+                if (item.get("image_filepath")):
+                    self.image_files.append(item["image_filepath"])
                 self.label_files.append(item["label_filepath"])
                 if (item.get("prior_filepath")):
                     self.priors_files.append(item["prior_filepath"])
 
-        assert (len(self.image_files) == len(self.label_files)), "image and label need to be the same length"
+        if (self.hasimage()):
+            assert (len(self.image_files) == len(self.label_files)), "image and label need to be the same length"
         if (self.haspriors()):
             assert (len(self.label_files) == len(self.priors_files)), "label and priors need to be the same length"
 
@@ -55,14 +61,19 @@ class SegmentationDataset(torch.utils.data.Dataset):
             augmentation.check_augmentations(self.data_augment)
 
         if (preload):
-            input_shape, unique_classes, label_lookup = self.preload()
+            input_shape, generation_labels, label_lookup = self.preload()
             self.dset_profile.update({"num_samples": self.num_entries,
                                       "input_shape": input_shape[1:],
                                       "num_channels": input_shape[0],
-                                      "unique_classes": unique_classes,
+                                      "reported_generation_labels": generation_labels,
+                                      "image": self.hasimage(),
                                       "priors": self.haspriors(),
                                       "label_lookup": label_lookup})
         
+
+    def hasimage(self):
+        return True if (len(self.image_files) > 0) else False
+
 
     def haspriors(self):
         return True if (len(self.priors_files) > 0) else False
@@ -73,16 +84,17 @@ class SegmentationDataset(torch.utils.data.Dataset):
 
 
     def __getitem__(self, index):
-        image_path = self.image_files[index]
+        image_path = self.image_files[index] if (self.hasimage()) else None        
         label_path = self.label_files[index]
 
         if (not self.keep_trainset_in_memory):
-            # Load image and label using the load_framedimage function
-            image, image_tensor, _ = load_framedimage(image_path, orientation="RAS", device=self.device, ndims=self.ndims)
+            image, image_tensor, priors_tensor = None, None, None            
+            # load label
             label, label_tensor, _ = load_framedimage(label_path, orientation="RAS", device=self.device, ndims=self.ndims)
-            
+            # load image if they are provided
+            if (self.hasimage()):
+                image, image_tensor, _ = load_framedimage(image_path, orientation="RAS", device=self.device, ndims=self.ndims)
             # load priors if they are provided
-            priors_tensor = None        
             if (self.haspriors()):
                 priors_path = self.priors_files[index]        
                 sfprior, priors_tensor, _  = load_framedimage(priors_path, orientation="RAS", device=self.device, ndims=self.ndims)
@@ -90,9 +102,9 @@ class SegmentationDataset(torch.utils.data.Dataset):
             # retrieve preloaded data
             # saving augmentated volumes will not work when keep_trainset_in_memory=True
             # because the input volume names are not available
-            label = None
             sfprior = None
-            image = self.images[index]            
+            image = self.images[index]
+            label = self.labels[index]            
             image_tensor  = self.image_tensors[index]
             label_tensor  = self.label_tensors[index]
             priors_tensor = self.prior_tensors[index]
@@ -102,7 +114,10 @@ class SegmentationDataset(torch.utils.data.Dataset):
             # image.geom.voxsize returned from surfa.load_volume() is (3, 1)
             # extract voxsizes to match {image_tensor.ndim-1}D data
             # make it writeable or voxynth.augment.image_augment() will complain non-writable numpy array
-            voxsize = np.copy(image.geom.voxsize[:image_tensor.ndim-1])
+            if (self.hasimage()):
+                voxsize = np.copy(image.geom.voxsize[:image_tensor.ndim-1])
+            else:
+                voxsize = np.copy(label.geom.voxsize[:label_tensor.ndim-1])
             augmented_image_tensor, augmented_label_tensor, augmented_priors_tensor = \
                 augmentation.apply_augmentations(
                     self.data_augment,
@@ -112,10 +127,10 @@ class SegmentationDataset(torch.utils.data.Dataset):
                     label,
                     voxsize=voxsize,
                     priors_tensor=priors_tensor,
-                    orig_fpath=image_path,
+                    orig_fpath=image_path if (self.hasimage()) else label_path,
                     index=index
                 )
-                
+
             # freeseg.utils.remap_labels() and freeseg.utils.onehot() expect batched tensor [N, 1, H, W(, D)]
             # add batch axis before calling remap_labels() and onehot()
             augmented_label_tensor = augmented_label_tensor.int().unsqueeze(0)
@@ -124,16 +139,9 @@ class SegmentationDataset(torch.utils.data.Dataset):
             # remove the added batch axis, DataLoader will batch the tensor based on batch_size
             onehot_augmented_label_tensor = onehot_augmented_label_tensor.squeeze(0)
 
-            """
-            # ??? todo: move the logic to augmentation.__init__.py
-            if (self.output_dir is not None):
-                out_label_onehot = os.path.join(self.output_dir, self.save_volumes + f"_augmented_label_onehot.mgz")
-                save_framedimage(onehot_augmented_label_tensor, out_label_onehot, onehotencoded=True)
-            """
-
             if (augmented_priors_tensor is None):
                 # torch.utils.data.DataLoader can't return NoneType, make an empty tensor with 0 elements
-                augmented_priors_tensor = torch.empty(0, *onehot_augmented_label_tensor.shape[1:], device=augmented_image_tensor.device)
+                augmented_priors_tensor = torch.empty(0, *onehot_augmented_label_tensor.shape[1:], device=self.device)
 
             return index, augmented_image_tensor, onehot_augmented_label_tensor, augmented_priors_tensor
         else:
@@ -145,7 +153,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
             onehot_label_tensor = onehot_label_tensor.squeeze(0)
             if (priors_tensor is None):
                 # torch.utils.data.DataLoader can't return NoneType, make an empty tensor with 0 elements
-                priors_tensor = torch.empty(0, *onehot_label_tensor.shape[1:], device=image_tensor.device)
+                priors_tensor = torch.empty(0, *onehot_label_tensor.shape[1:], device=self.device)
             
             return index, image_tensor, onehot_label_tensor, priors_tensor
 
@@ -158,19 +166,27 @@ class SegmentationDataset(torch.utils.data.Dataset):
         expected_num_channels = self.num_channels
 
         label_lookup = None
-        unique_classes = set()
+        generation_labels = set()
         for n in range(self.num_entries):
-            f_label, f_image = self.label_files[n], self.image_files[n]
-
+            ### load labels
+            f_label = self.label_files[n]
             label, label_tensor, _ = load_framedimage(f_label, orientation="RAS", device=self.device, ndims=self.ndims)
-            image, image_tensor, _ = load_framedimage(f_image, orientation="RAS", device=self.device, ndims=self.ndims)
 
-            # label_tensor and image_tensor are non-batched [C, H, W (,D)]
-            assert (self.ndims == label_tensor.ndim - 1), f"Expected {self.ndims}D label, but got {label_tensor.ndim - 1}D"            
-            #assert (self.ndims == image_tensor.ndim - 1), f"Expected {self.ndims}D image, but got {image_tensor.ndim - 1}D"
-            assert (label_tensor.shape == image_tensor.shape), \
-                f"image and label need to be in the same shape. label {f_label} has shape {label_tensor.shape}, image {f_image} has shape {image_tensor.shape}"
+            # label_tensor is non-batched [C, H, W (,D)]
+            assert (self.ndims == label_tensor.ndim - 1), f"Expected {self.ndims}D label, but got {label_tensor.ndim - 1}D"
+            input_shape = label_tensor.shape            
 
+            ### load images
+            image, image_tensor = None, None
+            if (self.hasimage()):
+                f_image = self.image_files[n]
+                # image_tensor is non-batched [C, H, W (,D)]
+                image, image_tensor, _ = load_framedimage(f_image, orientation="RAS", device=self.device, ndims=self.ndims)
+                assert (label_tensor.shape == image_tensor.shape), \
+                    f"image and label need to be in the same shape. label {f_label} has shape {label_tensor.shape}, image {f_image} has shape {image_tensor.shape}"
+                input_shape = image_tensor.shape # use image shape if it is available
+
+            ### load priors
             prior, prior_tensor = None, None
             if (self.haspriors()):
                 f_prior = self.priors_files[n]
@@ -180,38 +196,33 @@ class SegmentationDataset(torch.utils.data.Dataset):
                 assert (list(prior_tensor.shape) == [self.num_classes, *label_tensor.shape[1:]]), \
                     f"Expected prior shape [self.num_classes, *label_tensor.shape[1:]], but got {list(prior_tensor.shape)}"              
 
-            input_shape = image_tensor.shape
             assert (input_shape[0] == expected_num_channels), \
                 f"Expected {expected_num_channels} channels, but got {input_shape[0]}"
             
             if (self.keep_trainset_in_memory):
                 self.images.append(image)
+                self.labels.append(label)
                 self.image_tensors.append(image_tensor)
                 self.label_tensors.append(label_tensor)
                 self.prior_tensors.append(prior_tensor)
 
             if (label_lookup is None):
-                label_lookup = image.labels if (image.labels is not None) else label.labels
+                label_lookup = image.labels if (image is not None and image.labels is not None) else label.labels
 
-            unique_values = np.unique(label.data).astype(int).tolist()
-            unique_classes.update(unique_values)
-
-        expected_classes = self.expected_classes
-        """
-        assert (sorted(unique_classes) == expected_classes), \
-            f"Expected classes {expected_classes}, but got {sorted(unique_classes)}"
-        """
+            ### collect all the labels in the dataset
+            unique_labels = np.unique(label.data).astype(int).tolist()
+            generation_labels.update(unique_labels)
 
         logging.info("Dataset Information:")
         logging.info(f"  Number of samples: {self.num_entries}")
+        logging.info(f"  Has image: {self.hasimage()}")
         logging.info(f"  Has priors: {self.haspriors()}")        
-        logging.info(f"  Number of unique classes: {len(unique_classes)}")
-        logging.info(f"  Unique class values: {sorted(unique_classes)}")
-        logging.info(f"  Segmentation labels: {expected_classes}")
+        logging.info(f"  Reported number of labels: {len(generation_labels)}")
+        logging.info(f"  Reported generation labels: {sorted(generation_labels)}")
         logging.info(f"  Input shape: {list(input_shape[1:])}")
         logging.info(f"  Number of channels: {input_shape[0]}")
     
-        return input_shape, unique_classes, label_lookup
+        return input_shape, generation_labels, label_lookup
 
     @property
     def profile(self):

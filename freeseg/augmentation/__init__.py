@@ -18,27 +18,29 @@ def apply_augmentations(augment_obj,
         import numpy as np
         from freeseg.utils import save_framedimage
 
+        volumeprefix = os.path.basename(orig_fpath)
+        for fext in ['.nii.gz', '.nii', '.mgz']:
+            volumeprefix = volumeprefix.replace(fext, '')
         if (index is not None):
-            volumeprefix = f"{index+1:04d}."+os.path.splitext(os.path.basename(orig_fpath))[0]
-        else:
-            volumeprefix = os.path.splitext(os.path.basename(orig_fpath))[0]
+            volumeprefix = f"{index+1:04d}." + volumeprefix
         debugsaveprefix0 = os.path.join(output_dir, volumeprefix)        
         if (not os.path.exists(output_dir)):
             os.makedirs(output_dir)
 
     if (debugsaveprefix0 is not None):
         save_framedimage(
-            image_tensor,
-            f"{debugsaveprefix0}_reoriented_image.mgz",
-            original_framedimage=original_image,            
-        )
-        np.save(f"{debugsaveprefix0}_reoriented_image.npy", image_tensor.cpu().numpy().astype(np.float32))
-        save_framedimage(
             label_tensor,
             f"{debugsaveprefix0}_reoriented_label.mgz",
             original_framedimage=original_label,            
         )
         np.save(f"{debugsaveprefix0}_reoriented_label.npy", label_tensor.cpu().numpy().astype(np.float32))
+        if (image_tensor is not None):
+            save_framedimage(
+                image_tensor,
+                f"{debugsaveprefix0}_reoriented_image.mgz",
+                original_framedimage=original_image,            
+            )
+            np.save(f"{debugsaveprefix0}_reoriented_image.npy", image_tensor.cpu().numpy().astype(np.float32))
         if (priors_tensor is not None):
             save_framedimage(
                 priors_tensor,
@@ -64,7 +66,7 @@ def apply_augmentations(augment_obj,
             'label': label_tensor,
             'prior': priors_tensor,
             'voxsize': voxsize,
-            'geom': original_image.geom,
+            'geom': original_label.geom,
                 }
         output = augment(input, debugsaveprefix=debugsaveprefix)
         image_tensor = output.get('image', None)
@@ -75,19 +77,20 @@ def apply_augmentations(augment_obj,
         # save augmented volumes
         if (debugsaveprefix is not None):
             save_framedimage(
-                image_tensor,
-                f"{debugsaveprefix}_image.mgz",
-                original_framedimage=original_image,
-                geom=geom,
-            )
-            np.save(f"{debugsaveprefix}_image.npy", image_tensor.cpu().numpy().astype(np.float32))
-            save_framedimage(
                 label_tensor,
                 f"{debugsaveprefix}_label.mgz",
                 original_framedimage=original_label,
                 geom=geom,
             )
             np.save(f"{debugsaveprefix}_label.npy", label_tensor.cpu().numpy().astype(np.float32))
+            if (image_tensor is not None):
+                save_framedimage(
+                    image_tensor,
+                    f"{debugsaveprefix}_image.mgz",
+                    original_framedimage=original_image,
+                    geom=geom,
+                )
+                np.save(f"{debugsaveprefix}_image.npy", image_tensor.cpu().numpy().astype(np.float32))
             if (priors_tensor is not None):
                 save_framedimage(
                     priors_tensor,
@@ -98,8 +101,8 @@ def apply_augmentations(augment_obj,
                 )
                 np.save(f"{debugsaveprefix}_prior.npy", priors_tensor.cpu().numpy().astype(np.float32))
 
-    # ??? todo: output final augmented image/label/label_onehot/prior ???
-    # ??? this is now implemented in segmentationdataset.py ???
+    # ??? todo: output final augmented label_onehot ???
+    # ??? this was implemented in segmentationdataset.py ???
     
     return image_tensor, label_tensor, priors_tensor
 
@@ -114,10 +117,6 @@ def check_augmentations(augment_obj):
         assert (augmentation in augment_obj.valid_augmentations), \
             f"Unknown augmentation '{augmentation}'. Supported augmentations {augment_obj.valid_augmentations}. "
 
-    if ("flip" in augmentations_to_apply):
-        assert augment_obj.left_right_corresponding is not None, "left_right_corresponding is required for augmentation 'flip'"
-    if ("sampleConditionalgmm" in augmentations_to_apply):
-        assert (augment_obj.generation_labels is not None), "generation_labels is required for augmentation 'sampleConditionalGMM'"
     if (("centroidcrop" in augmentations_to_apply) and ("centercrop" in augmentations_to_apply)):
         raise ValueError("Both 'centroidcrop' and 'centercrop' are selected. Choose one.")        
     if (("centroidcrop" in augmentations_to_apply) and ("randomcrop" in augmentations_to_apply)):

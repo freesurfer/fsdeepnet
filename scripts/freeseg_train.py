@@ -41,8 +41,8 @@ mainlogger.addHandler(logging.StreamHandler())
 def main():
     args = argument_parse()
 
-    config = Config.process(args)
-    config, train_loader, validation_loader, model, optimizer_cls, _ = Training.setup(config)
+    config = Config.process(args, logger=mainlogger)
+    config, train_loader, validation_loader, model, optimizer_cls, _ = Training.setup(config, preload_dataset=args.preload)
     Config.print(config, mainlogger)
 
     train(config, train_loader, model, optimizer_cls,
@@ -64,6 +64,7 @@ def argument_parse():
     parser.add_argument("--model_name", type=str, help="Class used to create the model to train")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
     parser.add_argument("--keep_trainset_in_memory", action='store_true', help="Keep preloaded training data in memory")
+    parser.add_argument("--preload", action='store_true', help="Preload training dataset")
     parser.add_argument("--train_cohort", nargs="+", type=str, default=['train'], help="Specify training dataset cohort. Can be combinations of train, validation, or test")
     parser.add_argument("--validation_cohort", nargs="+", type=str, default=['validation'], help="Specify validation dataset cohort. Can be combinations of train, validation, or test")
     parser.add_argument("--deterministic", action='store_true', help="deterministic training")
@@ -128,8 +129,8 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
     if (verbose):
         # print model summary and trainable parameters
         from freeseg import models
-        net_crop_size = train_dataset_dict.get("crop_size", train_dataset_dict["input_shape"])
-        net_input_shape = (train_dataset_dict["num_channels"], *net_crop_size)
+        net_crop_size = train_dataset_dict["crop_size"]
+        net_input_shape = (model_arch_dict["num_channels"], *net_crop_size)
         models.model_summary(model, net_input_shape, logger=mainlogger)
         models.model_parameters(model, logger=mainlogger)
     
@@ -172,7 +173,7 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
         model_metrics = get_class(config["training"].get("model_metrics", "freeseg.metrics.DiceLoss"), "freeseg.metrics")
         mainlogger.info(f"training {dice_epochs} dice epochs: {optimizer_cls}, {model_metrics}, lr:{config['training']['learning_rate']} ...")
         dice_loss_fn = model_metrics(
-            num_classes=len(config["dataset"]["expected_classes"]),
+            num_classes=config["dataset"]["num_labels"],
             dice_type="soft")
         trainer.train_model(lr=config["training"]["learning_rate"],
                             epochs=dice_epochs,

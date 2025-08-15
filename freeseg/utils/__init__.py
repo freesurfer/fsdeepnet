@@ -11,4 +11,5 @@ from .utility import gpu_report
 from .utility import config_logger
 from .utility import get_class
 from .utility import remove_duplicates
+from .utility import unique_unsorted
 from .utility import get_ras_axes
