@@ -502,7 +502,7 @@ class Training:
     
 
     @staticmethod
-    def setup(config, preload_dataset=False, create_loader=True, create_val_loader=True, create_model=True):
+    def setup(config, preload_dataset=False, create_train_dataset=True, create_loader=True, create_val_loader=True, create_model=True):
         """
         1. create training DataLoader, validation DataLoader, model, and optimizer
         2. update config
@@ -575,21 +575,27 @@ class Training:
             return augment_obj
 
 
-        ### create training DataLoader
-        augmentation_class = config["preprocessing"].get("augmentation_class", "freeseg.augmentation.augmentbase.AugmentBase")
-        if ("Augment2" in augmentation_class):
-            logging.info("'augment2.Augment2' is specified in config.")
-            logging.info("Change 'augment2.Augment2' to 'augmentbase.AugmentBase' since augmentations in augment2.Augment2 are now implemented in augmentbase.AugmentBase")
-            augmentation_class = "freeseg.augmentation.augmentbase.AugmentBase"
+        ### create training Dataset
+        train_dataset = None
+        if (create_train_dataset):
+            augmentation_class = config["preprocessing"].get("augmentation_class", "freeseg.augmentation.augmentbase.AugmentBase")
+            if ("Augment2" in augmentation_class):
+                logging.info("'augment2.Augment2' is specified in config.")
+                logging.info("Change 'augment2.Augment2' to 'augmentbase.AugmentBase' since augmentations in augment2.Augment2 are now implemented in augmentbase.AugmentBase")
+                augmentation_class = "freeseg.augmentation.augmentbase.AugmentBase"
 
-        train_augmentations = remove_duplicates(Config.get_augmentations(config["preprocessing"].get("augmentations")))
-        train_augment_obj = create_augment_object(augmentation_class, train_augmentations, config, cohort="train", device=config["preprocessing_device"])
-        train_dataset = load_dataset(config["dataset"], train_augment_obj,
-                                     device=config["preprocessing_device"],
-                                     keep_trainset_in_memory=config["keep_trainset_in_memory"],
-                                     cohort=config["train_cohort"], preload=preload_dataset, augdir=config["preprocessing"].get("augmentation_dir", None))
+            train_augmentations = remove_duplicates(Config.get_augmentations(config["preprocessing"].get("augmentations")))
+            train_augment_obj = create_augment_object(augmentation_class, train_augmentations, config, cohort="train", device=config["preprocessing_device"])
+            train_dataset = load_dataset(config["dataset"], train_augment_obj,
+                                         device=config["preprocessing_device"],
+                                         keep_trainset_in_memory=config["keep_trainset_in_memory"],
+                                         cohort=config["train_cohort"], preload=preload_dataset, augdir=config["preprocessing"].get("augmentation_dir", None))
+            ### UPDATE config
+            config.update({"train_augmentations": train_augmentations})
+
+        ### create training DataLoader
         train_loader = None        
-        if (create_loader):
+        if (create_train_dataset and create_loader):
             train_loader = DataLoader(train_dataset, batch_size=config["dataloader"]["batch_size"], shuffle=True,
                                       pin_memory=config["dataloader"]["pin_memory"], num_workers=config["dataloader"]["num_workers"],
                                       persistent_workers=config["dataloader"]["persistent_workers"], prefetch_factor=config["dataloader"]["prefetch_factor"])
@@ -614,13 +620,14 @@ class Training:
                 validation_loader = DataLoader(validation_dataset, batch_size=config["training"]["batch_size"], shuffle=False)
 
         ### output segmentation_labels.npy
-        train_dataset_dict = train_dataset.profile
+        train_dataset_dict = config["dataset"]
         if (config["output_folder"] is not None and preload_dataset):
+            train_dataset_dict = train_dataset.profile
             generation_labels = train_dataset_dict["reported_generation_labels"]
             f_generation_labels = os.path.join(config["output_folder"], "reported_generation_labels.npy")
             np.save(f_generation_labels, np.array(sorted(generation_labels)).astype(int))
-        # UPDATE config.dataset
-        config["dataset"].update(train_dataset_dict)
+            # UPDATE config.dataset
+            config["dataset"].update(train_dataset_dict)
 
         #### create the model to train
         model, optimizer_cls = None, None
@@ -647,8 +654,5 @@ class Training:
             # ??? todo: for multi-process dataloader, use worker_init_fn() and generator to preserve reproducibility
             #           see https://pytorch.org/docs/stable/notes/randomness.html
             set_deterministic_training()
-
-        ### UPDATE config
-        config.update({"train_augmentations": train_augmentations})
 
         return config, train_loader, validation_loader, model, optimizer_cls, train_dataset

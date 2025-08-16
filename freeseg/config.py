@@ -12,7 +12,7 @@ from freeseg.utils import config_logger
 
 class Config:
     @staticmethod
-    def process(args, logger=None, require_train_outfolder=True, test_augment=False):
+    def process(args, logger=None, require_train_outfolder=True, require_dataset_list=True, test_augment=False):
         if (logger is None):
             logger = logging
 
@@ -25,7 +25,7 @@ class Config:
         ### argument checks
         if ('checkpoint' in args and args.checkpoint is not None):
             if not os.path.isfile(args.checkpoint):
-                mainlogger.error('ERROR: file does not exist: %s' % args.checkpoint)
+                logger.error('ERROR: file does not exist: %s' % args.checkpoint)
                 sys.exit(1)
 
         output_folder = None
@@ -35,7 +35,8 @@ class Config:
         elif (test_augment):
             output_folder = config["preprocessing"].get("augmentation_dir", None)
             assert (output_folder is not None), "Use '--augmentation_dir <>' to specify augmentation output directory"
-        assert (config["dataset"].get("dataset_list_file", None) is not None), "Use '--dataset_list_file <dataset.yaml>' or 'dataset_list_file' in config.yaml to specify the dataset"
+        if (require_dataset_list):
+            assert (config["dataset"].get("dataset_list_file", None) is not None), "Use '--dataset_list_file <dataset.yaml>' or 'dataset_list_file' in config.yaml to specify the dataset"
 
         crop_size = config["preprocessing"]["crop_size"]
         nb_levels = config["model"]["nb_levels"]

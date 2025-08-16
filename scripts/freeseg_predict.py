@@ -51,9 +51,11 @@ def main():
             sys.exit(1)
                           
     # print the command
+    cmd = ' '.join(sys.argv)
+    cmdopts = cmd.split("--")
     mainlogger.info("")
     mainlogger.info("CWD: " + os.getcwd())
-    mainlogger.info(' '.join(sys.argv))    
+    mainlogger.info("CMD: " + "\n\t--".join(cmdopts))
 
     if (args.cpu):
         os.environ["CUDA_VISIBLE_DEVICES"]=""
