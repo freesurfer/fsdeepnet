@@ -385,6 +385,16 @@ class UNet(nn.Module):
         if (self._model_arch_dict["norm"] is None):
             self._model_arch_dict["skip_connect"] = "encoder"
 
+            
+    def print_arch(self, logger=None):
+        if (logger is None):
+            logger = logging
+
+        logger.info(f"{self._model_arch_dict.get('name')}:")    
+        for k in self._model_arch_dict.keys():
+            logger.info(f"    {k}: {self._model_arch_dict[k]}")
+        logger.info("")        
+        
 
     @property
     def arch_dict(self):

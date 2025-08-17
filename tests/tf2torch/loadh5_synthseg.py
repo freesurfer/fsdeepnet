@@ -158,15 +158,11 @@ def main():
     config = Config.process(args, logger=logging, require_train_outfolder=False, require_dataset_list=False)
     config, _, _, model, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=True)
 
-    model_arch_dict = model.arch_dict
-    logging.info(f"{model_arch_dict.get('name')}:")    
-    for k in model_arch_dict.keys():
-        logging.info(f"    {k}: {model_arch_dict[k]}")
-    logging.info("")
+    model.print_arch(logger=mainlogger)
     
     train_dataset_dict = config["dataset"]
     label_lookup = train_dataset_dict.get("label_lookup", None)
-    checkpoint = Checkpoint(model_arch_dict=model_arch_dict, train_dataset_dict=train_dataset_dict, label_lookup=None) 
+    checkpoint = Checkpoint(model_arch_dict=model.arch_dict, train_dataset_dict=train_dataset_dict, label_lookup=None) 
 
     model_state_dict = {}
     with h5py.File(tf_model_file, 'r') as f:

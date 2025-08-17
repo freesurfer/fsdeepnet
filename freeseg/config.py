@@ -44,16 +44,8 @@ class Config:
         assert (np.all(np.array(crop_size) % (2**(nb_levels-1)) == 0)), f"crop_size {crop_size} needs to be divisible by 2^{nb_levels-1}"
         assert (ndims == len(crop_size)), f"crop_size {crop_size} is not for {ndims}D"
 
-        ### print the command
         now = datetime.datetime.now()
         dt_nowstring = str(now).replace(' ', '.').replace(':', '.')
-        cmd = ' '.join(sys.argv)
-        cmdopts = cmd.split("--")
-        cwd = os.getcwd()
-        logger.info("===================== Current date and time: " + str(now) + " =====================")
-        logger.info("CWD: " + cwd)
-        logger.info("CMD: " + "\n\t\t\t\t\t--".join(cmdopts))
-        logger.info("")
 
         ### setup and configure root and main logger
         if (output_folder is not None):
@@ -64,6 +56,16 @@ class Config:
         if (require_train_outfolder):
             logfile = args.logfile if ('logfile' in args and args.logfile is not None) else os.path.join(output_folder, f"log.{dt_nowstring}")
             config_logger(logfile=logfile)
+
+        ### print the command
+        cmd = ' '.join(sys.argv)
+        cmdopts = cmd.split("--")
+        cwd = os.getcwd()
+        logger.info("===================== Current date and time: " + str(now) + " =====================")
+        logger.info("CWD: " + cwd)
+        logger.info("CMD: " + "\n                                    --".join(cmdopts))
+        logger.info("")
+
 
         ### save updated config and dataset_list_file
         config_saveas, dataset_list_saveas = None, None
@@ -253,9 +255,12 @@ class Config:
         if (cfg["training"].get("wl2_epochs", 0) > 0):
             logger.info(f"wl2_epochs: {cfg['training'].get('wl2_epochs')}")
             logger.info(f"wl2_metrics: {cfg['training'].get('wl2_metrics', 'freeseg.metrics.WeightedL2Loss')}")
+            logger.info(f"pre_train_learning_rate: {cfg['training']['pre_train_learning_rate']}")            
         if (cfg["training"].get("dice_epochs", 0) > 0):
             logger.info(f"dice_epochs: {cfg['training'].get('dice_epochs')}")
             logger.info(f"model_metrics: {cfg['training'].get('model_metrics', 'freeseg.metrics.DiceLoss')}")
+            logger.info(f"learning_rate: {cfg['training']['learning_rate']}")
+        logger.info(f"steps_per_epoch: {cfg['training']['steps_per_epoch']}")
         logger.info(f"batch_size: {cfg['training']['batch_size']}")
         logger.info(f"crop_size: {cfg['preprocessing']['crop_size']}")
 

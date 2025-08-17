@@ -121,10 +121,7 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
 
     # print model_arch_dict
     model_arch_dict = model.arch_dict
-    mainlogger.info(f"{model_arch_dict.get('name')}:")    
-    for k in model_arch_dict.keys():
-        mainlogger.info(f"    {k}: {model_arch_dict[k]}")
-    mainlogger.info("")
+    model.print_arch(logger=mainlogger)
 
     if (verbose):
         # print model summary and trainable parameters
