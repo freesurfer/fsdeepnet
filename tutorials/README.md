@@ -4,7 +4,7 @@
 
 1. Clone the repo
 ```bash
-git clone <freeseg-repo>
+git clone https://github.com/freesurfer/freeseg.git <freeseg-repo>
 ```
 
 2. Install freeseg package
