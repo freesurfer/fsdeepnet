@@ -51,8 +51,7 @@ fspython ../scripts/freeseg_train.py \
 cd tutorials/
 fspython ../scripts/freeseg_predict.py \
 	 --checkpoint experiment/train.dummy_binary/dice_010.pth \
-	 --dataset_list_file configs/dataset_list_dummy_binary.yaml \
-	 --cohort test \
+	 --dataset_list_file configs/dataset_list_dummy_binary.yaml --cohort test \
 	 --o experiment/predict.testcohort
 
        * Use one of the following options to specify images to segment:

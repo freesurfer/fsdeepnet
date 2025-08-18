@@ -98,6 +98,7 @@ def main():
                     path_npy = f"{args.weight_outdir}/{name}.npy"
                     np.save(path_npy, param.data.cpu().numpy())
 
+    model.print_arch()
     models.model_print(model)
     models.model_summary(model, (n_channels, *args.input_shape[-args.ndims:]), device=device, debug=True)
     #models.model_parameters(model)
