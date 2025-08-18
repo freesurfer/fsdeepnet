@@ -419,7 +419,10 @@ class CentroidCrop(torch.nn.Module):
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        hp = {} if (hp is None) else hp
+        self.max_offset = hp.get("max_offset", None)            
         self.crop_size = torch.tensor(crop_size, device=self.device)
+        self.sampling = sampling_hp                    
         self.verbose = verbose
 
     def forward(self, input, debugsaveprefix=None):
@@ -462,12 +465,21 @@ class CentroidCrop(torch.nn.Module):
         # calculate the center point to crop the image/label around    
         if (label is not None):
             center_point = centroid(label.squeeze(0), verbose=self.verbose)
+        else:
+            center_point = (vol_shape/2).int()   #tuple(dim // 2 for dim in vol_shape)
+
+        # off_center = U(0, self.max_offset) if sampling = True; otherwise off_center = self.max_offset
+        if (self.max_offset is not None):
+            if (not self.sampling):
+                off_center = self.max_offset
+            else:
+                off_center = [self.max_offset[i] * torch.rand(1, device=device) for i in range(vol_ndims)]
+                off_center = [math.ceil(off_center[i]) for i in range(vol_ndims)]
+            center_point = center_point - torch.tensor(off_center, device=device)
 
         zero_tensor = torch.zeros(vol_ndims, device=device, dtype=int)
         crop_half = (self.crop_size/2).int()
-        if (center_point is None):
-            center_point = (vol_shape/2).int()   #tuple(dim // 2 for dim in vol_shape)
-        else:
+        if (label is not None):
             # adjust the calculated center so that croppred image will have crop_size
             if (torch.any(center_point < crop_half)):
                 distance = crop_half - center_point
@@ -509,7 +521,10 @@ class CenterCrop(torch.nn.Module):
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        hp = {} if (hp is None) else hp
+        self.max_offset = hp.get("max_offset", None)            
         self.crop_size = torch.tensor(crop_size, device=self.device)
+        self.sampling = sampling_hp
         self.verbose = verbose
 
     def forward(self, input, debugsaveprefix=None):
@@ -553,6 +568,15 @@ class CenterCrop(torch.nn.Module):
         zero_tensor = torch.zeros(vol_ndims, device=device, dtype=int)
         crop_half = (self.crop_size/2).int()
         center_point = (vol_shape/2).int()   #tuple(dim // 2 for dim in vol_shape)
+
+        # off_center = U(0, self.max_offset) if sampling = True; otherwise off_center = self.max_offset
+        if (self.max_offset is not None):
+            if (not self.sampling):
+                off_center = self.max_offset
+            else:
+                off_center = [self.max_offset[i] * torch.rand(1, device=device) for i in range(vol_ndims)]
+                off_center = [math.ceil(off_center[i]) for i in range(vol_ndims)]
+            center_point = center_point - torch.tensor(off_center, device=device)
 
         # Calculate the starting and ending indices for the crop region
         start_coords = torch.maximum(zero_tensor, center_point - crop_half)
