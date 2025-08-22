@@ -468,12 +468,13 @@ class CentroidCrop(torch.nn.Module):
         else:
             center_point = (vol_shape/2).int()   #tuple(dim // 2 for dim in vol_shape)
 
-        # off_center = U(0, self.max_offset) if sampling = True; otherwise off_center = self.max_offset
+        # off_center = U[-self.max_offset, +self.max_offset) if sampling = True; otherwise off_center = self.max_offset
         if (self.max_offset is not None):
             if (not self.sampling):
                 off_center = self.max_offset
             else:
-                off_center = [self.max_offset[i] * torch.rand(1, device=device) for i in range(vol_ndims)]
+                # U[-self.max_offset, +self.max_offset)
+                off_center = [(-self.max_offset[i]-self.max_offset) * torch.rand(1, device=device) + self.max_offset for i in range(vol_ndims)]
                 off_center = [math.ceil(off_center[i]) for i in range(vol_ndims)]
             center_point = center_point - torch.tensor(off_center, device=device)
 
@@ -569,12 +570,13 @@ class CenterCrop(torch.nn.Module):
         crop_half = (self.crop_size/2).int()
         center_point = (vol_shape/2).int()   #tuple(dim // 2 for dim in vol_shape)
 
-        # off_center = U(0, self.max_offset) if sampling = True; otherwise off_center = self.max_offset
+        # off_center = U[-self.max_offset, self.max_offset) if sampling = True; otherwise off_center = self.max_offset
         if (self.max_offset is not None):
             if (not self.sampling):
                 off_center = self.max_offset
             else:
-                off_center = [self.max_offset[i] * torch.rand(1, device=device) for i in range(vol_ndims)]
+                # U[-self.max_offset, +self.max_offset)
+                off_center = [(-self.max_offset[i]-self.max_offset) * torch.rand(1, device=device) + self.max_offset for i in range(vol_ndims)]               
                 off_center = [math.ceil(off_center[i]) for i in range(vol_ndims)]
             center_point = center_point - torch.tensor(off_center, device=device)
 
@@ -1024,7 +1026,7 @@ class GaussianBlur(torch.nn.Module):
                  }
         return output
 
-    
+
 class ResampleVolume(torch.nn.Module):
     def __init__(self, target_res, hp=None, device=None, sampling_hp=True, verbose=False):
         """
@@ -1052,7 +1054,14 @@ class ResampleVolume(torch.nn.Module):
         voxsize = input.get("voxsize", None)
         geom = input.get("geom", None)
 
-        if (self.target_res is None):
+        ndims = image.ndim - 1
+        image_shape = image.shape[1:]
+
+        if (self.target_res is not None and np.isscalar(self.target_res)):        
+            self.target_res = np.array([self.target_res] * ndims)
+
+        if ((self.target_res is None) or \
+            (not np.any((voxsize > self.target_res+0.05) | (voxsize < self.target_res-0.05)))):
             output = {
                 'image': image,
                 'label': label,
@@ -1060,16 +1069,15 @@ class ResampleVolume(torch.nn.Module):
                      }
             return output
     
-        ndims = image.ndim - 1
-        image_shape = image.shape[1:]
-
         factor = voxsize / self.target_res
+        start = - (factor - 1) / (2 * factor)
         step = 1.0 / factor
+        stop = start + step * np.ceil(image_shape * factor)
 
-        xyzs = [torch.arange(start=0, end=image_shape[d]-1, step=step[d], dtype=torch.float32, device=self.device) for d in range(ndims)]
+        xyzs = [torch.arange(start=start[d], end=stop[d], step=step[d], dtype=torch.float32, device=self.device) for d in range(ndims)]
         x, y, z = torch.meshgrid(*xyzs, indexing='ij')
         meshgrid = torch.stack((x, y, z), dim=-1)
-        
+                
         # scale meshgrid to range [-1, 1], which is expected by torch.nn.functional.grid_sample()
         for d in range(ndims):
            if image_shape[d] == 1:
@@ -1082,8 +1090,9 @@ class ResampleVolume(torch.nn.Module):
 
         resampled_image = torch.nn.functional.grid_sample(image.unsqueeze(0), meshgrid.unsqueeze(0),
                                                           mode="bilinear", padding_mode='zeros', align_corners=True)
-        resampled_label = torch.nn.functional.grid_sample(label.float().unsqueeze(0), meshgrid.unsqueeze(0),
-                                                          mode="nearest", padding_mode='zeros', align_corners=True)
+        if (label is not None):
+            resampled_label = torch.nn.functional.grid_sample(label.float().unsqueeze(0), meshgrid.unsqueeze(0),
+                                                              mode="nearest", padding_mode='zeros', align_corners=True)
 
         from surfa.transform import ImageGeometry
         new_geom = ImageGeometry(
@@ -1094,7 +1103,7 @@ class ResampleVolume(torch.nn.Module):
 
         output = {
             'image': resampled_image.squeeze(0),
-            'label': resampled_label.squeeze(0).int(),
+            'label': resampled_label.squeeze(0).int() if (label is not None) else label,
             'prior': prior,
             'geom':  new_geom,            
                  }
@@ -1220,3 +1229,60 @@ class RemapLabels(torch.nn.Module):
                  }
         return output
 
+
+def CropVolume(volume, crop_idx, verbose=False):
+    """
+    Crop volumes with given indices
+    """    
+    if (verbose):
+        logging.debug(f"'freeseg.augmentation.augmentbase.Crop'")
+
+    # input volume is non-batched tensor
+    vol_shape = torch.tensor(volume.shape[1:], device=volume.device)
+    device = volume.device
+    vol_ndims = len(vol_shape)
+
+    if (crop_idx is None):
+        return volume
+
+    if (vol_ndims == 3):
+        volume = volume[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]]
+    else:
+        volume = volume[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]]
+
+    return volume
+
+
+def PadVolume(volume, padding_shape, padding_value=0):
+    """
+    Pad volume to a given shape
+
+    volume: volume to be padded
+    padding_shape: shape to pad volume to
+    padding_value: (optional) value used for padding
+
+    Returns:
+        padded volume, pad_idx
+    """
+
+    new_volume = volume.clone()
+    vol_shape = np.array(new_volume.shape[1:])
+    ndims = len(vol_shape)
+
+    # check if need to pad
+    padding_shape = np.array(padding_shape)
+    if (np.any(padding_shape > vol_shape)):
+        # get padding margins
+        min_margins = np.maximum(np.int32(np.floor((padding_shape - vol_shape)/2)), 0)
+        max_margins = np.maximum(np.int32(np.ceil((padding_shape - vol_shape)/2)), 0)
+        pad_idx = np.concatenate([min_margins, min_margins + vol_shape])
+
+        # pad tuple specify pairs of padding for each dimension from the last to the first
+        pad_margins = tuple(np.stack((np.flip(min_margins), np.flip(max_margins)), axis=1).flatten())
+
+        # pad volume
+        new_volume = torch.nn.functional.pad(volume, pad_margins, mode='constant', value=padding_value)
+    else:
+        pad_idx = np.concatenate([np.array([0] * ndims), vol_shape])
+
+    return new_volume, pad_idx
