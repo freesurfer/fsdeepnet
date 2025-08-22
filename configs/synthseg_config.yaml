@@ -43,7 +43,7 @@ preprocessing:
         warp_probability: 1
         warp_integrations: 7
         warp_generation_method: "upsample"   # "blur" or "upsample"
-        warp_smoothing_range: [10.62, 10.62]
+        warp_smoothing_range: [16, 16]
         warp_magnitude_range: [0, 3]
     - randomcrop:           # crop from a randomly selected point
     - flip:
