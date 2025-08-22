@@ -50,7 +50,8 @@ def load_framedimage(file_path, orientation=None, device=None, ndims=3):
     return framedimage, framedimage_tensor, orig_orientation
 
 
-def save_framedimage(framedimage_tensor, output_file, original_framedimage=None, geom=None, orientation=None, labels=None, onehotencoded=False, dtype=None):
+def save_framedimage(framedimage_tensor, output_file, original_framedimage=None, geom=None, orientation=None,
+                     labels=None, onehotencoded=False, dtype=None, resample=False, method='nearest'):
     """
     Save the augmented framedimage to a file.
     input tensor is non-batched [C, H, W (,D)] (ndims = tensor.ndim - 1)
@@ -80,6 +81,9 @@ def save_framedimage(framedimage_tensor, output_file, original_framedimage=None,
             surfa_image = sf.Slice(np_image.squeeze(), geometry=geom, labels=labels, metadata=original_framedimage.metadata)
         else:
             surfa_image = sf.Volume(np_image.squeeze(), geometry=geom, labels=labels, metadata=original_framedimage.metadata)
+
+        if (resample):
+            surfa_image = surfa_image.resample_like(original_framedimage.geom, method=method)
 
         # surfa.image.framed.reorient() is not yet implemented for 2D data            
         if (ndims == 3 and orientation is not None):
@@ -337,3 +341,22 @@ def get_ras_axes(aff, n_dims=3):
             img_ras_axes[np.where(img_ras_axes == incorrect_value)[0][-1]] = i
 
     return img_ras_axes
+
+
+def find_closest_number_divisible_by_m(n, m, answer_type='lower'):
+    """Return the closest integer to n that is divisible by m. answer_type can either be 'closer', 'lower' (only returns
+    values lower than n), or 'higher' (only returns values higher than m)."""
+    if n % m == 0:
+        return n
+    else:
+        q = int(n / m)
+        lower = q * m
+        higher = (q + 1) * m
+        if answer_type == 'lower':
+            return lower
+        elif answer_type == 'higher':
+            return higher
+        elif answer_type == 'closer':
+            return lower if (n - lower) < (higher - n) else higher
+        else:
+            raise Exception('answer_type should be lower, higher, or closer, had : %s' % answer_type)

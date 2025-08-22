@@ -41,7 +41,7 @@ class Config:
         crop_size = config["preprocessing"]["crop_size"]
         nb_levels = config["model"]["nb_levels"]
         ndims = config["model"]["ndims"]
-        assert (np.all(np.array(crop_size) % (2**(nb_levels-1)) == 0)), f"crop_size {crop_size} needs to be divisible by 2^{nb_levels-1}"
+        assert (np.all(np.array(crop_size) % (2**(nb_levels)) == 0)), f"crop_size {crop_size} needs to be divisible by 2^{nb_levels}"
         assert (ndims == len(crop_size)), f"crop_size {crop_size} is not for {ndims}D"
 
         now = datetime.datetime.now()

@@ -12,8 +12,7 @@ from freeseg.training import Training
 """
 Usage: fspython loadh5_synthseg.py 
          --tf_model <synthseg h5 model file>
-         --config <freeseg config file for synthseg>
-         --torch_model_saveas <converted freeseg pytorch pth model file>
+         --preview | --config <freeseg config file for synthseg> --torch_model_saveas <converted freeseg pytorch pth model file>
 Example:
   loadh5_synthseg.py --tf_model /usr/local/freesurfer/8.0.0/models/synthseg_2.0.h5
                      --config   tests/tf2torch/synthseg_config.yaml 
@@ -30,9 +29,10 @@ Notes: The following ML tools use the same UNet, these tensorflow models can be 
               mri_sclimbic_seg/mri_sclimbic_seg
               mri_segment_hypothalamic_subunits/mri_segment_hypothalamic_subunits
               mri_synthsr/mri_synthsr_hyperfine
-              recon_all_clinical/mri_synth_surf
+              recon_all_clinical/python/mri_synth_surf.py
               mri_claustrum_seg/mri_claustrum_seg
 """
+
 keys_model_state_dict = {
 "unet_conv_downarm_0_0/unet_conv_downarm_0_0/kernel:0"  : "encoder.0.0.convs.0.0.weight", 
 "unet_conv_downarm_0_0/unet_conv_downarm_0_0/bias:0"    : "encoder.0.0.convs.0.0.bias", 
@@ -134,7 +134,7 @@ logging.basicConfig(
 
 
 def main():
-    def preview_hdf5(name, obj):
+    def convert_hdf5(name, obj):
         if (isinstance(obj, h5py.Dataset)):
             dict_key = keys_model_state_dict.get(name)
             if (dict_key is None):
@@ -153,6 +153,13 @@ def main():
     args = argument_parse()
 
     tf_model_file = args.tf_model
+    if (args.preview):
+        with h5py.File(tf_model_file, 'r') as f:
+            f.visititems(preview_hdf5)
+        sys.exit(0)
+
+    assert (args.config is not None and args.torch_model_saveas is not None), \
+        "'--config <>' and '--torch_model_saveas <>'are required to convert tensorflow model"
     torch_model_saveas = args.torch_model_saveas
     
     config = Config.process(args, logger=logging, require_train_outfolder=False, require_dataset_list=False)
@@ -166,7 +173,7 @@ def main():
 
     model_state_dict = {}
     with h5py.File(tf_model_file, 'r') as f:
-        f.visititems(preview_hdf5)
+        f.visititems(convert_hdf5)
 
     # model_dict
     model_dict = {"model_state_dict" : model_state_dict}
@@ -180,8 +187,9 @@ def argument_parse():
     parser = argparse.ArgumentParser()
 
     # input/outputs
-    parser.add_argument("--config", type=str, required=True, help="Path to the configuration file")
-    parser.add_argument("--tf_model", type=str, help="Path to tensorflow model file")
+    parser.add_argument("--preview", action='store_true', help="Preview tensorflow model layers")
+    parser.add_argument("--config", type=str, help="Path to the configuration file")
+    parser.add_argument("--tf_model", type=str, required=True, help="Path to tensorflow model file")
     parser.add_argument("--torch_model_saveas", type=str, help="Path to converted pytorch checkpoint")
 
     # parse commandline
@@ -190,15 +198,16 @@ def argument_parse():
     return args
 
 
-# execute script
-if __name__ == '__main__':
-    main()
-
-
-def preview_hdf5_0(name, obj):
+def preview_hdf5(name, obj):
     if (isinstance(obj, h5py.Group)):
         print(f"Group:   {obj.name}")
     elif (isinstance(obj, h5py.Dataset)):
         print(f"Dataset: {name} {obj.shape} {keys_model_state_dict.get(name)}")
+
+
+# execute script
+if __name__ == '__main__':
+    main()
+
 
 
