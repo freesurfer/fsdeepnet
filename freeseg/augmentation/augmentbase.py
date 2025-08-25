@@ -474,7 +474,7 @@ class CentroidCrop(torch.nn.Module):
                 off_center = self.max_offset
             else:
                 # U[-self.max_offset, +self.max_offset)
-                off_center = [(-self.max_offset[i]-self.max_offset) * torch.rand(1, device=device) + self.max_offset for i in range(vol_ndims)]
+                off_center = [(-self.max_offset[i]-self.max_offset[i]) * torch.rand(1, device=device) + self.max_offset[i] for i in range(vol_ndims)]
                 off_center = [math.ceil(off_center[i]) for i in range(vol_ndims)]
             center_point = center_point - torch.tensor(off_center, device=device)
 
@@ -576,7 +576,7 @@ class CenterCrop(torch.nn.Module):
                 off_center = self.max_offset
             else:
                 # U[-self.max_offset, +self.max_offset)
-                off_center = [(-self.max_offset[i]-self.max_offset) * torch.rand(1, device=device) + self.max_offset for i in range(vol_ndims)]               
+                off_center = [(-self.max_offset[i]-self.max_offset[i]) * torch.rand(1, device=device) + self.max_offset[i] for i in range(vol_ndims)]               
                 off_center = [math.ceil(off_center[i]) for i in range(vol_ndims)]
             center_point = center_point - torch.tensor(off_center, device=device)
 
@@ -1066,6 +1066,7 @@ class ResampleVolume(torch.nn.Module):
                 'image': image,
                 'label': label,
                 'prior': prior,
+                'geom': geom,
                      }
             return output
     

@@ -107,6 +107,7 @@ def main():
 
     predict(path_images, args.o, checkpoint,
             crop_size=args.crop_size,
+            target_res=args.target_res,
             ctab=args.ctab,
             path_labels=args.label,
             path_priors=path_priors,
@@ -114,6 +115,7 @@ def main():
             path_gt=path_gt,
             addctab=True if (not args.noaddctab) else False,
             write_posteriors=args.write_posteriors,
+            keepgeom=args.keepgeom,
             device=device,
             debug=args.debug)
 
@@ -135,6 +137,8 @@ def argument_parse():
     parser.add_argument("--o", type=str, required=True, help="Segmentation output(s). Must be a folder if --i designates a folder, or --dataset_list_file is specified.")
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to a checkpoint file to resume training from")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
+    parser.add_argument("--target_res", type=float, default=1.0, help="Segmentation output resolution")
+    parser.add_argument("--keepgeom", action="store_true", help="Force output geometry to be the same as input")
     parser.add_argument("--ctab", type=str, help="Path to the lookup table")
     parser.add_argument("--label", type=str, help="Label(s) for input image(s). Can be a path to a label or to a folder. The labels can be binary masks.")
     parser.add_argument("--prior", type=str, help="Input priors")
@@ -156,18 +160,20 @@ def argument_parse():
     return args
 
 
-def predict(path_images, out_segmentations, checkpoint, crop_size=None, ctab=None, path_labels=None, path_priors=None, codenames=None,
-            path_gt=None, addctab=True, write_posteriors=False, device=None, debug=False):
+def predict(path_images, out_segmentations, checkpoint, crop_size=None, target_res=1., ctab=None, path_labels=None, path_priors=None, codenames=None,
+            path_gt=None, addctab=True, write_posteriors=False, device=None, debug=False, keepgeom=False):
     prediction = Prediction(device, ctab=ctab, debug=debug)
     prediction.load_model(checkpoint)
     prediction.predict(path_images, out_segmentations,
                        crop_size=crop_size,
+                       target_res=target_res,
                        path_labels=path_labels,
                        path_priors=path_priors,
                        codenames=codenames,
                        path_gt=path_gt,
                        addctab=addctab,
-                       write_posteriors=write_posteriors)
+                       write_posteriors=write_posteriors,
+                       keepgeom=keepgeom)
 
 
 # execute script

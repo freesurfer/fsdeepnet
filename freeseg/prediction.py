@@ -7,8 +7,8 @@ import torch
 import surfa as sf
 
 from freeseg.checkpoint import Checkpoint
-from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot, centroid, get_class
-from freeseg.augmentation.augmentbase import CenterCrop, RescaleVolume
+from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot, centroid, get_class, find_closest_number_divisible_by_m
+from freeseg.augmentation.augmentbase import CenterCrop, RescaleVolume, ResampleVolume, PadVolume, CropVolume
 
 class Prediction:
     """
@@ -48,6 +48,7 @@ class Prediction:
         self._forward_pre_hooks, self._forward_hooks = [], []
 
         self._curr_codename = None
+        self._crop_size = None
 
 
     def load_model(self, model_checkpoint):
@@ -78,7 +79,6 @@ class Prediction:
         self._ndims = checkpoint.model_arch_dict["ndims"]
         assert (self._ndims == 3 or self._ndims == 2), "Model supports 3D or 2D"
         
-        self._crop_size = checkpoint.train_dataset_dict["crop_size"]
         self._labels_segmentation, self._unique_idx = np.unique(checkpoint.train_dataset_dict["segmentation_labels"], return_index=True)
         self._num_labels = len(self._labels_segmentation)
         
@@ -140,23 +140,241 @@ class Prediction:
                 path_images,
                 out_segmentations,
                 crop_size=None,
+                target_res=1.,
                 path_labels=None,
                 path_priors=None,
                 codenames=None,
                 path_gt=None, # for hard-dice calculation
                 addctab=True,
-                write_posteriors=False):
+                write_posteriors=False,
+                keepgeom=False,
+                keep_biggest_component=True,
+                topology_classes=None):
         
         # check inputs
         assert path_images is not None, 'please specify an input file/folder'
         assert out_segmentations is not None, 'please specify an output file/folder'
 
-        if (crop_size is not None):
-            self._crop_size = crop_size
-        assert self._crop_size is not None, 'please specify cropping size'
-        assert (np.all(np.array(self._crop_size) % (2**(self._nb_levels-1)) == 0)), \
-            f"crop_size {self._crop_size} needs to be divisible by 2^{self._nb_levels-1}"
+        self._crop_size = crop_size
+        self._target_res = target_res
+        self._keepgeom = keepgeom
 
+        path_images, path_labels, path_priors, out_segmentations, codenames, out_posteriors = \
+            self.prepare_output_files(path_images, path_labels, path_priors, out_segmentations, codenames, write_posteriors)
+        
+        if (self._debug):
+            self._out_debug_dir = os.path.join(os.path.dirname(out_segmentations[0]), "debug")
+            os.makedirs(self._out_debug_dir, exist_ok=True)            
+            self.register_hook(self._model)
+
+        self.list_predictions = list()  # make an empty list
+
+        # create RescaleVolume, ResampleVolume, CropVolume objects
+        self.apply_rescale = RescaleVolume(device=self._device)
+        self.apply_resample = ResampleVolume(self._target_res, device=self._device)
+
+        # perform segmentation
+        for i in range(len(path_images)):
+            ### preprocessing ###
+            label_lookup = self._label_lookup
+            sfimage, orig_ori, target_im_geom, target_im_shape, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup = \
+                self.preprocess(i, path_images, path_labels, path_priors, codenames, label_lookup)
+
+            ### prediction ###
+            (outputs, _) = self._model(image_tensor_preprocessed, prior_tensor_preprocessed)
+
+            ### postprocessing ###
+            segmentation, posteriors = self.postprocess(outputs, target_im_shape, crop_idx, pad_idx, keep_biggest_component=True, topology_classes=None)
+            
+            ### save segmentation ###
+            # align prediction back to original orientation, original geom (if keepgeom is True)
+            resample = True if (self._keepgeom) else False
+            save_framedimage(segmentation, out_segmentations[i],
+                        geom=target_im_geom,
+                        original_framedimage=sfimage,
+                        orientation=orig_ori,
+                        labels=label_lookup if (addctab) else None,
+                        resample=resample, method='nearest')
+            logging.info(f"output segmentation {out_segmentations[i]}")
+            if (self._debug):
+                logging.debug("output cropped prediction ...")
+                np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_prediction.cropped.npy"), segmentation_cropped.cpu().numpy().astype(np.float32))
+                seg_noreshape = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prediction.cropped.mgz")
+                save_framedimage(segmentation_cropped, seg_noreshape,
+                            geom=target_im_geom,
+                            original_framedimage=sfimage, 
+                            orientation=orig_ori,
+                            labels=label_lookup if (addctab) else None)
+
+            ### save posteriors ###
+            if (write_posteriors):  # ??? question: posteriors need to be re-positioned as well ???
+                posteriors = posteriors.squeeze(0)  # remove batch axis => non-batched tensor [C, H, W (,D)]
+                #posteriors = movedim(1, -1)  # move channel to last axis
+                save_framedimage(posteriors, out_posteriors[i], original_framedimage=sfimage, geom=target_im_geom,
+                                 orientation=orig_ori, onehotencoded=True, dtype=float)
+                logging.info(f"output posteriors {out_posteriors[i]}")
+        # end of segmentation loop
+        
+        self.unregister_hook()
+
+        # evaluate
+        if (path_gt is not None):
+            # calculate hard-dice between saved segmentations and their ground truth
+            from freeseg.evaluation import Evaluation
+
+            path_dice = os.path.join(os.path.dirname(out_segmentations[0]), 'dices.npy')
+
+            logging.info("")  # empty line
+            logging.info(f"Evaluating segmentations ...")
+            eval = Evaluation(self._labels_segmentation)                
+            if (isinstance(path_gt, list)):
+                eval.evaluate(path_gt, out_segmentations, path_dice=path_dice)
+            elif (os.path.isdir(path_gt)):
+                eval.evaluate(path_gt, os.path.dirname(out_segmentations[0]), path_dice=path_dice)
+            else:
+                eval.evaluate(path_gt, out_segmentations[0], path_dice=path_dice)
+
+            # output predictions in the order they are performed
+            f_list_predictions = open(os.path.join(os.path.dirname(path_dice), 'predictions.lst'), "w")
+            for idx, predict in enumerate(self.list_predictions):
+                f_list_predictions.write(f"{codenames[idx]}:{predict}\n")
+            f_list_predictions.close()
+
+
+    def preprocess(self, idx, path_images, path_labels, path_priors, codenames, label_lookup):
+        # reorient to 'RAS'
+        sfimage, image_tensor, orig_orientation = load_framedimage(path_images[idx], orientation="RAS", device=self._device, ndims=self._ndims)
+        image_tensor = image_tensor.float()
+        if (label_lookup is None):
+            label_lookup = sfimage.labels
+
+        if (path_priors is not None):
+            sfprior, prior_tensor, orig_ori_prior = load_framedimage(path_priors[idx], orientation="RAS", device=self._device, ndims=self._ndims)
+            assert (list(prior_tensor.shape) == [self._num_labels, *image_tensor.shape[1:]]), \
+                f"Expected prior shape [self.num_classes, *image_tensor.shape[1:]], but got {list(prior_tensor.shape)}"
+
+        self.list_predictions.append(path_images[idx])
+        if (self._debug):
+            self._curr_codename = f"{codenames[idx]}_{str(idx)}"
+            logging.debug("output re-oriented image/prior ...")
+            out_reoriented_image = os.path.join(self._out_debug_dir, f"{self._curr_codename}_image.reoriented.RAS.mgz")
+            save_framedimage(image_tensor, out_reoriented_image, original_framedimage=sfimage)
+            if (path_priors is not None):
+                out_reoriented_prior = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prior.reoriented.RAS.mgz")
+                save_framedimage(prior_tensor, out_reoriented_prior, original_framedimage=sfprior)
+
+        # resample image to target_res
+        out_resample = self.apply_resample({'image':image_tensor, 'voxsize':sfimage.geom.voxsize[:image_tensor.ndim-1], 'geom':sfimage.geom})
+        image_tensor_preprocessed = out_resample.get('image')
+        target_im_geom = out_resample.get('geom')
+        target_im_shape = image_tensor_preprocessed.shape[1:]        
+        if (self._debug):
+            np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_resampled_image.npy"), image_tensor_preprocessed.cpu().numpy().astype(np.float32))
+
+        # calculate crop_size
+        if (self._crop_size is not None):
+            self._crop_size = [find_closest_number_divisible_by_m(s, 2 ** self._nb_levels, 'higher') for s in self._crop_size]
+            
+        crop_idx = None
+        label_tensor = None
+        prior_tensor_preprocessed = prior_tensor if (path_priors is not None) else None
+        
+        # check if the input image already has crop_size
+        # image_tensor returned from load_framedimage() is non-batched
+        if (self._crop_size is not None and np.any(np.array(target_im_shape) > np.array(self._crop_size))):
+            # create image cropping object
+            apply_cropping = CenterCrop(self._crop_size, device=self._device)                
+
+            # apply CentroidCrop if label image is available
+            if (path_labels is not None):
+                apply_cropping = CentroidCrop(self._crop_size, device=self._device)
+                sflabel, label_tensor, _ = load_framedimage(path_labels[idx], orientation="RAS", device=self._device, ndims=self._ndims)
+                assert (label_tensor.shape == image_tensor.shape), \
+                    f"image and label need to be in the same shape. label {path_labels[idx]} has shape {label_tensor.shape}, image {path_images[idx]} has shape {image_tensor.shape}"
+
+                if (label_lookup is None):
+                    label_lookup = sflabel.labels
+
+            # crop image
+            out_cropping = apply_cropping({'image':image_tensor_preprocessed, 'label':label_tensor, 'prior':prior_tensor_preprocessed})
+            image_tensor_preprocessed = out_cropping.get('image')
+            label_tensor_preprocessed = out_cropping.get('label')
+            prior_tensor_preprocessed = out_cropping.get('prior')
+            crop_idx = out_cropping.get('crop_idx')                
+            image_tensor_preprocessed = image_tensor_preprocessed.to(self._device).float()
+
+            if (self._debug):
+                # begin of debugging
+                crop = 'centercropped'
+                if (path_labels is not None):
+                    crop = 'centroidcropped'
+
+                logging.debug(f"output {crop} image/label ...")
+                out_cropped_image = os.path.join(self._out_debug_dir, f"{self._curr_codename}_image.{crop}.RAS.mgz")
+                save_framedimage(image_tensor_preprocessed, out_cropped_image, original_framedimage=sfimage)
+                out_cropped_image = os.path.join(self._out_debug_dir, f"{self._curr_codename}_image.{crop}.mgz")
+                save_framedimage(image_tensor_preprocessed, out_cropped_image, original_framedimage=sfimage, orientation=orig_orientation)
+                if (prior_tensor_preprocessed is not None):
+                    out_cropped_prior = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prior.{crop}.RAS.mgz")
+                    save_framedimage(prior_tensor_preprocessed, out_cropped_prior, original_framedimage=sfprior, dtype=float)
+                    out_cropped_prior = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prior.{crop}.mgz")
+                    save_framedimage(prior_tensor_preprocessed, out_cropped_prior, original_framedimage=sfprior, orientation=orig_orientation, dtype=float)
+                if (path_labels is not None):
+                    out_cropped_label = os.path.join(self._out_debug_dir, f"{self._curr_codename}_label.{crop}.RAS.mgz")
+                    save_framedimage(label_tensor_preprocessed, out_cropped_label, original_framedimage=sflabel)
+                    out_cropped_label = os.path.join(self._out_debug_dir, f"{self._curr_codename}_label.{crop}.mgz")
+                    save_framedimage(label_tensor_preprocessed, out_cropped_label, original_framedimage=sflabel, orientation=orig_orientation)
+                # end of debugging
+
+        # normalize image
+        if (self._debug):
+            np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_before_rescale_image.npy"), image_tensor_preprocessed.cpu().numpy().astype(np.float32))
+        out_rescale = self.apply_rescale({'image':image_tensor_preprocessed})
+        image_tensor_preprocessed = out_rescale.get('image')
+        if (self._debug):
+            np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_rescaled_image.npy"), image_tensor_preprocessed.cpu().numpy().astype(np.float32))
+
+        # pad image
+        pad_shape = [find_closest_number_divisible_by_m(s, 2 ** self._nb_levels, 'higher') for s in image_tensor_preprocessed.shape[1:]]
+        image_tensor_preprocessed, pad_idx = PadVolume(image_tensor_preprocessed, pad_shape)
+                
+        # add batch axes
+        image_tensor_preprocessed = image_tensor_preprocessed.unsqueeze(0)
+        if (prior_tensor_preprocessed is not None):
+            prior_tensor_preprocessed = prior_tensor_preprocessed.unsqueeze(0)
+
+        return sfimage, orig_orientation, target_im_geom, target_im_shape, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup
+
+
+    def postprocess(self, posteriors, target_im_shape, crop_idx, pad_idx, keep_biggest_component=True, topology_classes=None):
+        # remove the padding
+        posteriors = CropVolume(posteriors.squeeze(0), pad_idx).unsqueeze(0)
+
+        # ??? todo: keep_biggest_component ???
+
+        # ??? todo: reset posteriors to zero outside the largest connected component of each topological class ???
+
+        # ??? todo: normalize posteriors before getting hard segmentation ???
+        # posteriors is batched tensor [B, C, H, W (,D)], predicted_segmentation is [B, H, W (,D)]
+        predicted_segmentation = torch.argmax(posteriors, dim=1)
+        # map labels to original id
+        segmentation_cropped = remap_labels(predicted_segmentation, self._inverse_label_mapping)
+        
+        if (crop_idx is not None):
+            # re-position predicted segmentation back to the original image indices where the image was cropped out
+            segmentation = np.zeros(shape=(segmentation_cropped.shape[0], *target_im_shape), dtype='int32')
+            if (self._ndims == 3):
+                segmentation[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] = segmentation_cropped.detach().cpu().numpy()
+            else:
+                segmentation[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] = segmentation_cropped.detach().cpu().numpy()
+            segmentation = torch.from_numpy(segmentation).to(self._device)
+        else:
+            segmentation = segmentation_cropped
+
+        return segmentation, posteriors
+
+
+    def prepare_output_files(self, path_images, path_labels, path_priors, out_segmentations, codenames, write_posteriors):
         pred_suffix = 'prediction'
         posteriors_suffix = 'posteriors'
 
@@ -206,6 +424,11 @@ class Prediction:
                                                 'please make sure the path and the extension are correct' % path_images
             assert (not os.path.isdir(out_segmentations)), 'both %s and %s need to be files' % (path_images, out_segmentations)
 
+            # if output has a directory component, create the directory if it doesn't exist yet
+            out_dir = os.path.dirname(out_segmentations)
+            if (out_dir):
+                os.makedirs(out_dir, exist_ok=True)
+
             convert_single = True
             if (path_labels is not None):
                 assert os.path.isfile(path_labels), 'both %s and %s need to be file \n' % (path_images, path_labels)
@@ -239,262 +462,13 @@ class Prediction:
             assert (len(path_images) == len(path_labels)), "images and labels need to be the same length"        
         if (path_priors is not None):
             assert (len(path_images) == len(path_priors)), "images and priors need to be the same length"
-        
+
+        out_posteriors = []
         if (write_posteriors):
             out_posteriors_dir = os.path.join(os.path.dirname(out_segmentations[0]), "posteriors")
             os.makedirs(out_posteriors_dir, exist_ok=True)
-        if (self._debug):
-            self._out_debug_dir = os.path.join(os.path.dirname(out_segmentations[0]), "debug")
-            os.makedirs(self._out_debug_dir, exist_ok=True)            
-            self.register_hook(self._model)
+            for out_seg in out_segmentations:
+                basename = os.path.basename(out_seg)
+                out_posteriors.append(os.path.join(out_posteriors_dir, basename.replace(f"{pred_suffix}.", f"{posteriors_suffix}.")))                
 
-        list_predictions = list()  # make an empty list
-
-        # create CenterCrop object
-        apply_centercrop = CenterCrop(self._crop_size, device=self._device)
-        # create RescaleVolume object
-        apply_rescalevolume = RescaleVolume(device=self._device)
-
-        # perform segmentation
-        for i in range(len(path_images)):
-            ### preprocessing ###
-            # reorient to 'RAS'
-            sfimage, image_tensor, orig_orientation = load_framedimage(path_images[i], orientation="RAS", device=self._device, ndims=self._ndims)
-            if (path_priors is not None):
-                sfprior, prior_tensor, orig_ori_prior = load_framedimage(path_priors[i], orientation="RAS", device=self._device, ndims=self._ndims)
-                assert (list(prior_tensor.shape) == [self._num_labels, *image_tensor.shape[1:]]), \
-                    f"Expected prior shape [self.num_classes, *image_tensor.shape[1:]], but got {list(prior_tensor.shape)}"
-
-            list_predictions.append(path_images[i])
-            if (self._debug):
-                self._curr_codename = f"{codenames[i]}_{str(i)}"
-                logging.debug("output re-oriented image/prior ...")
-                out_reoriented_image = os.path.join(self._out_debug_dir, f"{self._curr_codename}_image.reoriented.RAS.mgz")
-                save_framedimage(image_tensor, out_reoriented_image, original_framedimage=sfimage)
-                if (path_priors is not None):
-                    out_reoriented_prior = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prior.reoriented.RAS.mgz")
-                    save_framedimage(prior_tensor, out_reoriented_prior, original_framedimage=sfprior)
-                
-            label_lookup = self._label_lookup
-            if (label_lookup is None):
-                label_lookup = sfimage.labels
-            crop_idx = None
-            label_tensor = None
-            image_tensor_cropped = image_tensor.float()
-            prior_tensor_cropped = prior_tensor if (path_priors is not None) else None
-            
-            # check if the input image already has crop_size
-            # image_tensor returned from load_framedimage() is non-batched
-            image_shape = image_tensor.shape[1:]
-            if (np.any(np.array(image_shape) > np.array(self._crop_size))):
-                # calculate the cropping center point if label image is available
-                if (path_labels is not None):
-                    sflabel, label_tensor, _ = load_framedimage(path_labels[i], orientation="RAS", device=self._device, ndims=self._ndims)
-                    assert (label_tensor.shape == image_tensor.shape), \
-                        f"image and label need to be in the same shape. label {path_labels[i]} has shape {label_tensor.shape}, image {path_images[i]} has shape {image_tensor.shape}"
-
-                    if (label_lookup is None):
-                        label_lookup = sflabel.labels
-
-                # crop the images
-                # apply_centercrop() expects input image_tensor to be non-batched, output image_tensor_cropped is non-batched
-                out_centercrop = apply_centercrop({'image':image_tensor_cropped, 'label':label_tensor, 'prior':prior_tensor_cropped})
-                image_tensor_cropped = out_centercrop.get('image')
-                label_tensor_cropped = out_centercrop.get('label')
-                prior_tensor_cropped = out_centercrop.get('prior')
-                crop_idx = out_centercrop.get('crop_idx')                
-                image_tensor_cropped = image_tensor_cropped.to(self._device).float()
-
-                if (self._debug):
-                    # begin of debugging
-                    crop = 'centercropped'
-                    if (path_labels is not None):
-                        crop = 'centroidcropped'
-
-                    logging.debug(f"output {crop} image/label ...")
-                    out_cropped_image = os.path.join(self._out_debug_dir, f"{self._curr_codename}_image.{crop}.RAS.mgz")
-                    save_framedimage(image_tensor_cropped, out_cropped_image, original_framedimage=sfimage)
-                    out_cropped_image = os.path.join(self._out_debug_dir, f"{self._curr_codename}_image.{crop}.mgz")
-                    save_framedimage(image_tensor_cropped, out_cropped_image, original_framedimage=sfimage, orientation=orig_orientation)
-                    if (prior_tensor_cropped is not None):
-                        out_cropped_prior = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prior.{crop}.RAS.mgz")
-                        save_framedimage(prior_tensor_cropped, out_cropped_prior, original_framedimage=sfprior, dtype=float)
-                        out_cropped_prior = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prior.{crop}.mgz")
-                        save_framedimage(prior_tensor_cropped, out_cropped_prior, original_framedimage=sfprior, orientation=orig_orientation, dtype=float)
-                    if (path_labels is not None):
-                        out_cropped_label = os.path.join(self._out_debug_dir, f"{self._curr_codename}_label.{crop}.RAS.mgz")
-                        save_framedimage(label_tensor_cropped, out_cropped_label, original_framedimage=sflabel)
-                        out_cropped_label = os.path.join(self._out_debug_dir, f"{self._curr_codename}_label.{crop}.mgz")
-                        save_framedimage(label_tensor_cropped, out_cropped_label, original_framedimage=sflabel, orientation=orig_orientation)
-                    # end of debugging
-
-            # normalize
-            if (self._debug):
-                np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_topredict_image_before_normalize.npy"), image_tensor_cropped.cpu().numpy().astype(np.float32))
-            out_rescalevolume = apply_rescalevolume({'image':image_tensor_cropped})
-            image_tensor_cropped = out_rescalevolume.get('image')
-            if (self._debug):
-                np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_topredict_image.npy"), image_tensor_cropped.cpu().numpy().astype(np.float32))
-
-            # add batch axes
-            image_tensor_cropped = image_tensor_cropped.unsqueeze(0)
-            if (prior_tensor_cropped is not None):
-                prior_tensor_cropped = prior_tensor_cropped.unsqueeze(0)
-
-            ### prediction ###
-            (outputs, _) = self._model(image_tensor_cropped, prior_tensor_cropped)
-            predicted_segmentation = torch.argmax(outputs, dim=1)
-            # map labels to original id
-            segmentation_cropped = remap_labels(predicted_segmentation, self._inverse_label_mapping)
-
-            ### postprocessing: align prediction back to original orientation, original image size            
-            if (crop_idx is None):
-                segmentation = segmentation_cropped.detach().cpu().numpy()
-            else:
-                # re-position predicted segmentation back to the original image indices where the image was cropped out
-                segmentation = np.zeros(shape=(segmentation_cropped.shape[0], *image_shape), dtype='int32')
-                if (self._ndims == 3):
-                    segmentation[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] = segmentation_cropped.detach().cpu().numpy()
-                else:
-                    segmentation[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] = segmentation_cropped.detach().cpu().numpy()
-            segmentation = torch.from_numpy(segmentation).to(self._device)
-            
-            ### save results ###
-            save_framedimage(segmentation, out_segmentations[i],
-                        original_framedimage=sfimage,
-                        orientation=orig_orientation,
-                        labels=label_lookup if (addctab) else None)
-            logging.info(f"output segmentation {out_segmentations[i]}")
-            if (self._debug):
-                logging.debug("output cropped prediction ...")
-                np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_prediction.cropped.npy"), segmentation_cropped.cpu().numpy().astype(np.float32))
-                seg_noreshape = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prediction.cropped.mgz")
-                save_framedimage(segmentation_cropped, seg_noreshape,
-                            original_framedimage=sfimage, 
-                            orientation=orig_orientation,
-                            labels=label_lookup if (addctab) else None)
-            if (write_posteriors):  # ??? question: posteriors need to be re-positioned as well ???
-                basename = os.path.basename(out_segmentations[i])
-                out_posteriors = basename.replace(f"{pred_suffix}.", f"{posteriors_suffix}.")
-                out_posteriors = os.path.join(out_posteriors_dir, out_posteriors)
-                posteriors = outputs.squeeze(0)  # remove batch axis => non-batched tensor [C, H, W (,D)]
-                #posteriors = movedim(1, -1)  # move channel to last axis
-                save_framedimage(posteriors, out_posteriors, original_framedimage=sfimage, 
-                                 orientation=orig_orientation, onehotencoded=True, dtype=float)
-                logging.info(f"output posteriors {out_posteriors}")
-        # end of segmentation loop
-        
-        self.unregister_hook()
-
-        # evaluate
-        if (path_gt is not None):
-            # calculate hard-dice between saved segmentations and their ground truth
-            from freeseg.evaluation import Evaluation
-
-            path_dice = os.path.join(os.path.dirname(out_segmentations[0]), 'dices.npy')
-
-            logging.info("")  # empty line
-            logging.info(f"Evaluating segmentations ...")
-            eval = Evaluation(self._labels_segmentation)                
-            if (isinstance(path_gt, list)):
-                eval.evaluate(path_gt, out_segmentations, path_dice=path_dice)
-            elif (os.path.isdir(path_gt)):
-                eval.evaluate(path_gt, os.path.dirname(out_segmentations[0]), path_dice=path_dice)
-            else:
-                eval.evaluate(path_gt, out_segmentations[0], path_dice=path_dice)
-
-            # output predictions in the order they are performed
-            f_list_predictions = open(os.path.join(os.path.dirname(path_dice), 'predictions.lst'), "w")
-            for idx, predict in enumerate(list_predictions):
-                f_list_predictions.write(f"{codenames[idx]}:{predict}\n")
-            f_list_predictions.close()
-            
-
-    """
-    # this method is not used as of 2024-10-15. it is not in-sync with other changes.
-    def evaluate_dataset(self, test_dataset, unique_output_folder,
-                         addctab=True, write_posteriors=None, output_gt=None):
-
-        from torch.utils.data import DataLoader
-        from utils.metrics import DiceScore            
-        dice_metric_hard = DiceScore(
-            num_classes=self._num_labels,
-            input_type="prob",
-            dice_type="hard",
-        )
-
-        total_dice_scores = np.zeros(self._num_labels)
-        num_samples = 0
-        start_time = time()
-        
-        test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
-        
-        # initialize dice_scores (n_labels x n_samples)
-        n_labels  = self._num_labels
-        n_samples = len(test_loader)
-        dice_scores = np.zeros((n_labels, n_samples))
-
-        for idx, (images, labels) in enumerate(test_loader):
-            original_image_path = test_dataset.image_files[idx]
-            sfimage, _, orig_orientation = load_volume(original_image_path, orientation='RAS', device=self._device)
-            base_filename = os.path.splitext(os.path.basename(original_image_path))[0]
-
-            output_segmentation = os.path.join(unique_output_folder, f"{base_filename}_prediction.mgz")
-            output_gt = os.path.join(unique_output_folder, f"{base_filename}_gt.mgz")
-            output_posteriors = os.path.join(unique_output_folder, f"{base_filename}_posteriors.mgz") if (write_posteriors) else None
-            
-            images = images.to(self._device).float()
-            labels = labels.to(self._device)
-            
-            (outputs, _) = self._model(images)
-        
-            predicted_segmentation = torch.argmax(outputs, dim=1)
-            # map labels to original id
-            segmentation = remap_labels(predicted_segmentation, self._inverse_label_mapping)
-
-            # save segmentation
-            save_volume(segmentation, sfimage, output_segmentation,
-                        orientation=orig_orientation,
-                        labels=self._label_lookup if (addctab) else None)
-            save_volume(labels, sfimage, output_gt,
-                        orientation=orig_orientation)
-                
-            if (output_posteriors is not None):
-                posteriors = outputs.squeeze(0)  # remove batch axis => non-batched tensor [C, H, W (,D)]
-                #posteriors = outputs.movedim(1, -1)
-                save_volume(posteriors, sfimage, output_posteriors,
-                        orientation=orig_orientation)
-
-            # Remap labels for metric calculation
-            remapped_labels = remap_labels(labels, self._label_mapping)
-            labels_onehot = onehot(remapped_labels, num_classes=self._num_labels, device=self._device)
-
-            # Calculate metrics
-            hard_dice_scores = dice_metric_hard(outputs, labels_onehot)
-            dice_scores[:, idx] = hard_dice_scores.detach().cpu().numpy()
-
-            total_dice_scores += dice_scores[:, idx]
-            num_samples += 1
-
-            logging.info(f"Sample {idx+1} (Hard Dice):")
-            for label_idx in range(self._num_labels):  #enumerate(non_ignored_label_names):
-                dice_score = dice_scores[label_idx, idx]
-                logging.info(f" Class {self._labels_segmentation[label_idx]}: {dice_score:.4f}")
-            
-        # output dice_scores (n_labels x n_samples)
-        f_dice_scores = os.path.join(unique_output_folder, "dice_scores.npy")
-        np.save(f_dice_scores, dice_scores)
-
-        # Calculate average Dice scores for non-ignored classes
-        avg_dice_scores = total_dice_scores / num_samples
-
-        logging.info("Average Dice Scores:")
-        for label_idx in range(self._num_labels):
-            avg_dice_score = avg_dice_scores[label_idx]  #.item()
-            logging.info(f"Average Dice Score for Class {self._labels_segmentation[label_idx]}: {avg_dice_score:.4f}")
-
-        # Output summary
-        logging.info(f"Total evaluation time: {time() - start_time:.2f} seconds")
-    """
-            
- 
+        return path_images, path_labels, path_priors, out_segmentations, codenames, out_posteriors  
