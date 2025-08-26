@@ -4,7 +4,7 @@ import numpy.random as npr
 import math
 import torch
 from freeseg import voxynth
-from freeseg.utils import get_ras_axes, bbox, centroid, remove_duplicates
+from freeseg.utils import utility as utils
 from freeseg.filter import Filter
 
 class AugmentBase:
@@ -112,7 +112,7 @@ class Flip(torch.nn.Module):
             label[right_indices] = left_labels[idx]
 
         # find the left-right axis
-        axis = get_ras_axes(aff, ndims)[0]
+        axis = utils.get_ras_axes(aff, ndims)[0]
 
         # image, label ([C, H, W(, D)]) have been reoriented to RAS
         flipped_image = None
@@ -268,7 +268,7 @@ class RandomCrop(torch.nn.Module):
         bbox_lower = vol_shape
         if (self.bbox_labels is not None):
             # calculate lower and upper bounds for the label bounding box
-            bbox_lower, bbox_upper = bbox(label, self.bbox_labels, verbose=self.verbose)
+            bbox_lower, bbox_upper = utils.bbox(label, self.bbox_labels, verbose=self.verbose)
             if (self.verbose):
                 logging.debug(f"crop around label bounding box {bbox_lower} - {bbox_upper}")
         
@@ -464,7 +464,7 @@ class CentroidCrop(torch.nn.Module):
         center_point = None
         # calculate the center point to crop the image/label around    
         if (label is not None):
-            center_point = centroid(label.squeeze(0), verbose=self.verbose)
+            center_point = utils.centroid(label.squeeze(0), verbose=self.verbose)
         else:
             center_point = (vol_shape/2).int()   #tuple(dim // 2 for dim in vol_shape)
 

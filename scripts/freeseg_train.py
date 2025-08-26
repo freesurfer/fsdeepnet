@@ -6,7 +6,7 @@ import argparse
 
 from freeseg.training import Training
 from freeseg.config import Config
-from freeseg.utils import print_vm_peak, get_class
+from freeseg.utils import utility as utils
 from freeseg.metrics import WeightedL2Loss, DiceLoss
 
 """
@@ -50,7 +50,7 @@ def main():
 
     # check memory usage
     if (config["vmp"]):
-        print_vm_peak()
+        utils.print_vm_peak()
 
     mainlogger.info("Done!")
                        
@@ -153,7 +153,7 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
     # train wl2 epochs
     wl2_epochs = config["training"].get("wl2_epochs", 0)
     if (wl2_epochs > 0):
-        wl2_metrics = get_class(config["training"].get("wl2_metrics", "freeseg.metrics.WeightedL2Loss"), "freeseg.metrics")
+        wl2_metrics = utils.get_class(config["training"].get("wl2_metrics", "freeseg.metrics.WeightedL2Loss"), "freeseg.metrics")
         if (checkpoint is None):
             mainlogger.info(f"training {wl2_epochs} wl2 epochs: {optimizer_cls}, {wl2_metrics}, lr:{config['training']['pre_train_learning_rate']} ...")
         wl2_loss_fn = wl2_metrics()
@@ -167,7 +167,7 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
     # train dice epochs
     dice_epochs = config["training"].get("dice_epochs", 0)
     if (dice_epochs > 0):
-        model_metrics = get_class(config["training"].get("model_metrics", "freeseg.metrics.DiceLoss"), "freeseg.metrics")
+        model_metrics = utils.get_class(config["training"].get("model_metrics", "freeseg.metrics.DiceLoss"), "freeseg.metrics")
         mainlogger.info(f"training {dice_epochs} dice epochs: {optimizer_cls}, {model_metrics}, lr:{config['training']['learning_rate']} ...")
         dice_loss_fn = model_metrics(
             num_classes=config["dataset"]["num_labels"],

@@ -6,7 +6,7 @@ import logging
 import numpy as np
 import argparse
 
-from freeseg.utils import config_logger
+from freeseg.utils import utility as utils
 from freeseg.evaluation import Evaluation
 
 """
@@ -24,7 +24,7 @@ def main():
 
     # setup and configure root and main logger
     logfile = args.logfile if (args.logfile is not None) else os.path.join(os.getcwd(), "freeseg_evaluate.log")
-    config_logger(logfile=logfile, mode='w')
+    utils.config_logger(logfile=logfile, mode='w')
     mainlogger = logging.getLogger(__name__)
     mainlogger.addHandler(logging.StreamHandler())
 

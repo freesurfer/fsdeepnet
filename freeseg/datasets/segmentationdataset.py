@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 from freeseg import augmentation
-from freeseg.utils import load_framedimage, save_framedimage, remap_labels, onehot, get_class, remove_duplicates
+from freeseg.utils import utility as utils
 
 class SegmentationDataset(torch.utils.data.Dataset):
     def __init__(self, dset_profile, augment_obj, dataset_dict, device=None, keep_trainset_in_memory=False, preload=False, augdir=None):
@@ -90,14 +90,14 @@ class SegmentationDataset(torch.utils.data.Dataset):
         if (not self.keep_trainset_in_memory):
             image, image_tensor, priors_tensor = None, None, None            
             # load label
-            label, label_tensor, _ = load_framedimage(label_path, orientation="RAS", device=self.device, ndims=self.ndims)
+            label, label_tensor, _ = utils.load_framedimage(label_path, orientation="RAS", device=self.device, ndims=self.ndims)
             # load image if they are provided
             if (self.hasimage()):
-                image, image_tensor, _ = load_framedimage(image_path, orientation="RAS", device=self.device, ndims=self.ndims)
+                image, image_tensor, _ = utils.load_framedimage(image_path, orientation="RAS", device=self.device, ndims=self.ndims)
             # load priors if they are provided
             if (self.haspriors()):
                 priors_path = self.priors_files[index]        
-                sfprior, priors_tensor, _  = load_framedimage(priors_path, orientation="RAS", device=self.device, ndims=self.ndims)
+                sfprior, priors_tensor, _  = utils.load_framedimage(priors_path, orientation="RAS", device=self.device, ndims=self.ndims)
         else:
             # retrieve preloaded data
             # saving augmentated volumes will not work when keep_trainset_in_memory=True
@@ -134,8 +134,8 @@ class SegmentationDataset(torch.utils.data.Dataset):
             # freeseg.utils.remap_labels() and freeseg.utils.onehot() expect batched tensor [N, 1, H, W(, D)]
             # add batch axis before calling remap_labels() and onehot()
             augmented_label_tensor = augmented_label_tensor.int().unsqueeze(0)
-            onehot_augmented_label_tensor = remap_labels(augmented_label_tensor, self.label_mapping)
-            onehot_augmented_label_tensor = onehot(onehot_augmented_label_tensor, num_classes=self.num_classes, device=self.device)
+            onehot_augmented_label_tensor = utils.remap_labels(augmented_label_tensor, self.label_mapping)
+            onehot_augmented_label_tensor = utils.onehot(onehot_augmented_label_tensor, num_classes=self.num_classes, device=self.device)
             # remove the added batch axis, DataLoader will batch the tensor based on batch_size
             onehot_augmented_label_tensor = onehot_augmented_label_tensor.squeeze(0)
 
@@ -147,8 +147,8 @@ class SegmentationDataset(torch.utils.data.Dataset):
         else:
             # freeseg.utils.remap_labels() and freeseg.utils.onehot() expect batched tensor [N, 1, H, W(, D)]
             # add batch axis before calling remap_labels() and onehot()
-            onehot_label_tensor = remap_labels(label_tensor.int().unsqueeze(0), self.label_mapping)
-            onehot_label_tensor = onehot(onehot_label_tensor, num_classes=self.num_classes, device=self.device)
+            onehot_label_tensor = utils.remap_labels(label_tensor.int().unsqueeze(0), self.label_mapping)
+            onehot_label_tensor = utils.onehot(onehot_label_tensor, num_classes=self.num_classes, device=self.device)
             # remove the added batch axis, DataLoader will batch the tensor based on batch_size
             onehot_label_tensor = onehot_label_tensor.squeeze(0)
             if (priors_tensor is None):
@@ -170,7 +170,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
         for n in range(self.num_entries):
             ### load labels
             f_label = self.label_files[n]
-            label, label_tensor, _ = load_framedimage(f_label, orientation="RAS", device=self.device, ndims=self.ndims)
+            label, label_tensor, _ = utils.load_framedimage(f_label, orientation="RAS", device=self.device, ndims=self.ndims)
 
             # label_tensor is non-batched [C, H, W (,D)]
             assert (self.ndims == label_tensor.ndim - 1), f"Expected {self.ndims}D label, but got {label_tensor.ndim - 1}D"
@@ -181,7 +181,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
             if (self.hasimage()):
                 f_image = self.image_files[n]
                 # image_tensor is non-batched [C, H, W (,D)]
-                image, image_tensor, _ = load_framedimage(f_image, orientation="RAS", device=self.device, ndims=self.ndims)
+                image, image_tensor, _ = utils.load_framedimage(f_image, orientation="RAS", device=self.device, ndims=self.ndims)
                 assert (label_tensor.shape == image_tensor.shape), \
                     f"image and label need to be in the same shape. label {f_label} has shape {label_tensor.shape}, image {f_image} has shape {image_tensor.shape}"
                 input_shape = image_tensor.shape # use image shape if it is available
@@ -190,7 +190,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
             prior, prior_tensor = None, None
             if (self.haspriors()):
                 f_prior = self.priors_files[n]
-                prior, prior_tensor, _ = load_framedimage(f_prior, orientation="RAS", device=self.device, ndims=self.ndims)
+                prior, prior_tensor, _ = utils.load_framedimage(f_prior, orientation="RAS", device=self.device, ndims=self.ndims)
                 
                 # prior_tensor is non-batched [self.num_classes, H, W (,D)]
                 assert (list(prior_tensor.shape) == [self.num_classes, *label_tensor.shape[1:]]), \

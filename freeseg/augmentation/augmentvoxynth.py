@@ -6,7 +6,6 @@ import math
 import torch
 from freeseg import voxynth
 from freeseg.augmentation.augmentbase import AugmentBase
-from freeseg.utils import save_framedimage, get_ras_axes, bbox, centroid, remove_duplicates
 
 class AugmentVoxynth(AugmentBase):
     def __init__(self, hp,

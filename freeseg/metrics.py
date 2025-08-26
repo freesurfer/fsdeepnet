@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import List, Union
-from freeseg.utils import onehot
+from freeseg.utils import utility as utils
 
 
 class Dice(nn.Module):
@@ -83,7 +83,7 @@ class Dice(nn.Module):
         if self.dice_type == "hard":
             # convert the probabilities map to onehot encoded labels
             outputs = torch.argmax(outputs, dim=1)
-            outputs = onehot(outputs, num_classes=self.num_classes, device=outputs.device)  
+            outputs = utils.onehot(outputs, num_classes=self.num_classes, device=outputs.device)  
 
         # Calculate Dice scores for each class
         dice_scores = self._dice_score(outputs, targets)

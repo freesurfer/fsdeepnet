@@ -8,7 +8,7 @@ import argparse
 import yaml
 
 from freeseg.config import Config
-from freeseg.utils import print_vm_peak, config_logger
+from freeseg.utils import utility as utils
 from freeseg.prediction import Prediction
 
 
@@ -40,7 +40,7 @@ def main():
     
     # setup and configure root and main logger
     logfile = args.logfile if (args.logfile is not None) else os.path.join(os.getcwd(), "freeseg_predict.log")
-    config_logger(logfile=logfile, mode='w')
+    utils.config_logger(logfile=logfile, mode='w')
     mainlogger = logging.getLogger(__name__)
     mainlogger.addHandler(logging.StreamHandler())
 
@@ -121,7 +121,7 @@ def main():
 
     # check memory usage
     if (args.vmp):
-        print_vm_peak()
+        utils.print_vm_peak()
 
     mainlogger.info("Done!")
     

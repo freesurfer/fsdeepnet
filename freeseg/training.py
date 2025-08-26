@@ -12,7 +12,7 @@ from torchvision.utils import make_grid
 from freeseg.config import Config
 from freeseg.checkpoint import Checkpoint
 from freeseg.metrics import DiceScore
-from freeseg.utils import remap_labels, DataGenerator, save_framedimage, gpu_report, remove_duplicates, get_class
+from freeseg.utils import utility as utils
 
 
 class Training:
@@ -86,7 +86,7 @@ class Training:
         if (self._gpu_index is None and torch.cuda.is_available()):
             self._gpu_index = torch.cuda.current_device()
             
-        self._input_generator = DataGenerator(train_loader, self._preprocessing_device)        
+        self._input_generator = utils.DataGenerator(train_loader, self._preprocessing_device)        
 
         self._summary_writer = None
         if (write_tensorboard_summary):
@@ -169,7 +169,7 @@ class Training:
         loss_dice_avg = np.zeros((end_epoch-start_epoch, ncols))        
         for epoch in range(start_epoch, end_epoch):
             if (self._gpu_index is not None):
-                gpu_report(self._gpu_index)
+                utils.gpu_report(self._gpu_index)
             logging.info(f"Epoch {epoch+1:3d}/{end_epoch:<3d}")
             (train_loss, train_dices)  = self._train_one_epoch(optimizer, loss_fn, epoch, steps_per_epoch,
                                                                metric_type=metric_type)
@@ -330,32 +330,32 @@ class Training:
                 logging.debug(f"output augmented images/labels, onehot encoded labels, posteriors, prediciton ...")                
                 for n, idx in enumerate(dataset_indices):
                     out_image = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.augmented_image.mgz")
-                    save_framedimage(images[n], out_image)
+                    utils.save_framedimage(images[n], out_image)
 
                     out_label_onehot = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.augmented_label_onehot.mgz")
-                    save_framedimage(onehot_labels[n], out_label_onehot, onehotencoded=True)
+                    utils.save_framedimage(onehot_labels[n], out_label_onehot, onehotencoded=True)
 
                     # convert onehot encoding back to label segmentation
                     out_label = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.augmented_label.mgz")
                     label_seg = torch.zeros(onehot_labels[n].shape[1:]).int()
                     for ch in range(onehot_labels[n].shape[0]):
                         label_seg[onehot_labels[n][ch] == 1] = ch
-                    save_framedimage(label_seg.unsqueeze(0), out_label)
+                    utils.save_framedimage(label_seg.unsqueeze(0), out_label)
 
                     if (priors is not None and priors.numel() != 0):
                         out_priors = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.augmented_priors.mgz")
-                        save_framedimage(priors[n], out_priors)
+                        utils.save_framedimage(priors[n], out_priors)
 
                     out_posteriors = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.posteriors_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.mgz")
                     posteriors = outputs[n]  # non-batched tensor [C, H, W (,D)]
                     np.save(os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.posteriors_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.npy"), posteriors.movedim(0, -1).cpu().detach().numpy())
-                    save_framedimage(posteriors, out_posteriors, onehotencoded=True)
+                    utils.save_framedimage(posteriors, out_posteriors, onehotencoded=True)
 
                     out_segmentation = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.prediction_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.mgz")
                     predicted_segmentation = torch.argmax(outputs[n], dim=0)
                     np.save(os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.prediction_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.npy"), predicted_segmentation.cpu().int())
-                    segmentation = remap_labels(predicted_segmentation, self._inverse_label_mapping)
-                    save_framedimage(segmentation.unsqueeze(0), out_segmentation)
+                    segmentation = utils.remap_labels(predicted_segmentation, self._inverse_label_mapping)
+                    utils.save_framedimage(segmentation.unsqueeze(0), out_segmentation)
             # end of debugging volumes output     
 
             if (self._summary_writer is not None):
@@ -431,7 +431,7 @@ class Training:
                     np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_predicted.npy"), predicted.cpu().int())
                     
                     # map labels to original id
-                    predicted_remap = remap_labels(predicted, self._inverse_label_mapping)
+                    predicted_remap = utils.remap_labels(predicted, self._inverse_label_mapping)
                     np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_predicted_remap.npy"), predicted_remap.cpu().int())
 
                     # posteriors
@@ -525,7 +525,7 @@ class Training:
             dataset_dict = Config.load_dataset_list(dset_config["dataset_list_file"])
 
             dataset_classname = dset_config.get("dataset_classname", "freeseg.datasets.segmentationdataset.SegmentationDataset")
-            py_dataset_cls = get_class(dataset_classname, "freeseg.datasets.segmentationdataset")
+            py_dataset_cls = utils.get_class(dataset_classname, "freeseg.datasets.segmentationdataset")
 
             dset_cohort = Config.retrieve_dataset_cohorts(dataset_dict, cohort)
             dataset = None
@@ -557,7 +557,7 @@ class Training:
                     if (key not in cfg_preprocess):
                         cfg_preprocess[key] = config["preprocessing"].get(key)
 
-            py_augment_cls = get_class(augment_classname, "freeseg.augmentation.augmentbase")
+            py_augment_cls = utils.get_class(augment_classname, "freeseg.augmentation.augmentbase")
             augment_obj = py_augment_cls(Config.list2dict(cfg_preprocess["augmentations"]),
                                          transforms,
                                          config["preprocessing"]['crop_size'],
@@ -584,7 +584,7 @@ class Training:
                 logging.info("Change 'augment2.Augment2' to 'augmentbase.AugmentBase' since augmentations in augment2.Augment2 are now implemented in augmentbase.AugmentBase")
                 augmentation_class = "freeseg.augmentation.augmentbase.AugmentBase"
 
-            train_augmentations = remove_duplicates(Config.get_augmentations(config["preprocessing"].get("augmentations")))
+            train_augmentations = utils.remove_duplicates(Config.get_augmentations(config["preprocessing"].get("augmentations")))
             train_augment_obj = create_augment_object(augmentation_class, train_augmentations, config, cohort="train", device=config["preprocessing_device"])
             train_dataset = load_dataset(config["dataset"], train_augment_obj,
                                          device=config["preprocessing_device"],
@@ -641,12 +641,12 @@ class Training:
             the_model_name = model_arch_dict.get("name", None)
             assert the_model_name is not None, "Model name is not available."
 
-            model_class = get_class(the_model_name, "freeseg.models.unet")
+            model_class = utils.get_class(the_model_name, "freeseg.models.unet")
             model = model_class(model_arch_dict).to(config["device"])
                 
             ### retrieve optimizer class
             optimizer=config["training"].get("optimizer", "torch.optim.Adam")
-            optimizer_cls = get_class(optimizer, "torch.optim")
+            optimizer_cls = utils.get_class(optimizer, "torch.optim")
         
         ### set_deterministic_training if requested
         deterministic = config["training"].get("deterministic", False)

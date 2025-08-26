@@ -10,7 +10,7 @@ import argparse
 from freeseg import models
 from freeseg.config import Config
 from freeseg.checkpoint import Checkpoint
-from freeseg.utils import get_class
+from freeseg.utils import utility as utils
 
 description = """
 Usage: check_model.py 
@@ -84,7 +84,7 @@ def main():
         model_arch_dict = checkpoint.model_arch_dict
         n_channels = model_arch_dict["num_channels"]
 
-    model_class = get_class(the_model_name, "freeseg.models.unet")
+    model_class = utils.get_class(the_model_name, "freeseg.models.unet")
     model = model_class(model_arch_dict).to(device)
     if (args.checkpoint is not None):
         model.load_state_dict(checkpoint.model_state_dict)

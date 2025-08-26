@@ -4,7 +4,7 @@ import sys
 import logging
 import argparse
 
-from freeseg.utils import DataGenerator
+from freeseg.utils import utility as utils
 from freeseg.training import Training
 from freeseg.config import Config
 
@@ -43,7 +43,7 @@ def main():
 
     start_epoch = 0
     epochs = config["training"]["dice_epochs"]
-    input_generator = DataGenerator(train_loader, config["preprocessing_device"])
+    input_generator = utils.DataGenerator(train_loader, config["preprocessing_device"])
     steps_per_epoch = config["training"]["steps_per_epoch"]    
     for epoch in range(start_epoch, epochs):
         logging.info(f"Epoch {epoch+1:3d}/{epochs:<3d}")

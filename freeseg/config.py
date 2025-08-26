@@ -7,8 +7,7 @@ import yaml
 import numpy as np
 import shutil
 
-
-from freeseg.utils import config_logger
+from freeseg.utils import utility as utils
 
 class Config:
     @staticmethod
@@ -55,7 +54,7 @@ class Config:
         logfile = None
         if (require_train_outfolder):
             logfile = args.logfile if ('logfile' in args and args.logfile is not None) else os.path.join(output_folder, f"log.{dt_nowstring}")
-            config_logger(logfile=logfile)
+            utils.config_logger(logfile=logfile)
 
         ### print the command
         cmd = ' '.join(sys.argv)

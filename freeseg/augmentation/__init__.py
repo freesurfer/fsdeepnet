@@ -16,7 +16,7 @@ def apply_augmentations(augment_obj,
     if (orig_fpath is not None and output_dir is not None):
         import os
         import numpy as np
-        from freeseg.utils import save_framedimage
+        from freeseg.utils import utility as utils
 
         volumeprefix = os.path.basename(orig_fpath)
         for fext in ['.nii.gz', '.nii', '.mgz']:
@@ -28,21 +28,21 @@ def apply_augmentations(augment_obj,
             os.makedirs(output_dir)
 
     if (debugsaveprefix0 is not None):
-        save_framedimage(
+        utils.save_framedimage(
             label_tensor,
             f"{debugsaveprefix0}_reoriented_label.mgz",
             original_framedimage=original_label,            
         )
         np.save(f"{debugsaveprefix0}_reoriented_label.npy", label_tensor.cpu().numpy().astype(np.float32))
         if (image_tensor is not None):
-            save_framedimage(
+            utils.save_framedimage(
                 image_tensor,
                 f"{debugsaveprefix0}_reoriented_image.mgz",
                 original_framedimage=original_image,            
             )
             np.save(f"{debugsaveprefix0}_reoriented_image.npy", image_tensor.cpu().numpy().astype(np.float32))
         if (priors_tensor is not None):
-            save_framedimage(
+            utils.save_framedimage(
                 priors_tensor,
                 f"{debugsaveprefix0}_reoriented_prior.mgz",
                 original_framedimage=original_image,
@@ -76,7 +76,7 @@ def apply_augmentations(augment_obj,
 
         # save augmented volumes
         if (debugsaveprefix is not None):
-            save_framedimage(
+            utils.save_framedimage(
                 label_tensor,
                 f"{debugsaveprefix}_label.mgz",
                 original_framedimage=original_label,
@@ -84,7 +84,7 @@ def apply_augmentations(augment_obj,
             )
             np.save(f"{debugsaveprefix}_label.npy", label_tensor.cpu().numpy().astype(np.float32))
             if (image_tensor is not None):
-                save_framedimage(
+                utils.save_framedimage(
                     image_tensor,
                     f"{debugsaveprefix}_image.mgz",
                     original_framedimage=original_image,
@@ -92,7 +92,7 @@ def apply_augmentations(augment_obj,
                 )
                 np.save(f"{debugsaveprefix}_image.npy", image_tensor.cpu().numpy().astype(np.float32))
             if (priors_tensor is not None):
-                save_framedimage(
+                utils.save_framedimage(
                     priors_tensor,
                     f"{debugsaveprefix}_prior.mgz",
                     original_framedimage=original_image,
