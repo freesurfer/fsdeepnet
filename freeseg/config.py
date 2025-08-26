@@ -98,6 +98,8 @@ class Config:
         generation_labels  = config["dataset"].get("generation_labels", None)
         generation_classes = config["dataset"].get("generation_classes", None)
         segmentation_labels = config["dataset"].get("segmentation_labels", None)
+        # generation_labels/generation_classes/segmentation_labels
+        # can be either a str or a list
         if (generation_labels is not None and isinstance(generation_labels, str)):
             generation_labels = np.load(generation_labels)
         if (generation_classes is not None and isinstance(generation_classes, str)):
@@ -107,13 +109,13 @@ class Config:
         # save generation_labels, generation_classes, segmentation_labels
         if (output_folder is not None):
             f_npy = os.path.join(output_folder, "segmentation_labels.npy")
-            np.save(f_npy, np.array(sorted(segmentation_labels)).astype(int)) 
+            np.save(f_npy, np.array(segmentation_labels).astype(int))
             if (generation_labels is not None):
                 f_npy = os.path.join(output_folder, "generation_labels.npy")
-                np.save(f_npy, np.array(sorted(generation_labels)).astype(int))
+                np.save(f_npy, np.array(generation_labels).astype(int))
             if (generation_classes is not None):
                 f_npy = os.path.join(output_folder, "generation_classes.npy")
-                np.save(f_npy, np.array(sorted(generation_classes)).astype(int))
+                np.save(f_npy, np.array(generation_classes).astype(int))
         num_labels = len(np.unique(segmentation_labels))
         label_mapping = {label:i for i, label in enumerate(np.unique(segmentation_labels))}
         inverse_label_mapping = {v: k for k, v in label_mapping.items()}
