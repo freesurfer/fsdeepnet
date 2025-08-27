@@ -1,6 +1,7 @@
 dataset:
   dataset_classname: freeseg.datasets.segmentationdataset.SegmentationDataset
   segmentation_labels: [0, 883, 900, 903, 904]
+  #segmentation_names:  /path/segmentation_names.npy or a list of label names corresponding to segmentation_labels
   #left_right_corresponding: define-left-right-label-correspondings #ex. this is for SynthSeg training [2, 41, 3, 42, 4, 43, 5, 44, 7, 46, 8, 47, 10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54, 25, 57, 26, 58, 28, 60, 30, 62, 136, 163, 137, 164]
   expected_num_channels: 1
 

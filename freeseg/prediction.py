@@ -81,6 +81,12 @@ class Prediction:
         
         self._labels_segmentation, self._unique_idx = np.unique(checkpoint.train_dataset_dict["segmentation_labels"], return_index=True)
         self._num_labels = len(self._labels_segmentation)
+
+        # segmentation_names contains the label names corresponding to segmentation_labels
+        self._names_segmentation = checkpoint.train_dataset_dict.get("segmentation_names", None)
+        if (self._names_segmentation is not None):
+            # segmentation_names needs to be retrieved in the same order as segmentation_labels
+            self._names_segmentation = self._names_segmentation[self._unique_idx]
         
         # retrieve self._label_mapping, self._inverse_label_mapping from checkpoint.train_dataset_dict
         # or compute them from self._labels_segmentation for backward compatibility
@@ -147,9 +153,11 @@ class Prediction:
                 path_gt=None, # for hard-dice calculation
                 addctab=True,
                 write_posteriors=False,
-                keepgeom=False,
+                path_volumes=None,
+                keepgeom=True,
                 keep_biggest_component=True,
-                topology_classes=None):
+                topology_classes=None,
+                segmentation_names=None):
         
         # check inputs
         assert path_images is not None, 'please specify an input file/folder'
@@ -158,16 +166,19 @@ class Prediction:
         self._crop_size = crop_size
         self._target_res = target_res
         self._keepgeom = keepgeom
+        if (segmentation_names is not None):
+            self._names_segmentation = segmentation_names[self._unique_idx]
 
-        path_images, path_labels, path_priors, out_segmentations, codenames, out_posteriors = \
-            self.prepare_output_files(path_images, path_labels, path_priors, out_segmentations, codenames, write_posteriors)
+        path_images, path_labels, path_priors, out_segmentations, codenames, out_posteriors, csv_subjects = \
+            self.prepare_output_files(path_images, path_labels, path_priors, out_segmentations, codenames, write_posteriors, path_volumes)
         
         if (self._debug):
             self._out_debug_dir = os.path.join(os.path.dirname(out_segmentations[0]), "debug")
             os.makedirs(self._out_debug_dir, exist_ok=True)            
             self.register_hook(self._model)
 
-        self.list_predictions = list()  # make an empty list
+        # create empty lists for predictions, label volumes, tivs, voxel counts
+        self.list_predictions, self.volumes, self.tivs, self.vox_counts = [], [], [], []
 
         # create RescaleVolume, ResampleVolume, CropVolume objects
         self.apply_rescale = RescaleVolume(device=self._device)
@@ -184,7 +195,8 @@ class Prediction:
             (outputs, _) = self._model(image_tensor_preprocessed, prior_tensor_preprocessed)
 
             ### postprocessing ###
-            segmentation, posteriors = self.postprocess(outputs, target_im_shape, crop_idx, pad_idx, keep_biggest_component=True, topology_classes=None)
+            segmentation, posteriors, = \
+                self.postprocess(outputs, target_im_geom.voxsize, target_im_shape, crop_idx, pad_idx, keep_biggest_component=True, topology_classes=None, path_volumes=path_volumes)
             
             ### save segmentation ###
             # align prediction back to original orientation, original geom (if keepgeom is True)
@@ -214,8 +226,26 @@ class Prediction:
                                  orientation=orig_ori, onehotencoded=True, dtype=float)
                 logging.info(f"output posteriors {out_posteriors[i]}")
         # end of segmentation loop
-        
+
         self.unregister_hook()
+
+        # write volumes
+        if (path_volumes):
+            # create a new list with subject, tiv inserted at the beginning
+            # 'csv_subjects' is a list, 'self.tivs' and 'self.volumes' are list of lists
+            csv_rows = [[s] + t + vol for s, t, vol in zip(csv_subjects, self.tivs, self.volumes)]
+            if (self._names_segmentation is not None):
+                names_label = [label for label in self._names_segmentation]
+            else:
+                names_label = [f'label {str(label)}' for label in self._labels_segmentation]
+            # exclude background id
+            utils.write_csv(path_volumes, csv_rows, header=[['subject', 'total intracranial'] + names_label[1:]])
+                
+            path_stats = path_volumes.replace('.csv', '.stats')
+            # build a list of label id/name pairs
+            names_labels = [(id, name) for id, name in zip(self._labels_segmentation, names_label)]
+            # exclude background id
+            utils.write_volume_stats(path_stats, self.vox_counts, self.volumes, names_labels[1:]) 
 
         # evaluate
         if (path_gt is not None):
@@ -346,7 +376,7 @@ class Prediction:
         return sfimage, orig_orientation, target_im_geom, target_im_shape, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup
 
 
-    def postprocess(self, posteriors, target_im_shape, crop_idx, pad_idx, keep_biggest_component=True, topology_classes=None):
+    def postprocess(self, posteriors, target_im_res, target_im_shape, crop_idx, pad_idx, keep_biggest_component=True, topology_classes=None, path_volumes=None):
         # remove the padding
         posteriors = CropVolume(posteriors.squeeze(0), pad_idx).unsqueeze(0)
 
@@ -358,7 +388,10 @@ class Prediction:
         # posteriors is batched tensor [B, C, H, W (,D)], predicted_segmentation is [B, H, W (,D)]
         predicted_segmentation = torch.argmax(posteriors, dim=1)
         # map labels to original id
-        segmentation_cropped = utils.remap_labels(predicted_segmentation, self._inverse_label_mapping)
+        if (path_volumes is None):
+            segmentation_cropped = utils.remap_labels(predicted_segmentation, self._inverse_label_mapping)
+        else:
+            segmentation_cropped, vox_counts = utils.remap_labels(predicted_segmentation, self._inverse_label_mapping, return_counts=True)
         
         if (crop_idx is not None):
             # re-position predicted segmentation back to the original image indices where the image was cropped out
@@ -371,10 +404,22 @@ class Prediction:
         else:
             segmentation = segmentation_cropped
 
+        # compute volumes
+        if (path_volumes is not None):
+            # skip background
+            volumes = np.sum(posteriors.detach().numpy()[:, 1:, ...], tuple(range(2, 2+len(posteriors.shape[2:]))))
+            volumes = volumes.squeeze(0)
+            tiv = np.array([np.sum(volumes)])  # sum up all volumes except background
+            volumes = np.around(volumes * np.prod(target_im_res), 3)            
+            tiv = np.around(tiv * np.prod(target_im_res), 3)
+            self.volumes.append(volumes.tolist())
+            self.tivs.append(tiv.tolist())
+            self.vox_counts.append(vox_counts)
+
         return segmentation, posteriors
 
 
-    def prepare_output_files(self, path_images, path_labels, path_priors, out_segmentations, codenames, write_posteriors):
+    def prepare_output_files(self, path_images, path_labels, path_priors, out_segmentations, codenames, write_posteriors, path_volumes):
         pred_suffix = 'prediction'
         posteriors_suffix = 'posteriors'
 
@@ -469,6 +514,14 @@ class Prediction:
             os.makedirs(out_posteriors_dir, exist_ok=True)
             for out_seg in out_segmentations:
                 basename = os.path.basename(out_seg)
-                out_posteriors.append(os.path.join(out_posteriors_dir, basename.replace(f"{pred_suffix}.", f"{posteriors_suffix}.")))                
+                out_posteriors.append(os.path.join(out_posteriors_dir, basename.replace(f"{pred_suffix}.", f"{posteriors_suffix}.")))
 
-        return path_images, path_labels, path_priors, out_segmentations, codenames, out_posteriors  
+        csv_subjects = []
+        if (path_volumes):
+            for im in path_images:
+                im = os.path.basename(im).replace('.nii.gz', '')
+                im = im.replace('.nii', '')
+                im = im.replace('.mgz', '')
+                csv_subjects.append(im)
+                
+        return path_images, path_labels, path_priors, out_segmentations, codenames, out_posteriors, csv_subjects

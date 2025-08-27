@@ -98,7 +98,8 @@ class Config:
         generation_labels  = config["dataset"].get("generation_labels", None)
         generation_classes = config["dataset"].get("generation_classes", None)
         segmentation_labels = config["dataset"].get("segmentation_labels", None)
-        # generation_labels/generation_classes/segmentation_labels
+        segmentation_names = config["dataset"].get("segmentation_names", None)
+        # generation_labels/generation_classes/segmentation_labels/segmentation_names
         # can be either a str or a list
         if (generation_labels is not None and isinstance(generation_labels, str)):
             generation_labels = np.load(generation_labels)
@@ -106,10 +107,15 @@ class Config:
             generation_classes = np.load(generation_classes)
         if (segmentation_labels is not None and isinstance(segmentation_labels, str)):
             segmentation_labels = np.load(segmentation_labels)
+        if (segmentation_names is not None and isinstance(segmentation_names, str)):
+            segmentation_names = np.load(segmentation_names)            
         # save generation_labels, generation_classes, segmentation_labels
         if (output_folder is not None):
             f_npy = os.path.join(output_folder, "segmentation_labels.npy")
             np.save(f_npy, np.array(segmentation_labels).astype(int))
+            if (segmentation_names is not None):
+                f_npy = os.path.join(output_folder, "segmentation_names.npy")
+                np.save(f_npy, np.array(segmentation_names))
             if (generation_labels is not None):
                 f_npy = os.path.join(output_folder, "generation_labels.npy")
                 np.save(f_npy, np.array(generation_labels).astype(int))
@@ -124,6 +130,7 @@ class Config:
                                   "generation_labels"  : generation_labels if (generation_labels is not None) else segmentation_labels,
                                   "generation_classes" : generation_classes, 
                                   "segmentation_labels": segmentation_labels,
+                                  "segmentation_names" : segmentation_names,
                                   "left_right_corresponding": config["dataset"].get("left_right_corresponding", None),
                                   "label_mapping": label_mapping,
                                   "inverse_label_mapping": inverse_label_mapping,

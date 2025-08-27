@@ -3,6 +3,7 @@ dataset:
   generation_labels: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_charm_choroid_lesions_csf.npy
   generation_classes: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_classes_charm_choroid_lesions_gm_csf.npy
   segmentation_labels: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/segmentation_charm_choroid_lesions_csf.npy
+  segmentation_names: /usr/local/freesurfer/8.0.0/models/synthseg_segmentation_names_2.0.npy
   left_right_corresponding: [2, 41, 3, 42, 4, 43, 5, 44, 7, 46, 8, 47, 10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54, 25, 57, 26, 58, 28, 60, 30, 62, 136, 163, 137, 164]
   expected_num_channels: 1
 
@@ -127,3 +128,9 @@ evaluation:
 #target_res = None
 #output_shape = 160
 #n_channels = 1
+#
+#
+#labels_segmentation = '/usr/local/freesurfer/8.0.0/models/synthseg_segmentation_labels_2.0.npy'
+#names_segmentation_labels = '/usr/local/freesurfer/8.0.0/models/synthseg_segmentation_names_2.0.npy'
+#topology_classes = '/usr/local/freesurfer/8.0.0/models/synthseg_topological_classes_2.0.npy'
+#

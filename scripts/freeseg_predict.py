@@ -3,6 +3,7 @@
 import os
 import logging
 import sys
+import numpy as np
 import torch
 import argparse
 import yaml
@@ -105,6 +106,9 @@ def main():
     if (logfile is not None):
         mainlogger.info(f"prediction log can be found in {logfile}")
 
+    segmentation_names = None
+    if (args.segmentation_names is not None):    
+        segmentation_names=np.load(args.segmentation_names)
     predict(path_images, args.o, checkpoint,
             crop_size=args.crop_size,
             target_res=args.target_res,
@@ -115,9 +119,12 @@ def main():
             path_gt=path_gt,
             addctab=True if (not args.noaddctab) else False,
             write_posteriors=args.write_posteriors,
-            keepgeom=args.keepgeom,
+            path_volumes=args.vol,
+            keepgeom=(not args.nokeepgeom),
             device=device,
-            debug=args.debug)
+            debug=args.debug,
+            segmentation_names=segmentation_names
+            )
 
     # check memory usage
     if (args.vmp):
@@ -138,13 +145,15 @@ def argument_parse():
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to a checkpoint file to resume training from")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     parser.add_argument("--target_res", type=float, default=1.0, help="Segmentation output resolution")
-    parser.add_argument("--keepgeom", action="store_true", help="Force output geometry to be the same as input")
+    parser.add_argument("--nokeepgeom", action="store_true", help="Donot resample output to be the same as input geometry")
     parser.add_argument("--ctab", type=str, help="Path to the lookup table")
     parser.add_argument("--label", type=str, help="Label(s) for input image(s). Can be a path to a label or to a folder. The labels can be binary masks.")
     parser.add_argument("--prior", type=str, help="Input priors")
     parser.add_argument("--gt", type=str, help="Path to ground truth folder for dice evaluation.")
     parser.add_argument("--noaddctab", action="store_true", help="Do not embed colortable into seg output")
+    parser.add_argument("--segmentation_names", type=str, help="Path to npy containing segmentation names corresponding to segmentation labels")
     parser.add_argument("--write_posteriors", action='store_true', help="Save the label posteriors.")
+    parser.add_argument("--vol", type=str, help="Output for calculated label volumes.")
     parser.add_argument('--logfile', type=str, help='Set logfile (default is ./freeseg_predict.log)')
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
     parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
@@ -161,7 +170,7 @@ def argument_parse():
 
 
 def predict(path_images, out_segmentations, checkpoint, crop_size=None, target_res=1., ctab=None, path_labels=None, path_priors=None, codenames=None,
-            path_gt=None, addctab=True, write_posteriors=False, device=None, debug=False, keepgeom=False):
+            path_gt=None, addctab=True, write_posteriors=False, path_volumes=None, device=None, debug=False, keepgeom=False, segmentation_names=None):
     prediction = Prediction(device, ctab=ctab, debug=debug)
     prediction.load_model(checkpoint)
     prediction.predict(path_images, out_segmentations,
@@ -173,7 +182,9 @@ def predict(path_images, out_segmentations, checkpoint, crop_size=None, target_r
                        path_gt=path_gt,
                        addctab=addctab,
                        write_posteriors=write_posteriors,
-                       keepgeom=keepgeom)
+                       path_volumes=path_volumes,
+                       keepgeom=keepgeom,
+                       segmentation_names=segmentation_names)
 
 
 # execute script

@@ -100,11 +100,22 @@ def save_framedimage(framedimage_tensor, output_file, original_framedimage=None,
     surfa_image.save(output_file)
 
 
-def remap_labels(labels, mapping):
+def remap_labels(labels, mapping, return_counts=False):
+    if (return_counts):
+        vox_counts = []
+
     remapped_labels = torch.zeros_like(labels)
     for old_label, new_label in mapping.items():
-        remapped_labels[labels == old_label] = new_label
-    return remapped_labels
+        label_mask = labels == old_label
+        remapped_labels[label_mask] = new_label
+        if (return_counts and new_label != 0):  # exclude background
+            vox_counts.append(np.count_nonzero(label_mask))
+
+    if (return_counts):
+        return remapped_labels, vox_counts
+    else:
+        return remapped_labels
+
 
 def onehot(labels, num_classes, device=None):
     """
@@ -320,6 +331,30 @@ def unique_unsorted(arr):
     unique_in_order = unique_elements[sorted_indices]
 
     return unique_in_order
+
+
+def write_csv(fcsv, data, header=[]):
+    import csv
+
+    # the first row is the header information
+    with open(fcsv, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerows(header)
+        writer.writerows(data)
+
+
+def write_volume_stats(fstats, vox_counts, volumes, labels, etiv=None):
+    with open(fstats, 'w') as fp:
+        fp.write('# Volumetric Stats\n')
+        if (etiv is not None):
+            fp.write('# Measure EstimatedTotalIntraCranialVol, eTIV, Estimated ' + \
+                       f'Total Intracranial Volume, {etiv:.6f}, mm^3\n')
+        fp.write(f'# NRows {len(labels)}\n')
+        fp.write('# NTableCols 5\n')
+        fp.write('# ColHeaders  Index  SegId  NVoxels      Volume_mm3      StructName\n')
+        for j, (id, name) in enumerate(labels):
+            for i in range(len(volumes)):
+                fp.write("            %4d %6d    %7d %17.4f     %s\n" % (j+1, id, vox_counts[i][j], volumes[i][j], name))
 
 
 # ================================================================================================
