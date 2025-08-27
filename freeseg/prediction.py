@@ -98,10 +98,12 @@ class Prediction:
         if (self._inverse_label_mapping is None):
             logging.info(f"compute inverse_label_mapping ...")
             self._inverse_label_mapping = {v: k for k, v in self._label_mapping.items()}
-        
 
+        # set target resolution to the resolution of the training data
+        self._target_res = checkpoint.train_dataset_dict.get("target_res", None)
         if (self._label_lookup is None):
             self._label_lookup = checkpoint.label_lookup
+
         self._model.load_state_dict(checkpoint.model_state_dict)
         self._model.eval()
 
@@ -146,7 +148,7 @@ class Prediction:
                 path_images,
                 out_segmentations,
                 crop_size=None,
-                target_res=1.,
+                target_res=None,
                 path_labels=None,
                 path_priors=None,
                 codenames=None,
@@ -164,7 +166,10 @@ class Prediction:
         assert out_segmentations is not None, 'please specify an output file/folder'
 
         self._crop_size = crop_size
-        self._target_res = target_res
+        # use target_res if it is provided, otherwise use input image resolution
+        if (target_res is not None):
+            self._target_res = target_res
+        # ??? default to 1mm if self._target_res is None ???
         self._keepgeom = keepgeom
         if (segmentation_names is not None):
             self._names_segmentation = segmentation_names[self._unique_idx]
@@ -293,7 +298,8 @@ class Prediction:
                 out_reoriented_prior = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prior.reoriented.RAS.mgz")
                 utils.save_framedimage(prior_tensor, out_reoriented_prior, original_framedimage=sfprior)
 
-        # resample image to target_res
+        # resample image to target_res if necessary
+        # original input is returned from ResampleVolume() if no resampling is necessary
         out_resample = self.apply_resample({'image':image_tensor, 'voxsize':sfimage.geom.voxsize[:image_tensor.ndim-1], 'geom':sfimage.geom})
         image_tensor_preprocessed = out_resample.get('image')
         target_im_geom = out_resample.get('geom')

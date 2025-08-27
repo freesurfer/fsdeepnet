@@ -1060,6 +1060,7 @@ class ResampleVolume(torch.nn.Module):
         if (self.target_res is not None and np.isscalar(self.target_res)):        
             self.target_res = np.array([self.target_res] * ndims)
 
+        # return the original input back if no resampling is necessary
         if ((self.target_res is None) or \
             (not np.any((voxsize > self.target_res+0.05) | (voxsize < self.target_res-0.05)))):
             output = {

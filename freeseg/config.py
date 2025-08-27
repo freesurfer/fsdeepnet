@@ -135,7 +135,9 @@ class Config:
                                   "label_mapping": label_mapping,
                                   "inverse_label_mapping": inverse_label_mapping,
                                   "num_labels": num_labels,
-                                  "crop_size": crop_size})
+                                  "crop_size": crop_size,
+                                  "target_res": config["preprocessing"].get("target_res", None),
+                                 })
     
         ### set training, preprocessing devices
         if ('cpu' in args and args.cpu):
@@ -271,6 +273,7 @@ class Config:
         logger.info(f"steps_per_epoch: {cfg['training']['steps_per_epoch']}")
         logger.info(f"batch_size: {cfg['training']['batch_size']}")
         logger.info(f"crop_size: {cfg['preprocessing']['crop_size']}")
+        logger.info(f"target_res: {cfg['preprocessing'].get('target_res', None)}")
 
         logger.info(f"keep_trainset_in_memory: {cfg['keep_trainset_in_memory']}")
         logger.info(f"deterministic: {cfg['preprocessing'].get('deterministic', False)}")
