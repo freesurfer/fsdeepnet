@@ -21,6 +21,9 @@ class SegmentationDataset(torch.utils.data.Dataset):
         self.ndims = dset_profile["ndims"]
         self.num_classes = dset_profile["num_labels"]
         self.label_mapping = dset_profile["label_mapping"]
+        self.target_res = dset_profile["target_res"]
+        if (self.target_res is not None and np.isscalar(self.target_res)):        
+            self.target_res = np.array([self.target_res] * self.ndims)
 
         assert (self.ndims == 3 or self.ndims == 2), "Model supports 3D or 2D"
                 
@@ -61,9 +64,10 @@ class SegmentationDataset(torch.utils.data.Dataset):
             augmentation.check_augmentations(self.data_augment)
 
         if (preload):
-            input_shape, generation_labels, label_lookup = self.preload()
+            input_shape, im_res, generation_labels, label_lookup = self.preload()
             self.dset_profile.update({"num_samples": self.num_entries,
                                       "input_shape": input_shape[1:],
+                                      "target_res": im_res,
                                       "num_channels": input_shape[0],
                                       "reported_generation_labels": generation_labels,
                                       "image": self.hasimage(),
@@ -165,6 +169,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
 
         expected_num_channels = self.num_channels
 
+        im_res = None
         label_lookup = None
         generation_labels = set()
         for n in range(self.num_entries):
@@ -184,6 +189,8 @@ class SegmentationDataset(torch.utils.data.Dataset):
                 image, image_tensor, _ = utils.load_framedimage(f_image, orientation="RAS", device=self.device, ndims=self.ndims)
                 assert (label_tensor.shape == image_tensor.shape), \
                     f"image and label need to be in the same shape. label {f_label} has shape {label_tensor.shape}, image {f_image} has shape {image_tensor.shape}"
+                assert (np.all(label.geom.voxsize == image.geom.voxsize)), \
+                    f"image and label need to have the same resolution. label {f_label} is {label.geom.voxsize}mm, image {f_image} is {image.geom.voxsize}mm"
                 input_shape = image_tensor.shape # use image shape if it is available
 
             ### load priors
@@ -198,7 +205,11 @@ class SegmentationDataset(torch.utils.data.Dataset):
 
             assert (input_shape[0] == expected_num_channels), \
                 f"Expected {expected_num_channels} channels, but got {input_shape[0]}"
-            
+            if (self.target_res is not None):
+                assert (np.all(abs(label.geom.voxsize - self.target_res) < augmentation.AugmentBase.RES_DIFF_THRESH)), \
+                    f"Expected resolution {self.target_res}mm, but got {label.geom.voxsize}mm"
+
+            im_res = label.geom.voxsize
             if (self.keep_trainset_in_memory):
                 self.images.append(image)
                 self.labels.append(label)
@@ -213,6 +224,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
             unique_labels = np.unique(label.data).astype(int).tolist()
             generation_labels.update(unique_labels)
 
+        logging.info("")
         logging.info("Dataset Information:")
         logging.info(f"  Number of samples: {self.num_entries}")
         logging.info(f"  Has image: {self.hasimage()}")
@@ -220,9 +232,10 @@ class SegmentationDataset(torch.utils.data.Dataset):
         logging.info(f"  Reported number of labels: {len(generation_labels)}")
         logging.info(f"  Reported generation labels: {sorted(generation_labels)}")
         logging.info(f"  Input shape: {list(input_shape[1:])}")
+        logging.info(f"  Input resolution: {im_res}")
         logging.info(f"  Number of channels: {input_shape[0]}")
     
-        return input_shape, generation_labels, label_lookup
+        return input_shape, im_res, generation_labels, label_lookup
 
     @property
     def profile(self):

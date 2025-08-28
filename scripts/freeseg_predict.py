@@ -144,7 +144,7 @@ def argument_parse():
     parser.add_argument("--o", type=str, required=True, help="Segmentation output(s). Must be a folder if --i designates a folder, or --dataset_list_file is specified.")
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to a checkpoint file to resume training from")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
-    parser.add_argument("--target_res", type=float, help="Segmentation output resolution")
+    parser.add_argument("--target_res", nargs="+", type=float, help="Segmentation output resolution")
     parser.add_argument("--nokeepgeom", action="store_true", help="Donot resample output to be the same as input geometry")
     parser.add_argument("--ctab", type=str, help="Path to the lookup table")
     parser.add_argument("--label", type=str, help="Label(s) for input image(s). Can be a path to a label or to a folder. The labels can be binary masks.")
@@ -169,7 +169,7 @@ def argument_parse():
     return args
 
 
-def predict(path_images, out_segmentations, checkpoint, crop_size=None, target_res=1., ctab=None, path_labels=None, path_priors=None, codenames=None,
+def predict(path_images, out_segmentations, checkpoint, crop_size=None, target_res=None, ctab=None, path_labels=None, path_priors=None, codenames=None,
             path_gt=None, addctab=True, write_posteriors=False, path_volumes=None, device=None, debug=False, keepgeom=False, segmentation_names=None):
     prediction = Prediction(device, ctab=ctab, debug=debug)
     prediction.load_model(checkpoint)

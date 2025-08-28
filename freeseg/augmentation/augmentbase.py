@@ -8,6 +8,8 @@ from freeseg.utils import utility as utils
 from freeseg.filter import Filter
 
 class AugmentBase:
+    RES_DIFF_THRESH = 0.05
+    
     def __init__(self, hp,
                  transforms,
                  crop_size,
@@ -1043,6 +1045,11 @@ class ResampleVolume(torch.nn.Module):
         self.sampling = sampling_hp
         self.verbose = verbose
 
+        if (np.isscalar(self.target_res)):
+            self.target_res = [self.target_res] # convert scalar to list
+        elif (isinstance(self.target_res, list)):
+            self.target_res = np.array(self.target_res) # convert list to array
+
 
     def forward(self, input, debugsaveprefix=None):
         if (self.verbose):
@@ -1057,12 +1064,11 @@ class ResampleVolume(torch.nn.Module):
         ndims = image.ndim - 1
         image_shape = image.shape[1:]
 
-        if (self.target_res is not None and np.isscalar(self.target_res)):        
-            self.target_res = np.array([self.target_res] * ndims)
+        if (self.target_res is not None and len(self.target_res) == 1):
+            self.target_res = np.concatenate([self.target_res] * ndims) # pad length 1 list or array to ndims array
 
         # return the original input back if no resampling is necessary
-        if ((self.target_res is None) or \
-            (not np.any((voxsize > self.target_res+0.05) | (voxsize < self.target_res-0.05)))):
+        if ((self.target_res is None) or np.all(abs(voxsize-self.target_res) < AugmentBase.RES_DIFF_THRESH)):
             output = {
                 'image': image,
                 'label': label,

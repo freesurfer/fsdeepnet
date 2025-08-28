@@ -42,7 +42,7 @@ def main():
     args = argument_parse()
     
     config = Config.process(args, logger=logging, require_train_outfolder=False, test_augment=args.augment)
-    config, _, _, _, _, train_dataset = Training.setup(config, preload_dataset=False, create_loader=False, create_model=False)
+    config, _, _, _, _, train_dataset = Training.setup(config, preload_dataset=args.preload, create_loader=False, create_model=False)
     Config.print(config, logging)
 
     if (args.augment):
@@ -57,6 +57,7 @@ def argument_parse():
 
     # input/outputs
     parser.add_argument("--config", type=str, required=True, help="Path to the configuration file")
+    parser.add_argument("--preload", action='store_true', help="Preload training dataset")
     parser.add_argument("--augment", action='store_true', help="Perform augmentation on input image/label.")
     parser.add_argument("--deterministic", action='store_true', help="deterministic training")
     parser.add_argument("--augmentation_dir", type=str, help="Path to augmentation output (needed for augmenting)")
