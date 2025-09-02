@@ -69,7 +69,8 @@ def argument_parse():
     parser.add_argument("--validation_cohort", nargs="+", type=str, default=['validation'], help="Specify validation dataset cohort. Can be combinations of train, validation, or test")
     parser.add_argument("--deterministic", action='store_true', help="deterministic training")
     parser.add_argument("--ctab", type=str, help="Path to the lookup table")
-    parser.add_argument("--train_output_folder", type=str, default=None, help="Folder for saving training outputs")    
+    parser.add_argument("--train_output_folder", type=str, default=None, help="Folder for saving training outputs")
+    parser.add_argument("--report_moving_avg", action='store_true', help="Report simple moving loss and dice average for each training step.")    
     parser.add_argument("--checkpoint", type=str, help="Path to a checkpoint file to resume training from")
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
     parser.add_argument("--num_workers", type=int, help="Number of Dataloader workers")
@@ -118,6 +119,7 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
     verbose = config["verbose"]
     train_dataset_dict = config["dataset"]
     train_output_folder = config["training"]["train_output_folder"]
+    report_moving_avg = config["training"].get("report_moving_avg", False)
 
     # print model_arch_dict
     model_arch_dict = model.arch_dict
@@ -148,6 +150,7 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
                        device=device,
                        gpu_index=gpu_index,
                        preprocessing_device=preprocessing_device,
+                       report_moving_avg=report_moving_avg,
                        debug=debug)
 
     # train wl2 epochs

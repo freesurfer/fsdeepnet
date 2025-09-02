@@ -34,7 +34,7 @@ class Training:
                  model,
                  model_arch_dict=None,
                  train_dataset_dict=None,
-                 ctab=None,          # ascii color table
+                 ctab=None,     # ascii color table
                  model_checkpoint=None,
                  validation_loader=None,                 
                  best_model_metric="dice",                 
@@ -42,6 +42,7 @@ class Training:
                  device=None,
                  gpu_index=None,
                  preprocessing_device=None,
+                 report_moving_avg=False,
                  debug=False):
         """
         Training Constructor.
@@ -59,6 +60,7 @@ class Training:
 
         """
 
+        self._report_moving_avg = report_moving_avg
         self._debug = debug
         self._model = model
         self._model_arch_dict = model_arch_dict
@@ -292,6 +294,7 @@ class Training:
         """
 
         train_loss = 0.0
+        train_dice_avg = 0.0
         train_dices = np.zeros((self._batch_size, self._num_labels, steps_per_epoch))
 
         self._model.train()        
@@ -323,9 +326,16 @@ class Training:
             # Calculate hard Dice
             batch_hard_dice = self._dice_metric_hard(outputs, onehot_labels)
             train_dices[:, :, step] = batch_hard_dice.detach().cpu().numpy()
-            logging.info(f"  {step+1:4d}/{steps_per_epoch:<4d} loss: {loss.item():.4f}, dice avg: {np.mean(train_dices[:, :, step]):.4f}")
+            train_dice_avg += np.mean(train_dices[:, :, step])
+
+            # report simple moving loss and dice average or loss/dice for each step
+            if (self._report_moving_avg):
+                logging.info(f"  {step+1:4d}/{steps_per_epoch:<4d} loss: {train_loss/(step+1):.4f}, dice avg: {train_dice_avg/(step+1):.4f}")
+            else:
+                logging.info(f"  {step+1:4d}/{steps_per_epoch:<4d} loss: {loss.item():.4f}, dice avg: {np.mean(train_dices[:, :, step]):.4f}")
+
+            # begin of debugging volumes output            
             if (self._debug and step == steps_per_epoch-1):
-                # begin of debugging volumes output
                 # output augmented images/labels/priors, onehot encoded labels, posteriors, prediciton from each batch (batch_size x [C, H, W(, D)])
                 logging.debug(f"output augmented images/labels, onehot encoded labels, posteriors, prediciton ...")                
                 for n, idx in enumerate(dataset_indices):
@@ -358,6 +368,7 @@ class Training:
                     utils.save_framedimage(segmentation.unsqueeze(0), out_segmentation)
             # end of debugging volumes output     
 
+            # begin of tensorboard summary writer
             if (self._summary_writer is not None):
                 # Write to TensorBoard every batch
                 self._summary_writer.add_scalar("Train/Loss", loss.item(), epoch * steps_per_epoch + batch_idx)

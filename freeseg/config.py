@@ -228,6 +228,8 @@ class Config:
             config["preprocessing"]["crop_size"] = args.crop_size
         if ('train_output_folder' in args and args.train_output_folder is not None):
             config["training"]["train_output_folder"] = args.train_output_folder
+        if ('report_moving_avg' in args and args.report_moving_avg): # bool
+            config["training"]["report_moving_avg"] = args.report_moving_avg        
         if ('augmentation_dir' in args and args.augmentation_dir is not None):
             config["preprocessing"]["augmentation_dir"] = args.augmentation_dir
         if ('deterministic' in args and args.deterministic): # bool
@@ -271,6 +273,7 @@ class Config:
             logger.info(f"model_metrics: {cfg['training'].get('model_metrics', 'freeseg.metrics.DiceLoss')}")
             logger.info(f"learning_rate: {cfg['training']['learning_rate']}")
         logger.info(f"steps_per_epoch: {cfg['training']['steps_per_epoch']}")
+        logger.info(f"report_moving_avg: {cfg['training'].get('report_moving_avg', False)}")
         logger.info(f"batch_size: {cfg['training']['batch_size']}")
         logger.info(f"crop_size: {cfg['preprocessing']['crop_size']}")
         logger.info(f"target_res: {cfg['preprocessing'].get('target_res', None)}")
