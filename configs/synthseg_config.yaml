@@ -7,6 +7,12 @@ dataset:
   left_right_corresponding: [2, 41, 3, 42, 4, 43, 5, 44, 7, 46, 8, 47, 10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54, 25, 57, 26, 58, 28, 60, 30, 62, 136, 163, 137, 164]
   expected_num_channels: 1
 
+dataloader:
+  num_worker: 0
+  pin_memory: False
+  persistent_workers: False
+  prefetch_factor: 2
+
 model:
   name: freeseg.models.unet.UNet
   nb_levels: 5
@@ -56,7 +62,7 @@ preprocessing:
     - biasfieldcorruption:
         bias_field_probability: 1 # Ben: turned on if bias_field_std > 0
         bias_field_max_magnitude: 0.6
-        #xbias_field_generation_method: "blur"   # this is for augmentvoxynth.biasfieldcorruption only, it is either "blur" or "upsample"
+        #bias_field_generation_method: "blur"   # this is for augmentvoxynth.biasfieldcorruption only, it is either "blur" or "upsample"
         bias_field_scale: 0.025
     - intensityaugmentation:
         added_noise_probability: 1 #0.5
@@ -89,7 +95,62 @@ training:
 evaluation:
   batch_size: 1
 
-
+# n_neutral_labels = 19
+# [ 0,  14,  15,  16,  24,  72,  85, 502, 506, 507, 508, 509, 511, 512, 514, 515, 516, 530, 531 ]
+#
+# left right corresponding labels
+# [ 2,  3,  4,  5,  7,  8, 10, 11, 12, 13, 17, 18, 25, 26, 28, 30, 136, 137,
+#  41, 42, 43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 57, 58, 60, 62, 163, 164 ]
+#
+# generation labels to segmenation labels mapping
+# generation   neutral [  0,  14,  15,  16,  24,  72,  85, 502, 506, 507, 508, 509, 511, 512, 514, 515, 516, 530, 531,
+# segmentation neutral [  0,  14,  15,  16,  24,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+# class                [  0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,   3,  13,  14,  15,   6,   4,
+#
+# generation   left       2,   3,   4,   5,   7,   8,  10,  11,  12,  13,  17,  18,  25,  26,  28,  30, 136, 137,
+# segmentation left       2,   3,   4,   5,   7,   8,  10,  11,  12,  13,  17,  18,   2,  26,  28,   0,   4,   5,
+# class                  16,  17,  18,  18,  19,  20,  21,  22,  23,  24,  25,  25,  26,  27,  28,  29,  30,  30,
+#
+# generation   right     41,  42,  43,  44,  46,  47,  49,  50,  51,  52,  53,  54,  57,  58,  60,  62, 163, 164 ]
+# segmentation right     41,  42,  43,  44,  46,  47,  49,  50,  51,  52,  53,  54,  41,  58,  60,   0,  43,  44 ]
+# class                  31,  32,  33,  33,  34,  35,  36,  37,  38,  39,  40,  40,  41,  42,  43,  44,  45,  45 ]
+#
+# sorted unique segmentation labels
+# [ 0,  2,  3,  4,  5,  7,  8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 24, 26, 28, 41, 42, 43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 58, 60 ]
+# [ (0, 'background'), 	       	       	       0
+#   (2, 'left cerebral white matter'),	       1
+#   (3, 'left cerebral cortex'),	       2
+#   (4, 'left lateral ventricle'),	       3
+#   (5, 'left inferior lateral ventricle'),    4
+#   (7, 'left cerebellum white matter'),       5
+#   (8, 'left cerebellum cortex'),	       6
+#   (10, 'left thalamus'),		       7
+#   (11, 'left caudate'),		       8
+#   (12, 'left putamen'),		       9
+#   (13, 'left pallidum'),		       10
+#   (14, '3rd ventricle'),		       11
+#   (15, '4th ventricle'),		       12
+#   (16, 'brain-stem'),			       13
+#   (17, 'left hippocampus'),		       14
+#   (18, 'left amygdala'),		       15
+#   (24, 'csf'),			       16
+#   (26, 'left accumbens area'),	       17
+#   (28, 'left ventral DC'),		       18
+#   (41, 'right cerebral white matter'),       19
+#   (42, 'right cerebral cortex'),	       20
+#   (43, 'right lateral ventricle'),	       21
+#   (44, 'right inferior lateral ventricle'),  22
+#   (46, 'right cerebellum white matter'),     23
+#   (47, 'right cerebellum cortex'),	       24
+#   (49, 'right thalamus'),		       25
+#   (50, 'right caudate'),		       26
+#   (51, 'right putamen'),		       27
+#   (52, 'right pallidum'),		       28
+#   (53, 'right hippocampus'),		       29
+#   (54, 'right amygdala'),		       30
+#   (58, 'right accumbens area'),	       31
+#   (60, 'right ventral DC') ]		       32
+# 
 #path_generation_labels = '/autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_charm_choroid_lesions_csf.npy'
 #"""
 #     array([  0,  14,  15,  16,  24,  72,  85, 502, 506, 507, 508, 509, 511,
@@ -98,8 +159,6 @@ evaluation:
 #             43,  44,  46,  47,  49,  50,  51,  52,  53,  54,  57,  58,  60,
 #             62, 163, 164], dtype=int32)
 #"""
-# [ 2,  3,  4,  5,  7,  8, 10, 11, 12, 13, 17, 18, 25, 26, 28, 30, 136, 137,
-#  41, 42, 43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 57, 58, 60, 62, 163, 164]
 #n_neutral_labels = 19
 #path_segmentation_labels = '/autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/segmentation_charm_choroid_lesions_csf.npy'
 #"""

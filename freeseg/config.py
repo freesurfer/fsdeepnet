@@ -310,8 +310,8 @@ class Config:
         if (cwd is not None):
             fp.write(f"# CWD: {cwd}\n")
         if (cmd is not None):
-            fp.write(f"# CMD: {cmd}\n")
-        fp.write("#\n")
+            cmdopts = cmd.split("--")
+            fp.write("# CMD: " + "\n#              --".join(cmdopts) + "\n\n")
 
         # output the config
         Config.dump(config, fp, indent=indent, sort_keys=sort_keys, debug=debug)
