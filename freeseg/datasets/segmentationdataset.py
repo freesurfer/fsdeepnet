@@ -115,13 +115,6 @@ class SegmentationDataset(torch.utils.data.Dataset):
 
         # Apply data augmentation
         if (self.data_augment is not None):
-            # image.geom.voxsize returned from surfa.load_volume() is (3, 1)
-            # extract voxsizes to match {image_tensor.ndim-1}D data
-            # make it writeable or voxynth.augment.image_augment() will complain non-writable numpy array
-            if (self.hasimage()):
-                voxsize = np.copy(image.geom.voxsize[:image_tensor.ndim-1])
-            else:
-                voxsize = np.copy(label.geom.voxsize[:label_tensor.ndim-1])
             augmented_image_tensor, augmented_label_tensor, augmented_priors_tensor = \
                 augmentation.apply_augmentations(
                     self.data_augment,
@@ -129,7 +122,6 @@ class SegmentationDataset(torch.utils.data.Dataset):
                     label_tensor,
                     image,
                     label,
-                    voxsize=voxsize,
                     priors_tensor=priors_tensor,
                     orig_fpath=image_path if (self.hasimage()) else label_path,
                     index=index

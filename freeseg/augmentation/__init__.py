@@ -7,7 +7,6 @@ def apply_augmentations(augment_obj,
                         label_tensor,
                         original_image,
                         original_label,
-                        voxsize,
                         priors_tensor=None,
                         orig_fpath=None,
                         index=None):
@@ -50,6 +49,7 @@ def apply_augmentations(augment_obj,
             )
             np.save(f"{debugsaveprefix0}_reoriented_prior.npy", priors_tensor.cpu().numpy().astype(np.float32))
 
+    geom = original_label.geom
     augmentations_to_apply = augment_obj.transforms
     for idx, augment_name in enumerate(augmentations_to_apply):
         augment = getattr(augment_obj, augment_name, None)
@@ -65,8 +65,7 @@ def apply_augmentations(augment_obj,
             'image': image_tensor,
             'label': label_tensor,
             'prior': priors_tensor,
-            'voxsize': voxsize,
-            'geom': original_label.geom,
+            'geom': geom,
                 }
         output = augment(input, debugsaveprefix=debugsaveprefix)
         image_tensor = output.get('image', None)

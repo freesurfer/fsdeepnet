@@ -104,9 +104,10 @@ class BiasFieldCorruption(torch.nn.Module):
         image = input.get("image", None)
         label = input.get("label", None)
         prior = input.get("prior", None)
-        voxsize = input.get("voxsize", None)
         geom = input.get("geom", None)
-        
+
+        # make it writeable or voxynth.augment.image_augment() will complain non-writable numpy array
+        voxsize = np.copy(geom.voxsize)
         bf_augmented_image = voxynth.augment.image_augment(
             image,
             voxsize=voxsize,
@@ -120,7 +121,8 @@ class BiasFieldCorruption(torch.nn.Module):
         output = {
             'image': bf_augmented_image,
             'label': label,
-            'prior': prior
+            'prior': prior,
+            'geom':  geom,            
                  }
         return output
 
@@ -148,7 +150,6 @@ class IntensityAugmentation(torch.nn.Module):
         image = input.get("image", None)
         label = input.get("label", None)
         prior = input.get("prior", None)
-        voxsize = input.get("voxsize", None)
         geom = input.get("geom", None)
         
         blur_resampled_image = voxynth.augment.image_augment(
@@ -164,6 +165,7 @@ class IntensityAugmentation(torch.nn.Module):
             'image': blur_resampled_image,
             'label': label,
             'prior': prior,
+            'geom':  geom,            
                  }
         return output
 
@@ -226,9 +228,10 @@ class BiasFieldCorruptionAndIntensityAugmentation(torch.nn.Module):
         image = input.get("image", None)
         label = input.get("label", None)
         prior = input.get("prior", None)
-        voxsize = input.get("voxsize", None)
         geom = input.get("geom", None)
-        
+
+        # make it writeable or voxynth.augment.image_augment() will complain non-writable numpy array
+        voxsize = np.copy(geom.voxsize)
         blur_resampled_image = voxynth.augment.image_augment(
             image,
             normalize=True,
@@ -248,5 +251,6 @@ class BiasFieldCorruptionAndIntensityAugmentation(torch.nn.Module):
             'image': blur_resampled_image,
             'label': label,
             'prior': prior,
+            'geom':  geom,
                  }
         return output
