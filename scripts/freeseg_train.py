@@ -159,7 +159,7 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
         wl2_metrics = utils.get_class(config["training"].get("wl2_metrics", "freeseg.metrics.WeightedL2Loss"), "freeseg.metrics")
         if (checkpoint is None):
             mainlogger.info(f"training {wl2_epochs} wl2 epochs: {optimizer_cls}, {wl2_metrics}, lr:{config['training']['pre_train_learning_rate']} ...")
-        wl2_loss_fn = wl2_metrics()
+        wl2_loss_fn = wl2_metrics(gt_target_value=config["training"].get("wl2_gt_target_value", 15))
         trainer.train_model(lr=config["training"]["pre_train_learning_rate"],
                             epochs=wl2_epochs,
                             steps_per_epoch=config["training"]["steps_per_epoch"],
@@ -174,7 +174,8 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
         mainlogger.info(f"training {dice_epochs} dice epochs: {optimizer_cls}, {model_metrics}, lr:{config['training']['learning_rate']} ...")
         dice_loss_fn = model_metrics(
             num_classes=config["dataset"]["num_labels"],
-            dice_type="soft")
+            dice_type="soft",
+            dice_squared_form=config["training"].get("dice_squared_form", False))
         trainer.train_model(lr=config["training"]["learning_rate"],
                             epochs=dice_epochs,
                             steps_per_epoch=config["training"]["steps_per_epoch"],

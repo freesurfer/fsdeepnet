@@ -27,13 +27,15 @@ class Dice(nn.Module):
         dice_type: str = "soft",
         smooth: float = 1e-6,
         return_loss: bool = True,
+        dice_squared_form: bool = False,
     ):
         super(Dice, self).__init__()
         self.num_classes = num_classes
         self.dice_type = dice_type.lower()
         self.smooth = smooth
         self.return_loss = return_loss
-
+        self.dice_squared_form = dice_squared_form
+        
         # Input Validation
         valid_dice_types = ["soft", "hard"]
         if dice_type.lower() not in valid_dice_types:
@@ -53,7 +55,7 @@ class Dice(nn.Module):
             raise ValueError("Onehot encoded label is expected to be 4 or 5 dimensions")
         
         intersection = torch.sum(outputs * targets, dim=ndims)  # Sum across spatial dimensions
-        if (True):
+        if (not self.dice_squared_form):
             union = torch.sum(outputs, dim=ndims) + torch.sum(targets, dim=ndims)
         else:
             union = torch.square(outputs) + torch.square(targets)
@@ -103,9 +105,9 @@ class DiceScore(Dice):
 
 
 class WeightedL2Loss(nn.Module):
-    def __init__(self, target_value=15, epsilon=1e-4):
+    def __init__(self, gt_target_value=15, epsilon=1e-4):
         super(WeightedL2Loss, self).__init__()
-        self.target_value = target_value
+        self.gt_target_value = gt_target_value
         self.epsilon = epsilon
 
     def forward(self, y_pred, y_true):
@@ -134,11 +136,12 @@ class WeightedL2Loss(nn.Module):
         return loss
         """
 
-        # compute weighted l2 loss
+        # compute weighted l2 loss on the layer before the softmax
         num_classes = y_true.size(1)
         weights = torch.unsqueeze(1 - y_true[:, 0] + self.epsilon, dim=1)
-        normaliser = (torch.sum(weights) * num_classes)  
-        w2l = torch.sum(weights * torch.square(y_pred - self.target_value * (y_true * 2 - 1))) / normaliser
+        normaliser = (torch.sum(weights) * num_classes)
+        # groud truth value for the layer before softmax: gt_target_value when gt = 1, -gt_target_value when gt = 0.
+        w2l = torch.sum(weights * torch.square(y_pred - self.gt_target_value * (y_true * 2 - 1))) / normaliser
 
         # implemented in /space/metropolis/1/users/yh887/hthsuseg-billot/metrics_model.metrics_model()
         # weights = KL.Lambda(lambda x: K.expand_dims(1 - x[..., 0] + 1e-4))(labels_gt)

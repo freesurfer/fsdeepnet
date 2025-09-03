@@ -79,8 +79,11 @@ preprocessing:
 
 training:
   deterministic: False
+  report_moving_avg: True
   dice_epochs: 300
   wl2_epochs: 10
+  wl2_gt_target_value: 5
+  dice_squared_form: True
   steps_per_epoch: 1000
   batch_size: 1
   learning_rate: 0.0001

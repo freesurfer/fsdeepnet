@@ -267,11 +267,13 @@ class Config:
         if (cfg["training"].get("wl2_epochs", 0) > 0):
             logger.info(f"wl2_epochs: {cfg['training'].get('wl2_epochs')}")
             logger.info(f"wl2_metrics: {cfg['training'].get('wl2_metrics', 'freeseg.metrics.WeightedL2Loss')}")
-            logger.info(f"pre_train_learning_rate: {cfg['training']['pre_train_learning_rate']}")            
+            logger.info(f"pre_train_learning_rate: {cfg['training']['pre_train_learning_rate']}")
+            logger.info(f"wl2_gt_target_value: {cfg['training'].get('wl2_gt_target_value', None)}")
         if (cfg["training"].get("dice_epochs", 0) > 0):
             logger.info(f"dice_epochs: {cfg['training'].get('dice_epochs')}")
             logger.info(f"model_metrics: {cfg['training'].get('model_metrics', 'freeseg.metrics.DiceLoss')}")
             logger.info(f"learning_rate: {cfg['training']['learning_rate']}")
+            logger.info(f"dice_squared_form: {cfg['training'].get('dice_squared_form', False)}")
         logger.info(f"steps_per_epoch: {cfg['training']['steps_per_epoch']}")
         logger.info(f"report_moving_avg: {cfg['training'].get('report_moving_avg', False)}")
         logger.info(f"batch_size: {cfg['training']['batch_size']}")
