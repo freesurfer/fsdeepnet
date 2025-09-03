@@ -27,6 +27,8 @@ class Training:
     train_model
         run the training loop
     """
+
+    stage_order = {'wl2': 0, 'dice': 1}
         
     def __init__(self,
                  train_output_folder,
@@ -155,13 +157,18 @@ class Training:
             # iterate through param_groups and update the learning rate:
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
-            
-            if (self._checkpoint.metric_type is not None and self._checkpoint.metric_type != metric_type):
+
+            # continue training of the same metric_type, or restart from next stage 
+            if (self._checkpoint.metric_type is not None and \
+                Training.stage_order[metric_type] < Training.stage_order[self._checkpoint.metric_type]):
                 return
-            
-            start_epoch = self._checkpoint.epoch + 1
+
+            if (self._checkpoint.metric_type == metric_type):
+                start_epoch = self._checkpoint.epoch + 1
+            else:
+                start_epoch = 0
             end_epoch = start_epoch + epochs
-            logging.info(f"Continue to train {end_epoch-start_epoch} ({epochs}) {self._checkpoint.metric_type} epochs, lr:{lr}")
+            logging.info(f"Continue to train {end_epoch-start_epoch} ({epochs}) {metric_type} epochs, lr:{lr}")
             if (self._label_lookup is None):
                 self._label_lookup = self._checkpoint.label_lookup
             self._model_checkpoint = None  # the checkpoint will only be used once in the training
