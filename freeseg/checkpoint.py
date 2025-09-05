@@ -28,7 +28,7 @@ class Checkpoint:
 
         if (model is not None):
             model.load_state_dict(self._dict['model_state_dict'])  # Load model weights
-        if (optimizer is not None):
+        if ((optimizer is not None) and (self._dict['optimizer_state_dict'] is not None)):
             optimizer.load_state_dict(self._dict['optimizer_state_dict'])  # Load optimizer state
 
         """
