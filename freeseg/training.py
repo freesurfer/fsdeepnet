@@ -179,7 +179,7 @@ class Training:
         for epoch in range(start_epoch, end_epoch):
             if (self._gpu_index is not None):
                 utils.gpu_report(self._gpu_index)
-            logging.info(f"Epoch {epoch+1:3d}/{end_epoch:<3d}")
+            logging.info(f"Epoch {epoch+1:>3d}/{end_epoch:<3d}")
             (train_loss, train_dices)  = self._train_one_epoch(optimizer, loss_fn, epoch, steps_per_epoch,
                                                                metric_type=metric_type)
             
@@ -196,7 +196,7 @@ class Training:
             if (self._validation_loader is None):
                 loss_dice_avg[epoch-start_epoch] = np.array((train_loss, train_dice_avg))                
                 logging.info(
-                    f"Epoch [{epoch+1}/{end_epoch}], "
+                    f"Epoch [{epoch+1:>3d}/{end_epoch:<3d}], "
                     f"Train Loss: {train_loss:.4f}, "
                     f"Train Dice Avg: {train_dice_avg:.4f}"
                 )
@@ -232,7 +232,7 @@ class Training:
 
                 loss_dice_avg[epoch-start_epoch] = np.array((train_loss, train_dice_avg, validation_loss, validation_dice_avg))                
                 logging.info(
-                    f"Epoch [{epoch+1}/{end_epoch}], "
+                    f"Epoch [{epoch+1:>3d}/{end_epoch:<3d}], "
                     f"Train Loss: {train_loss:.4f}, "
                     f"Train Dice Avg: {train_dice_avg:.4f}, "
                     f"Val Loss: {validation_loss:.4f}, "
@@ -337,9 +337,9 @@ class Training:
 
             # report simple moving loss and dice average or loss/dice for each step
             if (self._report_moving_avg):
-                logging.info(f"  {step+1:4d}/{steps_per_epoch:<4d} loss: {train_loss/(step+1):.4f}, dice avg: {train_dice_avg/(step+1):.4f}")
+                logging.info(f"  {step+1:>4d}/{steps_per_epoch:<4d} ({dataset_indices.item():04d}) loss: {train_loss/(step+1):.4f}, dice avg: {train_dice_avg/(step+1):.4f}")
             else:
-                logging.info(f"  {step+1:4d}/{steps_per_epoch:<4d} loss: {loss.item():.4f}, dice avg: {np.mean(train_dices[:, :, step]):.4f}")
+                logging.info(f"  {step+1:>4d}/{steps_per_epoch:<4d} ({dataset_indices.item():04d}) loss: {loss.item():.4f}, dice avg: {np.mean(train_dices[:, :, step]):.4f}")
 
             # begin of debugging volumes output            
             if (self._debug and step == steps_per_epoch-1):

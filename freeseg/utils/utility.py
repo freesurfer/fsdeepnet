@@ -276,6 +276,9 @@ def config_logger(logfile=None, mode='a', level=logging.DEBUG, format="%(asctime
     - Log messages to sys.stderr only if there is no logfile specified.
     - append to exisiting logfile by default, 'mode' is as described in https://docs.python.org/3/library/functions.html#filemodes
     """
+    if (logfile is not None):
+        logdir = os.path.dirname(logfile)
+        os.makedirs(logdir, exist_ok=True)
     logging.basicConfig(filename=logfile, filemode=mode, level=level, format=format)
 
     if (logfile is None):
