@@ -60,32 +60,29 @@ preprocessing:
         prior_std: [0, 35]
         prior_distribution: "uniform"
     - biasfieldcorruption:
-        bias_field_probability: 1 # Ben: turned on if bias_field_std > 0
+        bias_field_probability: 0.95 # Ben: turned on if bias_field_std > 0
         bias_field_max_magnitude: 0.6
         #bias_field_generation_method: "blur"   # this is for augmentvoxynth.biasfieldcorruption only, it is either "blur" or "upsample"
         bias_field_scale: 0.025
     - intensityaugmentation:
-        added_noise_probability: 1 #0.5
-        added_noise_max_sigma: 1.0
+        clip_values: [0, 300]  # this is only for freeseg.augmentation.augmentbase.AugmentBase
+        added_noise_probability: 0.95
+        added_noise_max_sigma: 0
         gamma_scaling_probability: 1
-        gamma_scaling_max: 0.59
-    #- gaussianblur:
-    #    gaussian_blur_max_sigma: 2
-    #    gaussian_blur_truncate: 2.5
+        gamma_scaling_max: 0.5
     - mimicresolution:
         max_subsample_res: 4  # in mm
     - remaplabels:
-    #- resamplevolume:
 
 training:
+  batch_size: 1
   deterministic: False
   report_moving_avg: True
-  dice_epochs: 300
   wl2_epochs: 10
   wl2_gt_target_value: 5
+  dice_epochs: 300  
   dice_squared_form: True
   steps_per_epoch: 1000
-  batch_size: 1
   learning_rate: 0.0001
   pre_train_learning_rate: 0.0001
   optimizer: torch.optim.Adam

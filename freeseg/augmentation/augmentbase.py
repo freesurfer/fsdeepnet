@@ -628,12 +628,19 @@ class IntensityAugmentation(torch.nn.Module):
 
         hp = {} if (hp is None) else hp
         self.noise_std = hp.get("added_noise_max_sigma", 1.0)  # default is 0 for SynthSeg, no white noise added
+        self.clip_values = hp.get("clip_values", None)
         self.normalize = hp.get("normalize", True)
         self.gamma_std = hp.get("gamma_scaling_max", 0.5)
         self.prob_noise = hp.get("added_noise_probability", 0.95)
         self.prob_gamma = hp.get("gamma_scaling_probability", 1)
         self.sampling = sampling_hp
         self.verbose = verbose
+
+        if (np.isscalar(self.clip_values)):
+            self.clip_values = [self.clip_values] # convert scalar to list
+        if (self.clip_values is not None):
+            self.clip_values = self.clip_values if len(self.clip_values) == 2 else [0, self.clip_values[0]]
+
 
     def forward(self, input, debugsaveprefix=None):
         """
@@ -682,6 +689,10 @@ class IntensityAugmentation(torch.nn.Module):
             noise_stddev = self.noise_std * torch.rand(sample_shape, device=image.device) if (self.sampling) else torch.full(sample_shape, self.noise_std, device=image.device)
             noise = noise_stddev * torch.randn(image.shape, device=image.device)       # N(0, noise_stddev)
             image += noise
+
+        # clip images to given values
+        if self.clip_values is not None:
+            image = torch.clip(image, min=self.clip_values[0], max=self.clip_values[1])
 
         # normalize
         if (self.normalize):
