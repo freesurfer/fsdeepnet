@@ -342,7 +342,7 @@ class Training:
                 logging.info(f"  {step+1:>4d}/{steps_per_epoch:<4d} ({dataset_indices.item():04d}) loss: {loss.item():.4f}, dice avg: {np.mean(train_dices[:, :, step]):.4f}")
 
             # begin of debugging volumes output            
-            if (self._debug and step == steps_per_epoch-1):
+            if (self._debug and step == 0):  #steps_per_epoch-1):
                 # output augmented images/labels/priors, onehot encoded labels, posteriors, prediciton from each batch (batch_size x [C, H, W(, D)])
                 logging.debug(f"output augmented images/labels, onehot encoded labels, posteriors, prediciton ...")                
                 for n, idx in enumerate(dataset_indices):
