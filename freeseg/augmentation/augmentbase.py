@@ -115,14 +115,16 @@ class Flip(torch.nn.Module):
         # find the left-right axis
         axis = utils.get_ras_axes(aff, ndims)[0]
 
-        # image, label ([C, H, W(, D)]) have been reoriented to RAS
+        # flip image/label tensor ([C, H, W(, D)]) left-right axis        
+        # image/label are expected to be RAS oriented
         flipped_image = None
         if (image is not None):
             flipped_image = image.flip([axis+1])
+        flipped_label = label.flip([axis+1])
     
         output = {
             'image': flipped_image,
-            'label': label,
+            'label': flipped_label,
             'geom':  geom,
                  }
         return output
