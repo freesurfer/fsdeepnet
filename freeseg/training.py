@@ -173,6 +173,9 @@ class Training:
                 self._label_lookup = self._checkpoint.label_lookup
             self._model_checkpoint = None  # the checkpoint will only be used once in the training
 
+        # save last epoch number
+        self._end_epoch = end_epoch
+        
         # training loop
         ncols = 2 if (self._validation_loader is None) else 4
         loss_dice_avg = np.zeros((end_epoch-start_epoch, ncols))        
@@ -342,7 +345,8 @@ class Training:
                 logging.info(f"  {step+1:>4d}/{steps_per_epoch:<4d} ({dataset_indices.item():04d}) loss: {loss.item():.4f}, dice avg: {np.mean(train_dices[:, :, step]):.4f}")
 
             # begin of debugging volumes output            
-            if (self._debug and step == 0):  #steps_per_epoch-1):
+            if (self._debug and ((step == 0 and epoch > 0) or (epoch == self._end_epoch-1 and step == steps_per_epoch-1))):
+                # save debug volumes for a) first step of all epoch except first epoch; b) last step of last epoch  
                 # output augmented images/labels/priors, onehot encoded labels, posteriors, prediciton from each batch (batch_size x [C, H, W(, D)])
                 logging.debug(f"output augmented images/labels, onehot encoded labels, posteriors, prediciton ...")                
                 for n, idx in enumerate(dataset_indices):
