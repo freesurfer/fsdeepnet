@@ -348,6 +348,8 @@ class Training:
             if (self._debug and ((step == 0 and epoch > 0) or (epoch == self._end_epoch-1 and step == steps_per_epoch-1))):
                 # save debug volumes for a) first step of all epoch except first epoch; b) last step of last epoch  
                 # output augmented images/labels/priors, onehot encoded labels, posteriors, prediciton from each batch (batch_size x [C, H, W(, D)])
+                # both augmented label and prediction are saved as npy and mgz
+                # the npy files contain label ids from (0 .. N), the mgz files contain the real segmentation labels
                 logging.debug(f"output augmented images/labels, onehot encoded labels, posteriors, prediciton ...")                
                 for n, idx in enumerate(dataset_indices):
                     out_image = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.augmented_image.mgz")
@@ -361,6 +363,8 @@ class Training:
                     label_seg = torch.zeros(onehot_labels[n].shape[1:]).int()
                     for ch in range(onehot_labels[n].shape[0]):
                         label_seg[onehot_labels[n][ch] == 1] = ch
+                    np.save(os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.augmented_label.npy"), label_seg)
+                    label_seg = utils.remap_labels(label_seg, self._inverse_label_mapping)
                     utils.save_framedimage(label_seg.unsqueeze(0), out_label)
 
                     if (priors is not None and priors.numel() != 0):
