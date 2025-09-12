@@ -360,6 +360,24 @@ def write_volume_stats(fstats, vox_counts, volumes, labels, etiv=None):
                 fp.write("            %4d %6d    %7d %17.4f     %s\n" % (j+1, id, vox_counts[i][j], volumes[i][j], name))
 
 
+def mask_volume(volume, mask):
+    """
+    Mask a volume with the given mask. The volume and mask need to have the same shape.
+    The regions outside the mask are marked as 0.
+    """
+
+    assert (mask.shape == volume.shape), f"the 'volume' and 'mask' need to have same shape"
+
+    new_volume = volume.squeeze(0)
+
+    # replace values outside of mask by padding_char
+    mask_to_apply = mask.squeeze(0) > 0
+    masking_value = 0
+    new_volume[np.logical_not(mask_to_apply)] = masking_value
+
+    return new_volume.unsqueeze(0)
+
+
 # ================================================================================================
 #                                        Lab2Im Utilities
 # ================================================================================================
@@ -398,3 +416,14 @@ def find_closest_number_divisible_by_m(n, m, answer_type='lower'):
             return lower if (n - lower) < (higher - n) else higher
         else:
             raise Exception('answer_type should be lower, higher, or closer, had : %s' % answer_type)
+
+
+def get_largest_connected_component(mask, structure=None):
+    """Function to get the largest connected component for a given input.
+    :param mask: a 2d or 3d label map of boolean type.
+    :param structure: numpy array defining the connectivity.
+    """
+    from scipy.ndimage import label as scipy_label
+    
+    components, n_components = scipy_label(mask, structure)
+    return components == np.argmax(np.bincount(components.flat)[1:]) + 1 if n_components > 0 else mask.copy()

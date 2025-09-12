@@ -123,7 +123,9 @@ def main():
             keepgeom=(not args.nokeepgeom),
             device=device,
             debug=args.debug,
-            segmentation_names=segmentation_names
+            segmentation_names=segmentation_names,
+            keep_biggest_component=args.keep_biggest_component,
+            normalize_posteriors=args.normalize_posteriors,
             )
 
     # check memory usage
@@ -146,6 +148,8 @@ def argument_parse():
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     parser.add_argument("--target_res", nargs="+", type=float, help="Segmentation output resolution")
     parser.add_argument("--nokeepgeom", action="store_true", help="Donot resample output to be the same as input geometry")
+    parser.add_argument("--keep_biggest_component", action="store_true", help="Keep biggest component")
+    parser.add_argument("--normalize_posteriors", action="store_true", help="Normalize posteriors before getting hard segmentation")
     parser.add_argument("--ctab", type=str, help="Path to the lookup table")
     parser.add_argument("--label", type=str, help="Label(s) for input image(s). Can be a path to a label or to a folder. The labels can be binary masks.")
     parser.add_argument("--prior", type=str, help="Input priors")
@@ -170,7 +174,8 @@ def argument_parse():
 
 
 def predict(path_images, out_segmentations, checkpoint, crop_size=None, target_res=None, ctab=None, path_labels=None, path_priors=None, codenames=None,
-            path_gt=None, addctab=True, write_posteriors=False, path_volumes=None, device=None, debug=False, keepgeom=False, segmentation_names=None):
+            path_gt=None, addctab=True, write_posteriors=False, path_volumes=None, device=None, debug=False, keepgeom=False, segmentation_names=None,
+            keep_biggest_component=False, normalize_posteriors=False):
     prediction = Prediction(device, ctab=ctab, debug=debug)
     prediction.load_model(checkpoint)
     prediction.predict(path_images, out_segmentations,
@@ -184,7 +189,9 @@ def predict(path_images, out_segmentations, checkpoint, crop_size=None, target_r
                        write_posteriors=write_posteriors,
                        path_volumes=path_volumes,
                        keepgeom=keepgeom,
-                       segmentation_names=segmentation_names)
+                       segmentation_names=segmentation_names,
+                       keep_biggest_component=keep_biggest_component,
+                       normalize_posteriors=normalize_posteriors)
 
 
 # execute script

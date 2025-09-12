@@ -157,7 +157,8 @@ class Prediction:
                 write_posteriors=False,
                 path_volumes=None,
                 keepgeom=True,
-                keep_biggest_component=True,
+                keep_biggest_component=False,
+                normalize_posteriors=False,
                 topology_classes=None,
                 segmentation_names=None):
         
@@ -201,7 +202,8 @@ class Prediction:
 
             ### postprocessing ###
             segmentation, posteriors, = \
-                self.postprocess(outputs, target_im_geom.voxsize, target_im_shape, crop_idx, pad_idx, keep_biggest_component=True, topology_classes=None, path_volumes=path_volumes)
+                self.postprocess(outputs, target_im_geom.voxsize, target_im_shape, crop_idx, pad_idx,
+                                 keep_biggest_component=keep_biggest_component, normalize_posteriors=normalize_posteriors, topology_classes=None, path_volumes=path_volumes)
             
             ### save segmentation ###
             # align prediction back to original orientation, original geom (if keepgeom is True)
@@ -382,16 +384,33 @@ class Prediction:
         return sfimage, orig_orientation, target_im_geom, target_im_shape, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup
 
 
-    def postprocess(self, posteriors, target_im_res, target_im_shape, crop_idx, pad_idx, keep_biggest_component=True, topology_classes=None, path_volumes=None):
+    def postprocess(self, posteriors, target_im_res, target_im_shape, crop_idx, pad_idx, keep_biggest_component=False, normalize_posteriors=False, topology_classes=None, path_volumes=None):
         # remove the padding
         posteriors = CropVolume(posteriors.squeeze(0), pad_idx).unsqueeze(0)
 
-        # ??? todo: keep_biggest_component ???
+        # keep biggest connected components
+        if (keep_biggest_component):
+           # obtain posteriors mask for non-background components, voxels outside the mask are marked as background
+           tmp_posteriors = posteriors[:, 1:, ...].clone()
+           posteriors_mask = torch.sum(tmp_posteriors, axis=1) > 0.25
+           posteriors_mask = utils.get_largest_connected_component(posteriors_mask)
+           posteriors_mask = np.stack([posteriors_mask] * tmp_posteriors.shape[1], axis=1)
+           tmp_posteriors = utils.mask_volume(tmp_posteriors, posteriors_mask)
+           posteriors[:, 1:, ...] = tmp_posteriors
 
         # ??? todo: reset posteriors to zero outside the largest connected component of each topological class ???
 
-        # ??? todo: normalize posteriors before getting hard segmentation ???
-        # posteriors is batched tensor [B, C, H, W (,D)], predicted_segmentation is [B, H, W (,D)]
+        """
+        # the following logic is for 'mri_synthseg --fast'
+        posterior_mask = posteriors > 0.2   # ??? why, posterior_mask C dimension is reduced 33 => 32 ???
+        posteriors[:, 1:, ...] *= posteriors_mask[:, 1:, ...]
+        """
+
+        # normalize posteriors before getting hard segmentation
+        if (normalize_posteriors):
+            posteriors /= torch.sum(posteriors, axis=1).unsqueeze(1)
+
+        # posteriors is batched tensor [B, C, H, W (,D)], predicted_segmentation is [B, H, W (,D)]            
         predicted_segmentation = torch.argmax(posteriors, dim=1)
         # map labels to original id
         if (path_volumes is None):
