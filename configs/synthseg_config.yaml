@@ -66,12 +66,16 @@ preprocessing:
         bias_field_scale: 0.025
     - intensityaugmentation:
         clip_values: [0, 300]  # this is only for freeseg.augmentation.augmentbase.AugmentBase
+	normalize: True
         added_noise_probability: 0.95
         added_noise_max_sigma: 0
         gamma_scaling_probability: 1
         gamma_scaling_max: 0.5
     - mimicresolution:
-        max_subsample_res: 4  # in mm
+        isotropic_probability: 0.1
+	min_res_probability: 0.05
+	max_res_iso: 4  # in mm
+	max_res_aniso: 8  # in mm
     - remaplabels:
 
 training:

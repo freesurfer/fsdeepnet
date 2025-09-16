@@ -1147,9 +1147,27 @@ class MimicResolution(torch.nn.Module):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         hp = {} if (hp is None) else hp
-        self.max_subsample_res = hp.get("max_subsample_res", 0.0)
+        self.isotropic_probability = hp.get("isotropic_probability", 0.1)
+        self.min_res_probability = hp.get("min_res_probability", 0.05)
+        self.max_res_iso = hp.get("max_res_iso", None)
+        self.max_res_aniso = hp.get("max_res_aniso", None)
         self.sampling = sampling_hp
         self.verbose = verbose
+
+        # resolution of input image
+        self.min_res = None
+        
+        # convert scalar max_res_iso/max_res_aniso to list
+        # convert list max_res_iso/max_res_anisoto numpy array
+        if (np.isscalar(self.max_res_iso)):
+            self.max_res_iso = [self.max_res_iso]
+        elif (isinstance(self.max_res_iso, list)):
+            self.max_res_iso = np.array(self.max_res_iso)
+
+        if (np.isscalar(self.max_res_aniso)):
+            self.max_res_aniso = [self.max_res_aniso]
+        elif (isinstance(self.max_res_aniso, list)):
+            self.max_res_aniso = np.array(self.max_res_aniso)
 
 
     def forward(self, input, debugsaveprefix=None):
@@ -1165,15 +1183,33 @@ class MimicResolution(torch.nn.Module):
         image_shape = image.shape[1:]
         voxsize = geom.voxsize
 
-        # sample the random resolution lower resolution from U(voxsize, max_subsample_res)
-        subsample_res = np.random.uniform(voxsize, self.max_subsample_res) if (self.sampling) else [self.max_subsample_res] * ndims
-        factor = tuple(voxsize / subsample_res)
+        self.min_res = voxsize
+        # pad length 1 list or array to ndims array
+        if (self.max_res_iso is not None and len(self.max_res_iso) == 1):
+            self.max_res_iso = np.concatenate([self.max_res_iso] * ndims)
+        if (self.max_res_aniso is not None and len(self.max_res_aniso) == 1):
+            self.max_res_aniso = np.concatenate([self.max_res_aniso] * ndims)
+            
+        if (np.array_equal(self.min_res, self.max_res_iso)):
+            self.max_res_iso = None
+        if (np.array_equal(self.min_res, self.max_res_aniso)):
+            self.max_res_aniso = None
 
-        mode = "trilinear" if (ndims == 3) else "bilinear"
+        # check isotropic probability
+        if ((self.max_res_iso is not None) and (self.max_res_aniso is not None) and (self.isotropic_probability == 0)):
+            raise Exception('isotropic probability is 0 while sampling either isotropic and anisotropic resolutions is enabled')
+
+        subsample_res, blur_res = self._sampleResolution(ndims)
         
         # ??? todo: perform gaussian blur ???
-        # ??? ... ???
+        """
+        # ??? used to calculate gaussian blur ???
+        max_res = np.maximum(self.max_res_iso, self.max_res_aniso)
+        """
 
+        factor = tuple(voxsize / subsample_res)
+        mode = "trilinear" if (ndims == 3) else "bilinear"
+        
         # downsample the image to subsample_res
         resampled_image = torch.nn.functional.interpolate(
             image.unsqueeze(0),
@@ -1196,6 +1232,40 @@ class MimicResolution(torch.nn.Module):
                  }
         return output
 
+
+    def _sampleResolution(self, ndims):
+        if (self.max_res_iso is not None):
+            # sample isotropic resolution
+            # set new_res_iso to be the same for all dimensions by taking the average
+            new_res_iso_tmp = np.random.uniform(self.min_res, self.max_res_iso) if (self.sampling) else [self.max_res_iso] * ndims
+            new_res_iso = [np.mean(new_res_iso_tmp)] * ndims
+        if (self.max_res_aniso is not None):
+            # sample anisotropic resolution on the dimensin selected
+            random_dim = np.random.randint(ndims)
+            new_res_aniso_tmp = np.random.uniform(self.min_res, self.max_res_aniso) if (self.sampling) else [self.max_res_aniso] * ndims
+            new_res_aniso = self.min_res.copy()
+            new_res_aniso[random_dim] = new_res_aniso_tmp[random_dim]
+            
+        prob = np.random.rand()
+        if ((self.max_res_iso is None) and (self.max_res_aniso is None)):
+            # return min resolution
+            new_res = self.min_res
+        elif ((self.max_res_iso is not None) and (self.max_res_aniso is None)):
+            new_res = new_res_iso
+        elif ((self.max_res_iso is None) and (self.max_res_aniso is not None)):
+            new_res = new_res_aniso
+        else:
+            # use isotropic resolution with defined probability
+            new_res = new_res_iso if (prob < self.isotropic_probability) else new_res_aniso
+
+        # use min resolution with defined probability
+        if (not np.array_equal(new_res, self.min_res) and prob < self.min_res_probability):
+            new_res = self.min_res
+
+        blur_res = np.random.uniform(self.min_res, new_res) if (self.sampling) else [self.new_res] * ndims
+        
+        return new_res, blur_res
+        
 
 class RemapLabels(torch.nn.Module):
     def __init__(self, source_labels, dest_labels=None, hp=None, device=None, sampling_hp=True, verbose=False):
