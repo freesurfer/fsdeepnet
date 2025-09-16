@@ -981,15 +981,18 @@ class GaussianBlur(torch.nn.Module):
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        hp = {} if (hp is None) else hp        
-        self.max_sigma = hp.get("gaussian_blur_max_sigma", 2)
+        hp = {} if (hp is None) else hp
+        # 'blur_range' is used to randomize the blurring std dev
+        self.blur_range = hp.get("gaussian_blur_range", None)
+        # 'max_sigma' and 'truncate' are used to compute the 'radius' - size of blurring kernels
+        self.max_sigma = hp.get("gaussian_blur_max_sigma", None)
         self.truncate = hp.get("gaussian_blur_truncate", 2.5)
         self.radius = hp.get("gaussian_blur_radius", None)
         self.sampling = sampling_hp
         self.verbose = verbose
 
 
-    def forward(self, input, debugsaveprefix=None):
+    def forward(self, input, sigma, debugsaveprefix=None):
         """
         Applies gaussian smoothing to the image volume.
 
@@ -1010,9 +1013,14 @@ class GaussianBlur(torch.nn.Module):
         ndims = image.ndim - 1
         in_channels = image.shape[0]
         conv = getattr(torch.nn.functional, f'conv{ndims}d')
-        sigma = np.random.uniform(0, self.max_sigma) if (self.sampling) else self.max_sigma
+
+        # randomize the blurring std dev
+        if (self.blur_range is not None and self.blur_range != 1):
+            sigma = sigma * np.random.uniform(1/self.blur_range, self.blur_range) if (self.sampling) else sigma
         if (np.isscalar(sigma)):
             sigma = [sigma] * ndims
+        if (np.isscalar(self.max_sigma)):
+            self.max_sigma = [self.max_sigma] * ndims
 
         """
           gaussian_filter needs to have shape [out_channels, nfilters, H, W (,D)]
@@ -1026,7 +1034,8 @@ class GaussianBlur(torch.nn.Module):
         groups = in_channels
         out_channels = in_channels
         nfilters = int(out_channels/groups)
-        gaussian_filter = Filter.gaussian_kernel(sigma, self.truncate, self.radius, self.device)
+
+        gaussian_filter = Filter.gaussian_kernel(sigma, max_sigma=self.max_sigma, truncate=self.truncate, radius=self.radius, device=self.device)
         gaussian_filter = gaussian_filter[None, None, :]  # add out_channels and nfilters dimension
         # repeat for each output channels
         gaussian_filter = gaussian_filter.repeat(out_channels, nfilters, *([1] * ndims))
@@ -1132,6 +1141,7 @@ class ResampleVolume(torch.nn.Module):
         return output
 
 
+# this module implements 'randomise_res=True' logic in SynthSeg.labels_to_image_model() on https://github.com/BBillot/SynthSeg
 class MimicResolution(torch.nn.Module):
     def __init__(self, hp=None, device=None, sampling_hp=True, verbose=False):
         """
@@ -1184,6 +1194,7 @@ class MimicResolution(torch.nn.Module):
         voxsize = geom.voxsize
 
         self.min_res = voxsize
+
         # pad length 1 list or array to ndims array
         if (self.max_res_iso is not None and len(self.max_res_iso) == 1):
             self.max_res_iso = np.concatenate([self.max_res_iso] * ndims)
@@ -1199,14 +1210,21 @@ class MimicResolution(torch.nn.Module):
         if ((self.max_res_iso is not None) and (self.max_res_aniso is not None) and (self.isotropic_probability == 0)):
             raise Exception('isotropic probability is 0 while sampling either isotropic and anisotropic resolutions is enabled')
 
+        # compute random resolution to downsample to
         subsample_res, blur_res = self._sampleResolution(ndims)
-        
-        # ??? todo: perform gaussian blur ???
-        """
-        # ??? used to calculate gaussian blur ???
-        max_res = np.maximum(self.max_res_iso, self.max_res_aniso)
-        """
 
+        # compute standard deviations of 1d gaussian masks for image blurring before downsampling
+        sigma = self._blurring_sigma_for_downsampling(self.min_res, subsample_res, thickness=blur_res)
+        
+        # perform gaussian blur
+        max_res = np.maximum(self.max_res_iso, self.max_res_aniso)
+        blur_max_sigma = 0.75 * max_res / self.min_res
+        hp = dict(gaussian_blur_max_sigma=blur_max_sigma, gaussian_blur_range=1.03)
+        gaussianblur = GaussianBlur(hp=hp, device=self.device, sampling_hp=self.sampling, verbose=self.verbose)
+        blur_out = gaussianblur(input, sigma)
+        image = blur_out.get("image", None)
+
+        # compute downsample factor
         factor = tuple(voxsize / subsample_res)
         mode = "trilinear" if (ndims == 3) else "bilinear"
         
@@ -1233,10 +1251,11 @@ class MimicResolution(torch.nn.Module):
         return output
 
 
+    # this function implements ext.lab2im.layers.SampleResolution on https://github.com/BBillot/SynthSeg
     def _sampleResolution(self, ndims):
         if (self.max_res_iso is not None):
             # sample isotropic resolution
-            # set new_res_iso to be the same for all dimensions by taking the average
+            # ??? set new_res_iso to be the same for all dimensions by taking the average ???
             new_res_iso_tmp = np.random.uniform(self.min_res, self.max_res_iso) if (self.sampling) else [self.max_res_iso] * ndims
             new_res_iso = [np.mean(new_res_iso_tmp)] * ndims
         if (self.max_res_aniso is not None):
@@ -1265,8 +1284,27 @@ class MimicResolution(torch.nn.Module):
         blur_res = np.random.uniform(self.min_res, new_res) if (self.sampling) else [self.new_res] * ndims
         
         return new_res, blur_res
-        
 
+
+    # this function implements ext.lab2im.edit_tensor.blurring_sigma_for_downsampling() on https://github.com/BBillot/SynthSeg
+    def _blurring_sigma_for_downsampling(self, current_res, downsample_res, mult_coef=None, thickness=None):
+        # get blurring resolution (min between downsample_res and thickness)
+        if (thickness is not None):
+            downsample_res = np.minimum(downsample_res, thickness)
+
+        # get std deviation for blurring kernels
+        if mult_coef is None:
+            sigma = 0.75 * downsample_res / current_res
+            sigma[downsample_res == current_res] = 0.5
+        else:
+            sigma = mult_coef * downsample_res / current_res
+
+        # ??? when can this happen downsample_res == 0 ???
+        sigma[downsample_res == 0] = 0
+
+        return sigma
+
+        
 class RemapLabels(torch.nn.Module):
     def __init__(self, source_labels, dest_labels=None, hp=None, device=None, sampling_hp=True, verbose=False):
         super().__init__()
@@ -1323,6 +1361,7 @@ class RemapLabels(torch.nn.Module):
         return output
 
 
+# utility function
 def CropVolume(volume, crop_idx, verbose=False):
     """
     Crop volumes with given indices
@@ -1346,6 +1385,7 @@ def CropVolume(volume, crop_idx, verbose=False):
     return volume
 
 
+# utility function
 def PadVolume(volume, padding_shape, padding_value=0):
     """
     Pad volume to a given shape

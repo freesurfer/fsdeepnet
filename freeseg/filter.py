@@ -5,7 +5,7 @@ import logging
 
 class Filter:
     @staticmethod
-    def gaussian_kernel_1d(sigma, truncate=2.5, radius=None, device=None, dtype=None):
+    def gaussian_kernel_1d(sigma, max_sigma=None, truncate=2.5, radius=None, device=None, dtype=None):
         """
         generate a 1D Gaussian kernel with given standard deviation
 
@@ -20,7 +20,9 @@ class Filter:
         """
 
         if (radius is None):
-            radius = int(np.ceil(truncate * sigma) / 2)
+            if (max_sigma is None):
+                max_sigma = sigma
+            radius = int(np.ceil(truncate * max_sigma) / 2)
 
         # calculate the kernel range
         x = torch.arange(-radius, radius + 1, device=device, dtype=dtype)
@@ -37,7 +39,7 @@ class Filter:
 
 
     @staticmethod
-    def gaussian_kernel(sigma, truncate=2.5, radius=None, device=None, dtype=None, separable=False):
+    def gaussian_kernel(sigma, max_sigma=None, truncate=2.5, radius=None, device=None, dtype=None, separable=False):
         """
         ??? todo: implement separable=True ???
         ??? todo: handle sigma = 0 ???
@@ -60,7 +62,11 @@ class Filter:
 
         if (radius is None):
             # compute the radii of the kernel for each dimension
-            radius = [int(np.ceil(truncate * s) / 2) for s in sigma]
+            if (max_sigma is None):
+                max_sigma = sigma
+            elif (np.isscalar(max_sigma)):
+                max_sigma = [max_sigma] * ndims
+            radius = [int(np.ceil(truncate * s) / 2) for s in max_sigma]
         elif (np.isscalar(radius)):
             radius = [radius] * ndims
 
