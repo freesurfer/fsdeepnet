@@ -740,7 +740,7 @@ class BiasFieldCorruption(torch.nn.Module):
         hp = {} if (hp is None) else hp            
         self.bias_field_std = hp.get("bias_field_max_magnitude", .7)  # SynthSeg
         self.bias_scale = hp.get("bias_field_scale", .025)
-        self.prob = hp.get("bias_field_probability", 0.95)
+        self.prob_bias = hp.get("bias_field_probability", 0.95)
         self.sampling = sampling_hp
         self.verbose = verbose
 
@@ -762,7 +762,7 @@ class BiasFieldCorruption(torch.nn.Module):
                         max value to sample the standard deviation of a centred normal distribution from range [0, bias_field_std];
                         otherwise, standard deviation of a centred normal distribution
         bias_scale:     ratio between the shape of the input tensor and the shape of the sampled SVF.
-        prob:           probability to apply this bias field corruption.
+        prob_bias:      probability to apply this bias field corruption.
         sampling:       bool, optional
                         If True, sample the standard deviation of the Gaussian white noise from the range [0, bias_field_std);
                         otherwise, use bias_field_std as the standard deviation of a centred normal distribution
@@ -773,9 +773,9 @@ class BiasFieldCorruption(torch.nn.Module):
         prior = input.get("prior", None)
         geom = input.get("geom", None)
         
-        if (self.sampling and (not np.random.rand() < self.prob or self.bias_field_std <= 0)):
+        if (self.sampling and (not np.random.rand() < self.prob_bias or self.bias_field_std <= 0)):
             if (self.verbose):
-                logging.debug(f"'freeseg.augmentation.augmentbase.BiasFieldCorruption' - Skipped prob={self.prob}, bias_field_std={self.bias_field_std}")
+                logging.debug(f"'freeseg.augmentation.augmentbase.BiasFieldCorruption' - Skipped prob_bias={self.prob_bias}, bias_field_std={self.bias_field_std}")
             return dict(image=image, label=label, prior=prior, geom=geom, crop_idx=None)
     
         if (self.verbose):
@@ -982,9 +982,13 @@ class GaussianBlur(torch.nn.Module):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         hp = {} if (hp is None) else hp
-        # 'blur_range' is used to randomize the blurring std dev
+        """
+        'blur_range' introduces a randomness in the blurring kernels, where sigma is now 
+        multiplied by a coefficient dynamically sampled from a uniform distribution with
+        bounds [1/random_blur_range, random_blur_range]
+        'max_sigma' and 'truncate' are used to compute the 'radius' - size of blurring kernels
+        """
         self.blur_range = hp.get("gaussian_blur_range", None)
-        # 'max_sigma' and 'truncate' are used to compute the 'radius' - size of blurring kernels
         self.max_sigma = hp.get("gaussian_blur_max_sigma", None)
         self.truncate = hp.get("gaussian_blur_truncate", 2.5)
         self.radius = hp.get("gaussian_blur_radius", None)
@@ -1146,9 +1150,22 @@ class MimicResolution(torch.nn.Module):
     def __init__(self, hp=None, device=None, sampling_hp=True, verbose=False):
         """
         Takes an image as input, and simulates data that has been acquired at low resolution.
+      
         The output is obtained by resampling the input twice:
-        - first at a resolution given as an input (i.e. the "acquisition" resolution),
-        - then at the output resolution (specified output shape).
+        - first at a resolution obtained through call to _sampleResolution() (i.e. the "acquisition" resolution),
+        - then at the original input image resolution (resampled back to original shape).
+
+        A randomized lower resolution is obtained through _sampleResolution().
+
+        mimic_probability:     probability to simulate low resolution image 
+        isotropic_probability: probability to sample an isotropic resolution if both max_res_iso and max_res_aniso are specified
+	min_res_probability:   probability to use the image resolution
+        max_res_iso:           if not None, all the values of resolution will be equal to the same value,
+                               which is randomly sampled in U(min_resolution, max_res_iso).
+        max_res_aniso:         if not None, first randomly select a dimension i in the range [0, n_dims), then sample
+                               a value in the corresponding uniform distribution U(min_resolution[i], max_res_aniso[i]).
+
+        * Input image resolution is used as the min_resolution.
         """
         
         super().__init__()
@@ -1157,6 +1174,7 @@ class MimicResolution(torch.nn.Module):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         hp = {} if (hp is None) else hp
+        self.mimic_probability = hp.get("mimic_probability", 1.0)
         self.isotropic_probability = hp.get("isotropic_probability", 0.1)
         self.min_res_probability = hp.get("min_res_probability", 0.05)
         self.max_res_iso = hp.get("max_res_iso", None)
@@ -1192,6 +1210,11 @@ class MimicResolution(torch.nn.Module):
         ndims = image.ndim - 1
         image_shape = image.shape[1:]
         voxsize = geom.voxsize
+
+        if (not np.random.rand() < self.mimic_probability):
+            if (self.verbose):
+                logging.debug(f"'freeseg.augmentation.augmentbase.MimicResolution' - Skipped mimic_probability={self.mimic_probability}")
+            return dict(image=image, label=label, prior=prior, geom=geom, crop_idx=None)
 
         self.min_res = voxsize
 
