@@ -8,7 +8,7 @@ dataset:
   expected_num_channels: 1
 
 dataloader:
-  num_worker: 0
+  num_workers: 0
   pin_memory: False
   persistent_workers: False
   prefetch_factor: 2
@@ -85,7 +85,7 @@ training:
   report_moving_avg: True
   wl2_epochs: 10
   wl2_gt_target_value: 5
-  dice_epochs: 300  
+  dice_epochs: 300
   dice_squared_form: True
   steps_per_epoch: 1000
   learning_rate: 0.0001

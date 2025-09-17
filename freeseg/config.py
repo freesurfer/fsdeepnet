@@ -63,6 +63,7 @@ class Config:
         logger.info("===================== Current date and time: " + str(now) + " =====================")
         logger.info("CWD: " + cwd)
         logger.info("CMD: " + "\n                                    --".join(cmdopts))
+        logger.info("PID: " + str(os.getpid()))
         logger.info("")
 
 

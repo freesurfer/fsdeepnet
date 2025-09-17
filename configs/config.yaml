@@ -6,7 +6,7 @@ dataset:
   expected_num_channels: 1
 
 dataloader:
-  num_worker: 0
+  num_workers: 0
   pin_memory: False
   persistent_workers: False
   prefetch_factor: 2
@@ -39,8 +39,6 @@ preprocessing:
   #augmentation_dir: /path/to-save-augmented-data
   #bbox_labels: list of labels to make the bounding box
   augmentations:
-    #- flip:
-    #    flip_prob: 0.5    
     - spatialdeformation:
         affine_probability: 1.0
         max_translation: 30  # mm
@@ -57,36 +55,41 @@ preprocessing:
         max_offset: [1, 2, 3]
     #- randomcrop           # crop from a randomly selected point
     #- randomcentercrop     # crop around a randomly selected point    
+    #- flip:
+    #    flip_prob: 0.5    
+    #- sampleConditionalGMM:
+    #    prior_mean: [25, 225]
+    #    prior_std: [5, 25]
+    #    prior_distribution: "uniform"
     - biasfieldcorruption:
         bias_field_probability: 1 # Ben: turned on if bias_field_std > 0
         bias_field_max_magnitude: 0.5
         bias_field_generation_method: "blur"   # this is for augmentvoxynth.biasfieldcorruption only, it is either "blur" or "upsample"
         bias_field_scale: 0.025
     - intensityaugmentation:
+        clip_values: [0, 300]  # this is only for freeseg.augmentation.augmentbase.AugmentBase
+        normalize: True
         added_noise_probability: 1 #0.5
         added_noise_max_sigma: 1.0
         gamma_scaling_probability: 1
         gamma_scaling_max: 0.59
-    - gaussianblur:
-        gaussian_blur_max_sigma: 2
-        gaussian_blur_truncate: 2.5
     - mimicresolution:
-        max_subsample_res: 4  # in mm
-    #- resamplevolume:
-    #- sampleConditionalGMM:
-    #    prior_mean: [25, 225]
-    #    prior_std: [5, 25]
-    #    prior_distribution: "uniform"
+        mimic_probability: 1
+        isotropic_probability: 0.1  # probability to sample an isotropic resolution if both max_res_iso and max_res_aniso are specified
+        min_res_probability: 0.05   # probability to use the image resolution
+        max_res_iso: 4  # in mm
+        max_res_aniso: 8  # in mm
+    #- remaplabels:
 
 training:
+  batch_size: 1
   deterministic: False
   report_moving_avg: False
-  dice_epochs: 100
   wl2_epochs: 5
   wl2_gt_target_value: 15
+  dice_epochs: 100
   dice_squared_form: False
   steps_per_epoch: 1000
-  batch_size: 1
   learning_rate: 0.0001
   pre_train_learning_rate: 0.0001
   optimizer: torch.optim.Adam
