@@ -137,8 +137,8 @@ def main():
     def convert_hdf5(name, obj):
         if (isinstance(obj, h5py.Dataset)):
             dict_key = keys_model_state_dict.get(name)
-            if (dict_key is None):
-                print(f"Dataset: {name} {obj.shape} - skip")
+            if (dict_key is None or (skip_moving_mean_variance and 'moving_' in name)):
+                print(f"Dataset: {name} {obj.shape} - *** SKIP ***")
             else:
                 print(f"Dataset: {name} {obj.shape} {dict_key}")
 
@@ -171,6 +171,9 @@ def main():
     label_lookup = train_dataset_dict.get("label_lookup", None)
     checkpoint = Checkpoint(model_arch_dict=model.arch_dict, train_dataset_dict=train_dataset_dict, label_lookup=None) 
 
+    # skip moving_mean/moving_variance if track_running_stat=False
+    skip_moving_mean_variance = not model.arch_dict["track_running_stats"]
+    
     model_state_dict = {}
     with h5py.File(tf_model_file, 'r') as f:
         f.visititems(convert_hdf5)
@@ -202,7 +205,7 @@ def preview_hdf5(name, obj):
     if (isinstance(obj, h5py.Group)):
         print(f"Group:   {obj.name}")
     elif (isinstance(obj, h5py.Dataset)):
-        print(f"Dataset: {name} {obj.shape} {keys_model_state_dict.get(name)}")
+        print(f"Dataset: {name} {obj.shape}")
 
 
 # execute script
