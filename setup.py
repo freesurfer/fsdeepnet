@@ -14,7 +14,7 @@ setup(
     url = "https://github.com/freesurfer/freeseg",
     packages=['freeseg', 'freeseg.utils', 'freeseg.augmentation', 'freeseg.models', 'freeseg.datasets', 'freeseg.voxynth'],
     install_requires=requirements,
-    scripts=['scripts/freeseg_create_data_list.py', 'scripts/freeseg_evaluate.py', 'scripts/freeseg_predict.py', 'scripts/freeseg_train.py'],
+    scripts=['scripts/freeseg_split_dataset.py', 'scripts/freeseg_evaluate.py', 'scripts/freeseg_predict.py', 'scripts/freeseg_train.py'],
 )
 
 
@@ -53,7 +53,7 @@ freeseg/
 |       |       |------ transform.py
 |       |       |------ utility.py
 |------ scripts/
-|       |------ freeseg_create_data_list.py
+|       |------ freeseg_split_dataset.py
 |       |------ freeseg_evaluate.py
 |       |------ freeseg_predict.py
 |       |------ freeseg_train.py
