@@ -113,6 +113,12 @@ class SegmentationDataset(torch.utils.data.Dataset):
             label_tensor  = self.label_tensors[index]
             priors_tensor = self.prior_tensors[index]
 
+        label_tensor  = label_tensor.int()
+        if (image_tensor is not None):
+            image_tensor  = image_tensor.float()
+        if (priors_tensor is not None):
+            priors_tensor = priors_tensor.float()
+
         # Apply data augmentation
         if (self.data_augment is not None):
             augmented_image_tensor, augmented_label_tensor, augmented_priors_tensor = \
