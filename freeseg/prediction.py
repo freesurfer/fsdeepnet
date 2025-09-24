@@ -234,7 +234,14 @@ class Prediction:
                 logging.info(f"output posteriors {out_posteriors[i]}")
         # end of segmentation loop
 
+        # remove any hooks registered
         self.unregister_hook()
+
+        # output predictions in the order they are performed
+        f_list_predictions = open(os.path.join(os.path.dirname(out_segmentations[0]), 'predictions.lst'), "w")
+        for idx, predict in enumerate(self.list_predictions):
+            f_list_predictions.write(f"{codenames[idx]}:{predict}\n")
+        f_list_predictions.close()
 
         # write volumes
         if (path_volumes):
@@ -270,12 +277,6 @@ class Prediction:
                 eval.evaluate(path_gt, os.path.dirname(out_segmentations[0]), path_dice=path_dice)
             else:
                 eval.evaluate(path_gt, out_segmentations[0], path_dice=path_dice)
-
-            # output predictions in the order they are performed
-            f_list_predictions = open(os.path.join(os.path.dirname(path_dice), 'predictions.lst'), "w")
-            for idx, predict in enumerate(self.list_predictions):
-                f_list_predictions.write(f"{codenames[idx]}:{predict}\n")
-            f_list_predictions.close()
 
 
     def preprocess(self, idx, path_images, path_labels, path_priors, codenames, label_lookup):
