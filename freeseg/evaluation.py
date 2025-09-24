@@ -158,7 +158,7 @@ class Evaluation:
             
         # compute Dice scores
         dice_coefs = fast_dice(gt_labels, seg, evaluation_labels)
-        dice_coefs2 = dice_coeffs(gt_labels, seg, evaluation_labels)
+        #dice_coefs2 = dice_coeffs(gt_labels, seg, evaluation_labels)
         #dice_coefs3 = dice_coeffs2(gt_labels, seg, evaluation_labels)
 
         return dice_coefs
