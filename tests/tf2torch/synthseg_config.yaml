@@ -3,8 +3,15 @@ dataset:
   generation_labels: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_charm_choroid_lesions_csf.npy
   generation_classes: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_classes_charm_choroid_lesions_gm_csf.npy
   segmentation_labels: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/segmentation_charm_choroid_lesions_csf.npy
+  segmentation_names: /usr/local/freesurfer/8.0.0/models/synthseg_segmentation_names_2.0.npy
   left_right_corresponding: [2, 41, 3, 42, 4, 43, 5, 44, 7, 46, 8, 47, 10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54, 25, 57, 26, 58, 28, 60, 30, 62, 136, 163, 137, 164]
   expected_num_channels: 1
+
+dataloader:
+  num_workers: 0
+  pin_memory: False
+  persistent_workers: False
+  prefetch_factor: 2
 
 model:
   name: freeseg.models.unet.UNet
@@ -13,7 +20,7 @@ model:
   feat_mult: 2
   nb_conv_per_level: 2
   norm: batch  # or instance
-  track_running_stats: True  #False
+  track_running_stats: False
   activation: elu
   ndims: 3
   conv_size: 3
@@ -23,14 +30,14 @@ model:
   final_pred_activation: softmax
   weight_init: xavier_uniform  # or zeros
   upsample_interpolation: linear  # linear or nearest
-  skip_connect: encoder
+  skip_connect: encoder    # norm or encoder
 
 preprocessing:
   augmentation_class: freeseg.augmentation.augmentbase.AugmentBase   # or freeseg.augmentation.augmentvoxynth.AugmentVoxynth
   sampling_hyperparameters: True
   verbose: False
   crop_size: [160, 160, 160]
-  #target_res: 1  # in mm
+  target_res: 1  # in mm
   #augmentation_dir: /path/to-save-augmented-data
   #bbox_labels: list of labels to make the bounding box
   augmentations:
@@ -43,7 +50,7 @@ preprocessing:
         warp_probability: 1
         warp_integrations: 7
         warp_generation_method: "upsample"   # "blur" or "upsample"
-        warp_smoothing_range: [10.62, 10.62]
+        warp_smoothing_range: [16, 16]
         warp_magnitude_range: [0, 3]
     - randomcrop:           # crop from a randomly selected point
     - flip:
@@ -53,29 +60,34 @@ preprocessing:
         prior_std: [0, 35]
         prior_distribution: "uniform"
     - biasfieldcorruption:
-        bias_field_probability: 1 # Ben: turned on if bias_field_std > 0
+        bias_field_probability: 0.95 # Ben: turned on if bias_field_std > 0
         bias_field_max_magnitude: 0.6
-        #xbias_field_generation_method: "blur"   # this is for augmentvoxynth.biasfieldcorruption only, it is either "blur" or "upsample"
+        #bias_field_generation_method: "blur"   # this is for augmentvoxynth.biasfieldcorruption only, it is either "blur" or "upsample"
         bias_field_scale: 0.025
     - intensityaugmentation:
-        added_noise_probability: 1 #0.5
-        added_noise_max_sigma: 1.0
+        clip_values: [0, 300]  # this is only for freeseg.augmentation.augmentbase.AugmentBase
+        normalize: True
+        added_noise_probability: 0.95
+        added_noise_max_sigma: 0
         gamma_scaling_probability: 1
-        gamma_scaling_max: 0.59
-    #- gaussianblur:
-    #    gaussian_blur_max_sigma: 2
-    #    gaussian_blur_truncate: 2.5
+        gamma_scaling_max: 0.5
     - mimicresolution:
-        max_subsample_res: 4  # in mm
+        mimic_probability: 1
+        isotropic_probability: 0.1  # probability to sample an isotropic resolution if both max_res_iso and max_res_aniso are specified
+        min_res_probability: 0.05   # probability to use the image resolution
+        max_res_iso: 4  # in mm
+        max_res_aniso: 8  # in mm
     - remaplabels:
-    #- resamplevolume:
 
 training:
-  deterministic: False
-  dice_epochs: 300
-  wl2_epochs: 10
-  steps_per_epoch: 1000
   batch_size: 1
+  deterministic: False
+  report_moving_avg: True
+  wl2_epochs: 10
+  wl2_gt_target_value: 5
+  dice_epochs: 300
+  dice_squared_form: True
+  steps_per_epoch: 1000
   learning_rate: 0.0001
   pre_train_learning_rate: 0.0001
   optimizer: torch.optim.Adam
