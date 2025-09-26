@@ -41,9 +41,9 @@ def main():
 
     assert labels_segmentation is not None, 'please specify labels for dice evaluation using either --segmentation_labels <segmentation_labels.npy> or --evaluation_labels <label1 label2 ...>'
         
-    mainlogger.info("evaluattion in progress ...")
+    mainlogger.info("evaluation in progress ...")
     if (logfile is not None):
-        mainlogger.info(f"evaluattion log can be found in {logfile}")
+        mainlogger.info(f"evaluation log can be found in {logfile}")
 
     # evaluate() expects labels_segmentation as a list [] or 1D numpy array
     evaluate(labels_segmentation, args.gt, args.seg, args.path_dice)

@@ -35,6 +35,8 @@ class Evaluation:
         Perform dice evaluation between ground truth and segmentation directories, 
         where scores will be saved as a numpy array if 'path_dice' is provided.
 
+        The segmentations in both directories are expected to be sorted in the same order.
+
         This numpy array will be organised as follows: rows correspond to structures, and columns to subjects.
         Importantly, rows are given in a sorted order.
 
@@ -145,6 +147,8 @@ class Evaluation:
             dice coefs for each label
         """        
 
+        logging.info(f"evaluate {os.path.basename(path_seg)}, gt={os.path.basename(path_gt)}")
+        
         if evaluation_labels is None:
             evaluation_labels = self._labels_segmentation
         n_labels = len(evaluation_labels)
