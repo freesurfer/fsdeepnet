@@ -100,7 +100,8 @@ class Config:
         generation_classes = config["dataset"].get("generation_classes", None)
         segmentation_labels = config["dataset"].get("segmentation_labels", None)
         segmentation_names = config["dataset"].get("segmentation_names", None)
-        # generation_labels/generation_classes/segmentation_labels/segmentation_names
+        topology_classes = config["dataset"].get("topology_classes", None)
+        # generation_labels/generation_classes/segmentation_labels/segmentation_names/topology_classes
         # can be either a str or a list
         if (generation_labels is not None and isinstance(generation_labels, str)):
             generation_labels = np.load(generation_labels)
@@ -109,7 +110,9 @@ class Config:
         if (segmentation_labels is not None and isinstance(segmentation_labels, str)):
             segmentation_labels = np.load(segmentation_labels)
         if (segmentation_names is not None and isinstance(segmentation_names, str)):
-            segmentation_names = np.load(segmentation_names)            
+            segmentation_names = np.load(segmentation_names)
+        if (topology_classes is not None and isinstance(topology_classes, str)):
+            topology_classes = np.load(topology_classes)            
         # save generation_labels, generation_classes, segmentation_labels
         if (output_folder is not None):
             f_npy = os.path.join(output_folder, "segmentation_labels.npy")
@@ -123,6 +126,9 @@ class Config:
             if (generation_classes is not None):
                 f_npy = os.path.join(output_folder, "generation_classes.npy")
                 np.save(f_npy, np.array(generation_classes).astype(int))
+            if (topology_classes is not None):
+                f_npy = os.path.join(output_folder, "topology_classes.npy")
+                np.save(f_npy, np.array(topology_classes).astype(int))                
         num_labels = len(np.unique(segmentation_labels))
         label_mapping = {label:i for i, label in enumerate(np.unique(segmentation_labels))}
         inverse_label_mapping = {v: k for k, v in label_mapping.items()}
@@ -132,6 +138,7 @@ class Config:
                                   "generation_classes" : generation_classes, 
                                   "segmentation_labels": segmentation_labels,
                                   "segmentation_names" : segmentation_names,
+                                  "topology_classes"   : topology_classes,
                                   "left_right_corresponding": config["dataset"].get("left_right_corresponding", None),
                                   "label_mapping": label_mapping,
                                   "inverse_label_mapping": inverse_label_mapping,

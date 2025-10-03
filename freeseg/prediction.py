@@ -26,7 +26,7 @@ class Prediction:
         Predict with the loaded model
     """
         
-    def __init__(self, device=None, ctab=None, debug=False):
+    def __init__(self, device=None, ctab=None, topology_classes=None, debug=False):
         """
         Prediction Constructor.
         """
@@ -36,10 +36,14 @@ class Prediction:
         if (self._device is None):
             self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        # save user input ctab, which will override the copy saved in checkpoint
         self._label_lookup = None
         if (ctab is not None):
             import surfa as sf
             self._label_lookup = sf.load_label_lookup(ctab)
+
+        # save user input topology classes, which will override the copy saved in checkpoint
+        self._topology_classes = topology_classes
 
         self._debug = debug
         self._out_debug_dir = None
@@ -88,6 +92,16 @@ class Prediction:
             # segmentation_names needs to be retrieved in the same order as segmentation_labels
             self._names_segmentation = self._names_segmentation[self._unique_idx]
         
+        # retrieve topology_classes from checkpoint, set them to classes corresponding to segmentation_labels
+        # command line input overrides the copy saved in checkpoint
+        if (self._topology_classes is None):
+            self._topology_classes = checkpoint.train_dataset_dict.get("topology_classes", None)
+        if (self._topology_classes is not None):
+            # self._topology_classes can be either str to npy, or numpy array
+            if (isinstance(self._topology_classes, str)):
+                self._topology_classes = np.load(self._topology_classes)
+            self._topology_classes = self._topology_classes[self._unique_idx]
+
         # retrieve self._label_mapping, self._inverse_label_mapping from checkpoint.train_dataset_dict
         # or compute them from self._labels_segmentation for backward compatibility
         self._label_mapping = checkpoint.train_dataset_dict.get("label_mapping", None)
@@ -158,13 +172,15 @@ class Prediction:
                 path_volumes=None,
                 keepgeom=True,
                 keep_biggest_component=False,
-                normalize_posteriors=False,
                 topology_classes=None,
-                segmentation_names=None):
+                segmentation_names=None,
+                use_topology_classes=False):
         
         # check inputs
         assert path_images is not None, 'please specify an input file/folder'
         assert out_segmentations is not None, 'please specify an output file/folder'
+        if (use_topology_classes):
+            assert (self._topology_classes is not None), "'topology classes' is not specified"
 
         self._crop_size = crop_size
         # use target_res if it is provided, otherwise use input image resolution
@@ -203,7 +219,7 @@ class Prediction:
             ### postprocessing ###
             segmentation, posteriors, = \
                 self.postprocess(outputs, target_im_geom.voxsize, target_im_shape, crop_idx, pad_idx,
-                                 keep_biggest_component=keep_biggest_component, normalize_posteriors=normalize_posteriors, topology_classes=None, path_volumes=path_volumes)
+                                 keep_biggest_component=keep_biggest_component, use_topology_classes=use_topology_classes, path_volumes=path_volumes)
             
             ### save segmentation ###
             # align prediction back to original orientation, original geom (if keepgeom is True)
@@ -385,7 +401,7 @@ class Prediction:
         return sfimage, orig_orientation, target_im_geom, target_im_shape, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup
 
 
-    def postprocess(self, posteriors, target_im_res, target_im_shape, crop_idx, pad_idx, keep_biggest_component=False, normalize_posteriors=False, topology_classes=None, path_volumes=None):
+    def postprocess(self, posteriors, target_im_res, target_im_shape, crop_idx, pad_idx, keep_biggest_component=False, use_topology_classes=False, path_volumes=None):
         # remove the padding
         posteriors = CropVolume(posteriors.squeeze(0), pad_idx).unsqueeze(0)
 
@@ -399,16 +415,31 @@ class Prediction:
            tmp_posteriors = utils.mask_volume(tmp_posteriors, posteriors_mask)
            posteriors[:, 1:, ...] = tmp_posteriors
 
-        # ??? todo: reset posteriors to zero outside the largest connected component of each topological class ???
-
+        if (use_topology_classes and self._topology_classes is not None):
+            posteriors_mask = posteriors > 0.25
+            tmp_posteriors = posteriors.detach().numpy()
+            # reset posteriors to zero outside the largest connected component of each topological class
+            for topology_class in np.unique(self._topology_classes)[1:]:
+                tmp_topology_indices = np.where(self._topology_classes == topology_class)[0]
+                tmp_mask = torch.any(posteriors_mask[:, tmp_topology_indices, ...], dim=1)
+                tmp_mask = utils.get_largest_connected_component(tmp_mask)
+                for idx in tmp_topology_indices:
+                    tmp_posteriors[:, idx, ...] *= tmp_mask
+            posteriors = torch.Tensor(tmp_posteriors)
+            # the cropping needs to be done for both cases, it is done at the beginning of postprocess()
+            # Note that SynthSeg does the cropping here if topology classes are used to reset posteriors
+            #   to zero outside the largest connected component of each topological class;
+            #   otherwise, it is done at the beginning of postprocess()
+            #posteriors = CropVolume(posteriors.squeeze(0), pad_idx).unsqueeze(0)
         """
-        # the following logic is for 'mri_synthseg --fast'
-        posterior_mask = posteriors > 0.2   # ??? why, posterior_mask C dimension is reduced 33 => 32 ???
-        posteriors[:, 1:, ...] *= posteriors_mask[:, 1:, ...]
+        else:
+            # the following logic is for 'mri_synthseg --fast'
+            posteriors_mask = posteriors > 0.2
+            posteriors[:, 1:, ...] *= posteriors_mask[:, 1:, ...]
         """
 
         # normalize posteriors before getting hard segmentation
-        if (normalize_posteriors):
+        if (keep_biggest_component or (use_topology_classes and self._topology_classes is not None)):
             posteriors /= torch.sum(posteriors, axis=1).unsqueeze(1)
 
         # posteriors is batched tensor [B, C, H, W (,D)], predicted_segmentation is [B, H, W (,D)]            

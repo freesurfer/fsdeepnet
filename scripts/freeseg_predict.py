@@ -125,8 +125,8 @@ def main():
             debug=args.debug,
             segmentation_names=segmentation_names,
             keep_biggest_component=args.keep_biggest_component,
-            normalize_posteriors=args.normalize_posteriors,
-            )
+            use_topology_classes=args.use_topology_classes,
+            topology_classes=args.topology_classes,)
 
     # check memory usage
     if (args.vmp):
@@ -149,7 +149,8 @@ def argument_parse():
     parser.add_argument("--target_res", nargs="+", type=float, help="Segmentation output resolution")
     parser.add_argument("--nokeepgeom", action="store_true", help="Donot resample output to be the same as input geometry")
     parser.add_argument("--keep_biggest_component", action="store_true", help="Keep biggest component")
-    parser.add_argument("--normalize_posteriors", action="store_true", help="Normalize posteriors before getting hard segmentation")
+    parser.add_argument("--use_topology_classes", action="store_true", help="Reset posteriors to zero outside the largest connected component of each topological class")
+    parser.add_argument("--topology_classes", type=str, help="topological classes")    
     parser.add_argument("--ctab", type=str, help="Path to the lookup table")
     parser.add_argument("--label", type=str, help="Label(s) for input image(s). Can be a path to a label or to a folder. The labels can be binary masks.")
     parser.add_argument("--prior", type=str, help="Input priors")
@@ -175,8 +176,8 @@ def argument_parse():
 
 def predict(path_images, out_segmentations, checkpoint, crop_size=None, target_res=None, ctab=None, path_labels=None, path_priors=None, codenames=None,
             path_gt=None, addctab=True, write_posteriors=False, path_volumes=None, device=None, debug=False, keepgeom=False, segmentation_names=None,
-            keep_biggest_component=False, normalize_posteriors=False):
-    prediction = Prediction(device, ctab=ctab, debug=debug)
+            keep_biggest_component=False, topology_classes=None, use_topology_classes=False):
+    prediction = Prediction(device, ctab=ctab, topology_classes=topology_classes, debug=debug)
     prediction.load_model(checkpoint)
     prediction.predict(path_images, out_segmentations,
                        crop_size=crop_size,
@@ -191,7 +192,7 @@ def predict(path_images, out_segmentations, checkpoint, crop_size=None, target_r
                        keepgeom=keepgeom,
                        segmentation_names=segmentation_names,
                        keep_biggest_component=keep_biggest_component,
-                       normalize_posteriors=normalize_posteriors)
+                       use_topology_classes=use_topology_classes,)
 
 
 # execute script

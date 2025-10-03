@@ -4,6 +4,7 @@ dataset:
   generation_classes: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_classes_charm_choroid_lesions_gm_csf.npy
   segmentation_labels: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/segmentation_charm_choroid_lesions_csf.npy
   segmentation_names: /usr/local/freesurfer/8.0.0/models/synthseg_segmentation_names_2.0.npy
+  topology_classes: /usr/local/freesurfer/8.0.0/models/synthseg_topological_classes_2.0.npy
   left_right_corresponding: [2, 41, 3, 42, 4, 43, 5, 44, 7, 46, 8, 47, 10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54, 25, 57, 26, 58, 28, 60, 30, 62, 136, 163, 137, 164]
   expected_num_channels: 1
 
@@ -49,20 +50,20 @@ preprocessing:
         max_scaling: 1.2     # scaling factor
         warp_probability: 1
         warp_integrations: 7
-        warp_generation_method: "upsample"   # "blur" or "upsample"
+	warp_generation_method: upsample   # blur or upsample
         warp_smoothing_range: [16, 16]
         warp_magnitude_range: [0, 3]
     - randomcrop:           # crop from a randomly selected point
     - flip:
         flip_prob: 0.5    
-    - sampleConditionalGMM:
+    - sampleconditionalgmm:
         prior_mean: [0, 225]
         prior_std: [0, 35]
-        prior_distribution: "uniform"
+        prior_distribution: uniform
     - biasfieldcorruption:
         bias_field_probability: 0.95 # Ben: turned on if bias_field_std > 0
         bias_field_max_magnitude: 0.6
-        #bias_field_generation_method: "blur"   # this is for augmentvoxynth.biasfieldcorruption only, it is either "blur" or "upsample"
+        #bias_field_generation_method: blur   # this is for augmentvoxynth.biasfieldcorruption only, it is either "blur" or "upsample"
         bias_field_scale: 0.025
     - intensityaugmentation:
         clip_values: [0, 300]  # this is only for freeseg.augmentation.augmentbase.AugmentBase
@@ -122,39 +123,42 @@ evaluation:
 #
 # sorted unique segmentation labels
 # [ 0,  2,  3,  4,  5,  7,  8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 24, 26, 28, 41, 42, 43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 58, 60 ]
-# [ (0, 'background'), 	       	       	       0
-#   (2, 'left cerebral white matter'),	       1
-#   (3, 'left cerebral cortex'),	       2
-#   (4, 'left lateral ventricle'),	       3
-#   (5, 'left inferior lateral ventricle'),    4
-#   (7, 'left cerebellum white matter'),       5
-#   (8, 'left cerebellum cortex'),	       6
-#   (10, 'left thalamus'),		       7
-#   (11, 'left caudate'),		       8
-#   (12, 'left putamen'),		       9
-#   (13, 'left pallidum'),		       10
-#   (14, '3rd ventricle'),		       11
-#   (15, '4th ventricle'),		       12
-#   (16, 'brain-stem'),			       13
-#   (17, 'left hippocampus'),		       14
-#   (18, 'left amygdala'),		       15
-#   (24, 'csf'),			       16
-#   (26, 'left accumbens area'),	       17
-#   (28, 'left ventral DC'),		       18
-#   (41, 'right cerebral white matter'),       19
-#   (42, 'right cerebral cortex'),	       20
-#   (43, 'right lateral ventricle'),	       21
-#   (44, 'right inferior lateral ventricle'),  22
-#   (46, 'right cerebellum white matter'),     23
-#   (47, 'right cerebellum cortex'),	       24
-#   (49, 'right thalamus'),		       25
-#   (50, 'right caudate'),		       26
-#   (51, 'right putamen'),		       27
-#   (52, 'right pallidum'),		       28
-#   (53, 'right hippocampus'),		       29
-#   (54, 'right amygdala'),		       30
-#   (58, 'right accumbens area'),	       31
-#   (60, 'right ventral DC') ]		       32
+#
+# index ID  topo  gmm  name
+# =====================================================
+#   0   0   0     0    background
+#   1   2   4    16    left cerebral white matter
+#   2   3   4    17    left cerebral cortex
+#   3   4   4    18    left lateral ventricle
+#   4   5   4    18    left inferior lateral ventricle
+#   5   7   5    19    left cerebellum white matter
+#   6   8   5    20    left cerebellum cortex
+#   7  10   6    21    left thalamus
+#   8  11   7    22    left caudate
+#   9  12   8    23    left putamen
+#  10  13   9    24    left pallidum
+#  11  14   1     1    3rd ventricle
+#  12  15   2     2    4th ventricle
+#  13  16   3     3    brain-stem
+#  14  17  10    25    left hippocampus
+#  15  18  11    25    left amygdala
+#  16  24   0     4    csf
+#  17  26  12    27    left accumbens area
+#  18  28  13    28    left ventral DC
+#  19  41  14    31    right cerebral white matter
+#  20  42  14    32    right cerebral cortex
+#  21  43  14    33    right lateral ventricle
+#  22  44  14    33    right inferior lateral ventricle
+#  23  46  15    34    right cerebellum white matter
+#  24  47  15    35    right cerebellum cortex
+#  25  49  16    36    right thalamus
+#  26  50  17    37    right caudate
+#  27  51  18    38    right putamen
+#  28  52  19    39    right pallidum
+#  29  53  20    40    right hippocampus
+#  30  54  21    40    right amygdala
+#  31  58  22    42    right accumbens area
+#  32  60  23    43    right ventral DC
 # 
 #path_generation_labels = '/autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_charm_choroid_lesions_csf.npy'
 #"""
@@ -187,7 +191,14 @@ evaluation:
 #             33,  33,  34,  35,  36,  37,  38,  39,  40,  40,  41,  42,  43,
 #             44,  45,  45])
 #"""
-#     
+#
+# TOPOLOGY CLASSES = '/usr/local/freesurfer/8.0.0/models/synthseg_topological_classes_2.0.npy'
+#     array([  0,   1,   2,   3,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+#              0,   0,   0,   0,   0,   0,   4,   4,   4,   4,   5,   5,   6,
+#              7,   8,   9,  10,  11,   4,  12,  13,   0,   4,   4,  14,  14,
+#             14,  14,  15,  15,  16,  17,  18,  19,  20,  21,  14,  22,  23,
+#              0,  14,  14])
+#
 # shape and resolution of the outputs
 #target_res = None
 #output_shape = 160
