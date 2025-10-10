@@ -50,7 +50,7 @@ preprocessing:
         max_scaling: 1.2     # scaling factor
         warp_probability: 1
         warp_integrations: 7
-	warp_generation_method: gaussian # perlin or gaussian
+        warp_generation_method: gaussian # perlin or gaussian
         warp_nonlin_scale: 0.04         # for warp_generation_method=gaussian
         warp_nonlin_std: 4.0            # for warp_generation_method=gaussian
         #warp_perlin_method: upsample   # for warp_generation_method=perlin, blur or upsample
