@@ -107,25 +107,44 @@ class Evaluation:
             path_gt_labels = [gt_folder]
             path_segs = [eval_folder]
 
+        # create empty list to save segmentations evaluated
+        list_evaluations = []
+
         # compute evaluation metrics
-        dice_coefs = np.zeros((n_labels, len(path_segs)))            
+        dice_coefs = np.zeros((n_labels, len(path_segs)))
         for idx, (path_gt, path_seg) in enumerate(zip(path_gt_labels, path_segs)):
+            list_evaluations.append(path_seg)
             dice_coefs_seg = self.evaluate_oneseg(path_gt, path_seg,
                                                   evaluation_labels=evaluation_labels)
             dice_coefs[:n_labels, idx]   = np.transpose(dice_coefs_seg)
             
         # write results
         if (path_dice is None):
-            path_dice = os.path.join(eval_folder, 'evaluation_dices.npy')
+            path_dice = os.path.join(eval_folder, 'dices.npy')
 
         path_dice = os.path.abspath(path_dice)
         os.makedirs(os.path.dirname(path_dice), exist_ok=True)
         np.save(path_dice, dice_coefs)
 
         # output dices.dat as subject x nlabels        
-        path_dicedat = os.path.join(os.path.dirname(path_dice),os.path.splitext(os.path.basename(path_dice))[0])+'.dat'
+        path_dicedat = os.path.join(os.path.dirname(path_dice), os.path.splitext(os.path.basename(path_dice))[0]) + '.dat'
         np.savetxt(path_dicedat, np.transpose(dice_coefs))
         logging.info(f"output evaluation dices as {path_dice} and {path_dicedat}")
+
+        # output evaluations.lst - index:segmentation:avg_dice
+        f_list_evaluations = os.path.join(os.path.dirname(path_dice), os.path.splitext(os.path.basename(path_dice))[0]) + '_evaluations.lst'
+        f_list_evaluations = open(f_list_evaluations, "w")
+        for idx, evaluation in enumerate(list_evaluations):
+            f_list_evaluations.write(f"{idx}:{evaluation}:{dice_coefs[:, idx].mean()}\n")
+        f_list_evaluations.close()
+
+        # output avg_dice_labels - averged dice scores for each labels
+        avg_dice_label = dice_coefs.mean(axis=1)
+        f_avg_dice_label = os.path.join(os.path.dirname(path_dice), os.path.splitext(os.path.basename(path_dice))[0]) + '_avg_per_label.npy'
+        np.save(f_avg_dice_label, avg_dice_label)
+        # output as text file
+        f_avg_dice_label =  f_avg_dice_label.replace('.npy', '.dat')
+        np.savetxt(f_avg_dice_label, avg_dice_label.reshape(1, -1))
 
 
     # evaluate single segmentation and its ground truth
