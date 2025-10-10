@@ -146,9 +146,18 @@ class SpatialDeformation(torch.nn.Module):
         self.max_scaling = hp.get("max_scaling", 1.1)
         self.warp_probability = hp.get("warp_probability", 1.0)
         self.warp_integrations = hp.get("warp_integrations", 7)
-        self.warp_generation_method = hp.get("warp_generation_method", "upsample")
+        self.warp_generation_method = hp.get("warp_generation_method", "perlin")
+        self.warp_perlin_method = hp.get("warp_perlin_method", "upsample")
+
+        assert (self.warp_generation_method in ["gaussian", "perlin"]), \
+            f"warp_generation_method '{warp_generation_method}' is not supported. The options are either 'gaussian' or 'perlin'"
+        
+        # for warp_generation_method == 'perlin'
         self.warp_smoothing_range = hp.get("warp_smoothing_range", [10, 20])
         self.warp_magnitude_range = hp.get("warp_magnitude_range", [1, 2])
+        # for warp_generation_method == 'gaussian'
+        self.warp_nonlin_scale = hp.get("warp_nonlin_scale", 0.04)  # 0.0625
+        self.warp_nonlin_std = hp.get("warp_nonlin_std", 4.0)
         self.sampling = sampling_hp
         self.verbose = verbose
 
@@ -179,7 +188,10 @@ class SpatialDeformation(torch.nn.Module):
             warp_integrations=self.warp_integrations,
             warp_smoothing_range=self.warp_smoothing_range,
             warp_magnitude_range=self.warp_magnitude_range,
-            perlin_method=self.warp_generation_method,
+            warp_nonlin_scale=self.warp_nonlin_scale,
+            warp_nonlin_std=self.warp_nonlin_std,
+            warp_generation_method=self.warp_generation_method,
+            perlin_method=self.warp_perlin_method,
             isdisp=True,  # the transformation is returned as displacement field
             sampling=self.sampling,
             return_aff=True

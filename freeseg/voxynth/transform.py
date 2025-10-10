@@ -416,10 +416,13 @@ def random_displacement_field(
     shape : List[int],
     smoothing : float = 10,
     magnitude : float = 10,
+    nonlin_scale : float = 0.04,
+    nonlin_std : float = 4.0,
     integrations : int = 0,
     voxsize : float = 1,
     meshgrid : Tensor = None,
     device: torch.device = None,
+    generation_method: str = 'perlin',    
     perlin_method: str = 'upsample') -> Tensor:
     """
     TODOC
@@ -429,11 +432,37 @@ def random_displacement_field(
 
     # randomly sample a displacement crs field of the input shape
     ndim = len(shape)
-    disp = [perlin(shape, smoothing, magnitude, method=perlin_method, device=device) for i in range(ndim)]
-    disp = torch.stack(disp, dim=-1)
+    if (generation_method == 'perlin'):
+        disp = [perlin(shape, smoothing, magnitude, method=perlin_method, device=device) for i in range(ndim)]
+    else:
+        import math
 
+        # generate the disp using gaussian noise, resized to half of image size
+        disp = []
+        for i in range(ndim):
+            # sample small field from normal distribution of specified std dev
+            std_shape = [1] + [1] * ndim
+            noise_std = nonlin_std * torch.rand(std_shape, device=device)        # stddev = U(0, nonlin_std)
+            noise_shape = [1] + [math.floor(s * nonlin_scale) for s in shape]
+            noise_tensor = noise_std * torch.randn(noise_shape, device=device)   # N(0, stddev)
+            
+            # resize the noise to half of image size
+            resize_shape = [max(int(shape[i] / 2), noise_shape[i]) for i in range(ndim)]
+            mode = "trilinear" if (ndim == 3) else "bilinear"
+            noise_tensor = torch.nn.functional.interpolate(noise_tensor.unsqueeze(0), resize_shape, mode=mode)
+
+            disp.append(noise_tensor.view(resize_shape))
+
+    disp = torch.stack(disp, dim=-1)
+            
     if integrations > 0:
         disp = integrate_displacement_field(disp, integrations, meshgrid)
+
+    if (generation_method == 'gaussian'):
+        # reshape to full image size
+        mode = "trilinear" if (ndim == 3) else "bilinear"
+        disp = torch.nn.functional.interpolate(disp.movedim(-1, 0).unsqueeze(0), shape, mode=mode)
+        disp = disp.squeeze(0).movedim(0, -1)
 
     return disp
 
@@ -546,10 +575,13 @@ def random_transform(
     warp_integrations : int = 5,
     warp_smoothing_range : List[int] = [10, 20],
     warp_magnitude_range : List[int] = [1, 2],
+    warp_nonlin_scale : float = 0.04,
+    warp_nonlin_std : float = 4.0,
     voxsize : int = 1,
     max_shearing : float = 0,
     device : torch.device = None,
     isdisp : bool = True,
+    warp_generation_method: str = 'perlin',
     perlin_method: str = 'upsample',
     sampling: bool = True,
     return_aff: bool = False,
@@ -603,9 +635,12 @@ def random_transform(
             shape=shape,
             smoothing=np.random.uniform(*warp_smoothing_range),
             magnitude=np.random.uniform(*warp_magnitude_range),
+            nonlin_scale=warp_nonlin_scale,
+            nonlin_std=warp_nonlin_std,
             integrations=warp_integrations,
             voxsize=voxsize,
             device=device,
+            generation_method=warp_generation_method,
             perlin_method=perlin_method)
 
         # merge with the affine transform if necessary
