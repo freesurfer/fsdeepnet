@@ -85,18 +85,23 @@ def main():
             mainlogger.info("Empty cohort, nothing to do.")
             return
 
+        # 'label_filepath' is optional in the dataset.yaml
+        # no dices evaluation will be performed if no 'label_filepath' specified
         path_images, path_gt, path_priors, codenames = [], [], [], []
         for item in dataset:
             path_images.append(item["image_filepath"])
-            path_gt.append(item["label_filepath"])
+            if (item.get("label_filepath")):
+                path_gt.append(item["label_filepath"])
             if (item.get("prior_filepath")):
                 path_priors.append(item["prior_filepath"])
             if (item.get("codename")):
                 codenames.append(item["codename"])
 
-        assert (len(path_images) == len(path_gt)), "image and label need to be the same length"                
+        path_gt = path_gt if (len(path_gt)) else None
         path_priors = path_priors if (len(path_priors)) else None
         codenames = codenames if (len(codenames)) else None
+        if (path_gt is not None):
+            assert (len(path_images) == len(path_gt)), "image and label need to be the same length"
         if (path_priors is not None):
             assert (len(path_images) == len(path_priors)), "images and priors need to be the same length"
         if (codenames is not None):
