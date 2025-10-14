@@ -52,6 +52,19 @@ class Checkpoint:
         torch.save(self._dict, checkpoint)
 
 
+    # print checkpoint information
+    def print(self):
+        print("checkpoint information:")
+
+        keys = self._dict.keys()
+        for key in keys:
+            value = self._dict[key]
+            if (isinstance(value, dict)):
+                print(f"<<{key}>>: {value.keys()}")
+            else:
+                print(f"<<{key}>>: {value}")
+
+
     @property
     def dict(self):
         return self._dict
@@ -59,7 +72,7 @@ class Checkpoint:
 
     @property
     def epoch(self):
-        return self._dict['epoch']
+        return self._dict.get('epoch', None)
 
 
     @property
@@ -84,9 +97,9 @@ class Checkpoint:
 
     @property
     def model_state_dict(self):
-        return self._dict['model_state_dict']
+        return self._dict.get('model_state_dict', None)
 
     
     @property
     def optimizer_state_dict(self):
-        return self._dict['optimizer_state_dict']
+        return self._dict.get('optimizer_state_dict', None)

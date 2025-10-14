@@ -75,6 +75,14 @@ def main():
 
         checkpoint = Checkpoint()
         checkpoint.load(args.checkpoint, device=device)
+        
+        if (checkpoint.model_arch_dict is None or args.info):
+            if (checkpoint.model_arch_dict is None):
+                print("WARN: Model architecture information not available")
+            checkpoint.print()
+            sys.exit(0)
+
+        
         assert checkpoint.model_arch_dict is not None, "Model architecture information not available."
         assert checkpoint.train_dataset_dict is not None, "Training dataset information not available."
 
@@ -112,6 +120,7 @@ def argument_parse(description):
     # input/outputs
     parser.add_argument("--config", type=str, help="Path to the configuration file")
     parser.add_argument("--checkpoint", type=str, help="Path to a checkpoint file")
+    parser.add_argument("--info", action='store_true', help="Retrieve dict keys")
     parser.add_argument("--weight_outdir", type=str, help="Directory to save trainable parameters in given checkpoint")
     parser.add_argument("--ndims", type=int, default=3, help="Number of image dimensions, 2D or 3D")
     parser.add_argument("--input_shape", nargs="+", type=int, default=(160,160,160), help="Network image input shape, ex. 160 160 160")
