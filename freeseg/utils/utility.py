@@ -293,7 +293,7 @@ def config_logger(logfile=None, mode='a', level=logging.DEBUG, format="%(asctime
         logging.getLogger('').addHandler(console)
 
 
-def get_class(qualified_class_name, default_module):
+def get_class(qualified_class_name, default_module=None):
     """
     retrieve python class from given module
     if 'qualified_class_name' doesn't have the module component, use default_module
@@ -302,6 +302,7 @@ def get_class(qualified_class_name, default_module):
     module = module if (module) else default_module
     class_name = qualified_class_name.split('.')[-1]
 
+    assert (module is not None), f"No python module found"
     py_module = importlib.import_module(module)
     py_class = getattr(py_module, class_name, None)
     assert (py_class is not None), f"Couldn't get attr '{class_name}' from {py_module}"

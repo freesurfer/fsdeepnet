@@ -662,7 +662,7 @@ class Training:
             model_arch_dict["num_channels"] = config["dataset"]["expected_num_channels"]
             model_arch_dict["nb_labels"] = config["dataset"]["num_labels"]
             model_arch_dict["add_priors"] = train_dataset_dict.get("priors", False)
-            model_arch_dict["weight_init"] =config["model"].get("weight_init", None)
+            model_arch_dict["weight_init"] = config["model"].get("weight_init", None)
 
             the_model_name = model_arch_dict.get("name", None)
             assert the_model_name is not None, "Model name is not available."

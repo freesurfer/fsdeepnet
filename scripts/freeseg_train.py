@@ -137,28 +137,29 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
         mainlogger.info(f"Resuming training from checkpoint: {checkpoint}")
     
     # create the Training object
-    trainer = Training(train_output_folder,
-                       train_loader,
-                       model,
-                       model_arch_dict=model_arch_dict,
-                       train_dataset_dict=train_dataset_dict,
-                       ctab=ctab,
-                       model_checkpoint=checkpoint,
-                       validation_loader=validation_loader,
-                       best_model_metric=config["training"]["best_model_metric"],
-                       write_tensorboard_summary=config["training"].get("write_tensorboard_summary", False),
-                       device=device,
-                       gpu_index=gpu_index,
-                       preprocessing_device=preprocessing_device,
-                       report_moving_avg=report_moving_avg,
-                       debug=debug)
+    trainer_cls = utils.get_class(config["training"].get("trainer_class", "freeseg.training.Training"))
+    trainer = trainer_cls(train_output_folder,
+                          train_loader,
+                          model,
+                          model_arch_dict=model_arch_dict,
+                          train_dataset_dict=train_dataset_dict,
+                          ctab=ctab,
+                          model_checkpoint=checkpoint,
+                          validation_loader=validation_loader,
+                          best_model_metric=config["training"]["best_model_metric"],
+                          write_tensorboard_summary=config["training"].get("write_tensorboard_summary", False),
+                          device=device,
+                          gpu_index=gpu_index,
+                          preprocessing_device=preprocessing_device,
+                          report_moving_avg=report_moving_avg,
+                          debug=debug)
 
     # train wl2 epochs
     wl2_epochs = config["training"].get("wl2_epochs", 0)
     if (wl2_epochs > 0):
         wl2_metrics = utils.get_class(config["training"].get("wl2_metrics", "freeseg.metrics.WeightedL2Loss"), "freeseg.metrics")
         if (checkpoint is None):
-            mainlogger.info(f"training {wl2_epochs} wl2 epochs: {optimizer_cls}, {wl2_metrics}, lr:{config['training']['pre_train_learning_rate']} ...")
+            mainlogger.info(f"training {wl2_epochs} wl2 epochs: {trainer_cls}, {optimizer_cls}, {wl2_metrics}, lr:{config['training']['pre_train_learning_rate']} ...")
         wl2_loss_fn = wl2_metrics(gt_target_value=config["training"].get("wl2_gt_target_value", 15))
         trainer.train_model(lr=config["training"]["pre_train_learning_rate"],
                             epochs=wl2_epochs,
@@ -171,7 +172,7 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
     dice_epochs = config["training"].get("dice_epochs", 0)
     if (dice_epochs > 0):
         model_metrics = utils.get_class(config["training"].get("model_metrics", "freeseg.metrics.DiceLoss"), "freeseg.metrics")
-        mainlogger.info(f"training {dice_epochs} dice epochs: {optimizer_cls}, {model_metrics}, lr:{config['training']['learning_rate']} ...")
+        mainlogger.info(f"training {dice_epochs} dice epochs: {trainer_cls}, {optimizer_cls}, {model_metrics}, lr:{config['training']['learning_rate']} ...")
         dice_loss_fn = model_metrics(
             num_classes=config["dataset"]["num_labels"],
             dice_type="soft",

@@ -81,6 +81,7 @@ preprocessing:
     - remaplabels:
 
 training:
+  trainer_class: freeseg.training.Training
   batch_size: 1
   deterministic: False
   report_moving_avg: True
