@@ -1,4 +1,3 @@
-import numpy
 import torch
 
 class Checkpoint:
@@ -55,6 +54,8 @@ class Checkpoint:
 
     @staticmethod
     def print(dictionary, level=0, detail=False, indent=0, nkeys=30, keys=None):
+        import numpy
+        
         # print checkpoint dict information
         if (level == 0):
             print("checkpoint information:")
