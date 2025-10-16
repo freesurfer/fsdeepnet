@@ -1,3 +1,4 @@
+import numpy
 import torch
 
 class Checkpoint:
@@ -52,17 +53,47 @@ class Checkpoint:
         torch.save(self._dict, checkpoint)
 
 
-    # print checkpoint information
-    def print(self):
-        print("checkpoint information:")
+    @staticmethod
+    def print(dictionary, level=0, detail=False, indent=0, nkeys=30, keys=None):
+        # print checkpoint dict information
+        if (level == 0):
+            print("checkpoint information:")
+            report_keys = keys if (keys is not None) else dictionary.keys()
+        else:
+            report_keys = dictionary.keys()
 
-        keys = self._dict.keys()
-        for key in keys:
-            value = self._dict[key]
-            if (isinstance(value, dict)):
-                print(f"<<{key}>>: {value.keys()}")
-            else:
-                print(f"<<{key}>>: {value}")
+        indentation = "  " * indent
+        indentation2 = "  " * (indent+2) if (level == 0) else indentation
+        if (not detail and level != 0):
+            print(f"{indentation} {dictionary.keys()}")
+        else:
+            num_keys = len(dictionary.keys())
+            for (idx, k) in enumerate(report_keys):
+                if (level == 0):  # print all the dict keys for the root level
+                    print(f"{indentation} <<{k}>>")
+
+                v = dictionary[k]
+                if (isinstance(v, dict)):
+                    if (level > 0):  # print keys only if the next level is a dict
+                        print(f"{indentation} <<{k}>>")
+                    Checkpoint.print(v, level+1, detail, indent+2, nkeys)
+                elif (isinstance(v, torch.Tensor)):
+                    print(f"{indentation2} {k} : (torch.Tensor) {list(v.shape)}")
+                elif (isinstance(v, numpy.ndarray)):
+                    print(f"{indentation2} {k} : (numpy.ndarray) {list(v.shape)}")
+                elif (v is None or \
+                      isinstance(v, int)   or isinstance(v, numpy.int32)   or isinstance(v, numpy.int64)   or \
+                      isinstance(v, float) or isinstance(v, numpy.float32) or isinstance(v, numpy.float64) or \
+                      isinstance(v, str) or isinstance(v, list) or isinstance(v, tuple)):
+                    print(f"{indentation2} {v}") if (level == 0) else print(f"{indentation2} {k} : {v}")
+                    
+                else:
+                    print(f"{indentation2} {type(v)}") if (level == 0) else print(f"{indentation2} {k} : {type(v)}")
+
+                # set limits to how many keys to report
+                if (level != 0 and idx == nkeys-1 and idx != num_keys-1):
+                    print(f"{indentation2} ... {num_keys-idx-1} more ...")
+                    break;
 
 
     @property
