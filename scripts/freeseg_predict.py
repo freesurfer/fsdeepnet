@@ -63,6 +63,7 @@ def main():
         
         import psutil 
         num_cpu_cores = psutil.cpu_count(logical = False)
+        mainlogger.info("")
         mainlogger.info(f"physical CPU cores: {num_cpu_cores}")
         if (args.threads is not None):
             torch.set_num_threads(args.threads)          # set the number of threads used for intraop parallelism on CPU
@@ -200,7 +201,7 @@ def predict(path_images, out_segmentations, checkpoint, crop_size=None, target_r
             path_gt=None, addctab=True, write_posteriors=False, path_volumes=None, device=None, debug=False, keepgeom=False, segmentation_names=None,
             keep_biggest_component=False, topology_classes=None, use_topology_classes=False):
     prediction = Prediction(device, ctab=ctab, topology_classes=topology_classes, debug=debug)
-    prediction.load_model(checkpoint)
+    prediction.build_model(checkpoint)
     prediction.predict(path_images, out_segmentations,
                        crop_size=crop_size,
                        target_res=target_res,

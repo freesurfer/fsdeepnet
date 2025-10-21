@@ -19,8 +19,8 @@ class Prediction:
 
     Methods
     -------
-    load_model
-        Load the trained model
+    build_model
+        Load and ensemble the trained models
 
     predict
         Predict with the loaded model
@@ -31,7 +31,7 @@ class Prediction:
         Prediction Constructor.
         """
 
-        self._model = None
+        self._ensembled_model = None
         self._device = device
         if (self._device is None):
             self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -55,7 +55,19 @@ class Prediction:
         self._crop_size = None
 
 
-    def load_model(self, model_checkpoint):
+    def build_model(self, segmentation_checkpoint, parcellation_checkpoint=None, qc_checkpoint=None):        
+        segmentation_model = self.load_segmentation_model(segmentation_checkpoint)
+
+        parcellation_model, qc_model = None, None        
+        if (parcellation_checkpoint is not None):
+            parcellation_model = self.load_parcellation_model(parcellation_checkpoint)
+        if (qc_checkpoint is not None):
+            qc_model = self.load_qc_model(qc_checkpoint)
+
+        self._ensembled_model = EnsembledModel(segmentation_model, parcellation_model, qc_model)
+
+            
+    def load_segmentation_model(self, model_checkpoint):
         """
         load trained model
 
@@ -77,7 +89,7 @@ class Prediction:
         assert the_model_name is not None, "Model name is not available."
 
         model_class = utils.get_class(the_model_name, "freeseg.models.unet")
-        self._model = model_class(checkpoint.model_arch_dict).to(self._device)
+        segmentation_model = model_class(checkpoint.model_arch_dict).to(self._device)
 
         self._nb_levels = checkpoint.model_arch_dict["nb_levels"]
         self._ndims = checkpoint.model_arch_dict["ndims"]
@@ -118,10 +130,22 @@ class Prediction:
         if (self._label_lookup is None):
             self._label_lookup = checkpoint.label_lookup
 
-        self._model.load_state_dict(checkpoint.model_state_dict)
-        self._model.eval()
+        segmentation_model.load_state_dict(checkpoint.model_state_dict)
+        segmentation_model.eval()
+
+        return segmentation_model
 
 
+    def load_parcellation_model(self, model_checkpoint):
+        parcellation_model = None
+        return parcellation_model
+
+
+    def load_qc_model(self, model_checkpoint):
+        qc_model = None
+        return qc_model
+
+    
     def register_hook(self, module, name=''):
         def forward_hook(module, input, output):
             class_name = str(module.__class__).split(".")[-1].split("'")[0]
@@ -197,7 +221,7 @@ class Prediction:
         if (self._debug):
             self._out_debug_dir = os.path.join(os.path.dirname(out_segmentations[0]), "debug")
             os.makedirs(self._out_debug_dir, exist_ok=True)            
-            self.register_hook(self._model)
+            self.register_hook(self._ensembled_model)
 
         # create empty lists for predictions, label volumes, tivs, voxel counts
         self.list_predictions, self.volumes, self.tivs, self.vox_counts = [], [], [], []
@@ -214,12 +238,13 @@ class Prediction:
                 self.preprocess(i, path_images, path_labels, path_priors, codenames, label_lookup)
 
             ### prediction ###
-            (outputs, _) = self._model(image_tensor_preprocessed, prior_tensor_preprocessed)
+            (posteriors_seg, posteriors_par, qc_score) = self._ensembled_model(image_tensor_preprocessed, prior_tensor_preprocessed)
 
             ### postprocessing ###
             segmentation, posteriors, = \
-                self.postprocess(outputs, target_im_geom.voxsize, target_im_shape, crop_idx, pad_idx,
-                                 keep_biggest_component=keep_biggest_component, use_topology_classes=use_topology_classes, path_volumes=path_volumes)
+                self.postprocess(posteriors_seg, target_im_geom.voxsize, target_im_shape, crop_idx, pad_idx,
+                                 keep_biggest_component=keep_biggest_component, use_topology_classes=use_topology_classes, path_volumes=path_volumes,
+                                 posteriors_par=posteriors_par)
             
             ### save segmentation ###
             # align prediction back to original orientation, original geom (if keepgeom is True)
@@ -401,23 +426,25 @@ class Prediction:
         return sfimage, orig_orientation, target_im_geom, target_im_shape, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup
 
 
-    def postprocess(self, posteriors, target_im_res, target_im_shape, crop_idx, pad_idx, keep_biggest_component=False, use_topology_classes=False, path_volumes=None):
+    def postprocess(self, posteriors_seg, target_im_res, target_im_shape, crop_idx, pad_idx,
+                    keep_biggest_component=False, use_topology_classes=False, path_volumes=None,
+                    posteriors_par=None):
         # remove the padding
-        posteriors = CropVolume(posteriors.squeeze(0), pad_idx).unsqueeze(0)
+        posteriors_seg = CropVolume(posteriors_seg.squeeze(0), pad_idx).unsqueeze(0)
 
         # keep biggest connected components
         if (keep_biggest_component):
            # obtain posteriors mask for non-background components, voxels outside the mask are marked as background
-           tmp_posteriors = posteriors[:, 1:, ...].clone()
+           tmp_posteriors = posteriors_seg[:, 1:, ...].clone()
            posteriors_mask = torch.sum(tmp_posteriors, axis=1) > 0.25
            posteriors_mask = utils.get_largest_connected_component(posteriors_mask)
            posteriors_mask = np.stack([posteriors_mask] * tmp_posteriors.shape[1], axis=1)
            tmp_posteriors = utils.mask_volume(tmp_posteriors, posteriors_mask)
-           posteriors[:, 1:, ...] = tmp_posteriors
+           posteriors_seg[:, 1:, ...] = tmp_posteriors
 
         if (use_topology_classes and self._topology_classes is not None):
-            posteriors_mask = posteriors > 0.25
-            tmp_posteriors = posteriors.detach().numpy()
+            posteriors_mask = posteriors_seg > 0.25
+            tmp_posteriors = posteriors_seg.detach().numpy()
             # reset posteriors to zero outside the largest connected component of each topological class
             for topology_class in np.unique(self._topology_classes)[1:]:
                 tmp_topology_indices = np.where(self._topology_classes == topology_class)[0]
@@ -425,25 +452,25 @@ class Prediction:
                 tmp_mask = utils.get_largest_connected_component(tmp_mask)
                 for idx in tmp_topology_indices:
                     tmp_posteriors[:, idx, ...] *= tmp_mask
-            posteriors = torch.Tensor(tmp_posteriors)
+            posteriors_seg = torch.Tensor(tmp_posteriors)
             # the cropping needs to be done for both cases, it is done at the beginning of postprocess()
             # Note that SynthSeg does the cropping here if topology classes are used to reset posteriors
             #   to zero outside the largest connected component of each topological class;
             #   otherwise, it is done at the beginning of postprocess()
-            #posteriors = CropVolume(posteriors.squeeze(0), pad_idx).unsqueeze(0)
+            #posteriors_seg = CropVolume(posteriors_seg.squeeze(0), pad_idx).unsqueeze(0)
         """
         else:
             # the following logic is for 'mri_synthseg --fast'
-            posteriors_mask = posteriors > 0.2
-            posteriors[:, 1:, ...] *= posteriors_mask[:, 1:, ...]
+            posteriors_mask = posteriors_seg > 0.2
+            posteriors_seg[:, 1:, ...] *= posteriors_mask[:, 1:, ...]
         """
 
         # normalize posteriors before getting hard segmentation
         if (keep_biggest_component or (use_topology_classes and self._topology_classes is not None)):
-            posteriors /= torch.sum(posteriors, axis=1).unsqueeze(1)
+            posteriors_seg /= torch.sum(posteriors_seg, axis=1).unsqueeze(1)
 
         # posteriors is batched tensor [B, C, H, W (,D)], predicted_segmentation is [B, H, W (,D)]            
-        predicted_segmentation = torch.argmax(posteriors, dim=1)
+        predicted_segmentation = torch.argmax(posteriors_seg, dim=1)
         # map labels to original id
         if (path_volumes is None):
             segmentation_cropped = utils.remap_labels(predicted_segmentation, self._inverse_label_mapping)
@@ -464,7 +491,7 @@ class Prediction:
         # compute volumes
         if (path_volumes is not None):
             # skip background
-            volumes = np.sum(posteriors.detach().numpy()[:, 1:, ...], tuple(range(2, 2+len(posteriors.shape[2:]))))
+            volumes = np.sum(posteriors_seg.detach().numpy()[:, 1:, ...], tuple(range(2, 2+len(posteriors_seg.shape[2:]))))
             volumes = volumes.squeeze(0)
             tiv = np.array([np.sum(volumes)])  # sum up all volumes except background
             volumes = np.around(volumes * np.prod(target_im_res), 3)            
@@ -473,7 +500,7 @@ class Prediction:
             self.tivs.append(tiv.tolist())
             self.vox_counts.append(vox_counts)
 
-        return segmentation, posteriors
+        return segmentation, posteriors_seg
 
 
     def prepare_output_files(self, path_images, path_labels, path_priors, out_segmentations, codenames, write_posteriors, path_volumes):
@@ -582,3 +609,24 @@ class Prediction:
                 csv_subjects.append(im)
                 
         return path_images, path_labels, path_priors, out_segmentations, codenames, out_posteriors, csv_subjects
+
+
+class EnsembledModel(torch.nn.Module):
+    def __init__(self, segmentation_model, parcellation_model=None, qc_model=None):
+        super(EnsembledModel, self).__init__()
+        self._segmentation_model = segmentation_model
+        self._parcellation_model = parcellation_model
+        self._qc_model = qc_model
+
+
+    def forward(self, x, x1=None):
+        posteriors_par, qc_score = None, None
+    
+        (posteriors_seg, _) = self._segmentation_model(x, x1)
+        if (self._parcellation_model is not None):
+            posteriors_par = self._parcellation_model(posteriors_seg)
+        if (self._qc_model is not None):
+            qc_score = self._qc_model(posteriors_seg)
+
+        return posteriors_seg, posteriors_par, qc_score
+
