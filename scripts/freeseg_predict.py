@@ -60,6 +60,19 @@ def main():
 
     if (args.cpu):
         os.environ["CUDA_VISIBLE_DEVICES"]=""
+        
+        import psutil 
+        num_cpu_cores = psutil.cpu_count(logical = False)
+        mainlogger.info(f"physical CPU cores: {num_cpu_cores}")
+        if (args.threads is not None):
+            torch.set_num_threads(args.threads)          # set the number of threads used for intraop parallelism on CPU
+            torch.set_num_interop_threads(args.threads)  # set the number of threads used for interop parallelism on CPU
+        mainlogger.info(f"CPU intraop parallelism: {torch.get_num_threads()} threads")
+        mainlogger.info(f"CPU interop parallelism: {torch.get_num_interop_threads()} threads")
+        if (args.threads is not None and args.threads > num_cpu_cores):
+            mainlogger.warning(f"'--threads' {args.threads} exceeds the number of physical CPU cores {num_cpu_cores}")
+
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     if ((args.i is not None) and (args.dataset_list_file is not None)):
@@ -107,6 +120,7 @@ def main():
         if (codenames is not None):
             assert (len(path_images) == len(codenames)), "images and codenames need to be the same length"
 
+    mainlogger.info("")
     mainlogger.info("prediction in progress ...")
     if (logfile is not None):
         mainlogger.info(f"prediction log can be found in {logfile}")
@@ -166,6 +180,7 @@ def argument_parse():
     parser.add_argument("--vol", type=str, help="Output for calculated label volumes.")
     parser.add_argument('--logfile', type=str, help='Set logfile (default is ./freeseg_predict.log)')
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
+    parser.add_argument("--threads", type=int, help="Number of threads to run on CPU, default is pytorch determined")
     parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
     parser.add_argument('--vmp', action='store_true', help='Enable printing of vmpeak at the end.')
 
