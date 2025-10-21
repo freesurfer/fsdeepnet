@@ -249,18 +249,23 @@ def set_deterministic_training(seed=42):
 
 def print_vm_peak():
     """
-    Print the VM peak of the running process. This is only available on linux platforms.
+    Return the VM peak of the running process. This is only available on linux platforms.
     """
     if platform.system() != 'Linux':
-        return
+        return None
+
     procstat = os.path.join('/proc', str(os.getpid()), 'status')
     fp = open(procstat, 'r')
     lines = fp.readlines()
     for line in lines:
         strs = line.split()
         if (strs[0] == "VmPeak:"):
+            vmpeak = f"{strs[1]} {strs[2]}"
+            return vmpeak
+            """
             logging.info(f"VmPeak: {strs[1]} {strs[2]}")
             break
+            """
 
 
 def gpu_report(gpu_index):

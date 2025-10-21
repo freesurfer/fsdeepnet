@@ -148,8 +148,10 @@ def main():
             topology_classes=args.topology_classes,)
 
     # check memory usage
-    if (args.vmp):
-        utils.print_vm_peak()
+    vmpeak = utils.print_vm_peak()
+    if (vmpeak is not None):
+        mainlogger.info("")
+        mainlogger.info(f"VmPeak: {vmpeak}") 
 
     mainlogger.info("Done!")
     
@@ -182,7 +184,7 @@ def argument_parse():
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
     parser.add_argument("--threads", type=int, help="Number of threads to run on CPU, default is pytorch determined")
     parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
-    parser.add_argument('--vmp', action='store_true', help='Enable printing of vmpeak at the end.')
+    #parser.add_argument('--vmp', action='store_true', help='Enable printing of vmpeak at the end.')
 
     if len(sys.argv) < 2:
         parser.print_help()
