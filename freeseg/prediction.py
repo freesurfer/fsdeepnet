@@ -65,6 +65,7 @@ class Prediction:
             qc_model = self.load_qc_model(qc_checkpoint)
 
         self._ensembled_model = EnsembledModel(segmentation_model, parcellation_model, qc_model)
+        self._ensembled_model.eval()
 
             
     def load_segmentation_model(self, model_checkpoint):
@@ -79,7 +80,7 @@ class Prediction:
         
         assert os.path.isfile(model_checkpoint), "The provided model path %s does not exist." % model_checkpoint
 
-        # Load the Trained Model
+        # Load the Trained Segmentation Model
         checkpoint = Checkpoint()
         checkpoint.load(model_checkpoint, device=self._device)
         assert checkpoint.model_arch_dict is not None, "Model architecture information not available."
@@ -238,13 +239,14 @@ class Prediction:
                 self.preprocess(i, path_images, path_labels, path_priors, codenames, label_lookup)
 
             ### prediction ###
-            (posteriors_seg, posteriors_par, qc_score) = self._ensembled_model(image_tensor_preprocessed, prior_tensor_preprocessed)
+            with torch.no_grad():
+                (posteriors_seg, posteriors_parc, qc_score) = self._ensembled_model(image_tensor_preprocessed, prior_tensor_preprocessed)
 
             ### postprocessing ###
             segmentation, posteriors, = \
                 self.postprocess(posteriors_seg, target_im_geom.voxsize, target_im_shape, crop_idx, pad_idx,
                                  keep_biggest_component=keep_biggest_component, use_topology_classes=use_topology_classes, path_volumes=path_volumes,
-                                 posteriors_par=posteriors_par)
+                                 posteriors_parc=posteriors_parc)
             
             ### save segmentation ###
             # align prediction back to original orientation, original geom (if keepgeom is True)
@@ -428,7 +430,7 @@ class Prediction:
 
     def postprocess(self, posteriors_seg, target_im_res, target_im_shape, crop_idx, pad_idx,
                     keep_biggest_component=False, use_topology_classes=False, path_volumes=None,
-                    posteriors_par=None):
+                    posteriors_parc=None):
         # remove the padding
         posteriors_seg = CropVolume(posteriors_seg.squeeze(0), pad_idx).unsqueeze(0)
 
@@ -620,13 +622,18 @@ class EnsembledModel(torch.nn.Module):
 
 
     def forward(self, x, x1=None):
-        posteriors_par, qc_score = None, None
-    
-        (posteriors_seg, _) = self._segmentation_model(x, x1)
-        if (self._parcellation_model is not None):
-            posteriors_par = self._parcellation_model(posteriors_seg)
-        if (self._qc_model is not None):
-            qc_score = self._qc_model(posteriors_seg)
+        posteriors_parc, qc_score = None, None
 
-        return posteriors_seg, posteriors_par, qc_score
+        with torch.no_grad():
+            (posteriors_seg, _) = self._segmentation_model(x, x1)
+
+        if (self._parcellation_model is not None):
+            with torch.no_grad():
+                posteriors_parc = self._parcellation_model(posteriors_seg)
+
+        if (self._qc_model is not None):
+            with torch.no_grad():
+                qc_score = self._qc_model(posteriors_seg)
+
+        return posteriors_seg, posteriors_parc, qc_score
 
