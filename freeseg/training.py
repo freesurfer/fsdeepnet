@@ -659,8 +659,12 @@ class Training:
         model, optimizer_cls = None, None
         if (create_model):
             model_arch_dict = config["model"]
-            model_arch_dict["num_channels"] = config["dataset"]["expected_num_channels"]
-            model_arch_dict["nb_labels"] = config["dataset"]["num_labels"]
+            model_arch_dict["num_channels"] = config["model"].get("num_channels", None)
+            if (model_arch_dict["num_channels"] is None):
+                model_arch_dict["num_channels"] = config["dataset"]["expected_num_channels"]
+            model_arch_dict["nb_labels"] = config["model"].get("final_features", None)
+            if (model_arch_dict["nb_labels"] is None):
+                model_arch_dict["nb_labels"] = config["dataset"]["num_labels"]
             model_arch_dict["add_priors"] = train_dataset_dict.get("priors", False)
             model_arch_dict["weight_init"] = config["model"].get("weight_init", None)
 

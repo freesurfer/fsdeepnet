@@ -101,7 +101,9 @@ class Config:
         segmentation_labels = config["dataset"].get("segmentation_labels", None)
         segmentation_names = config["dataset"].get("segmentation_names", None)
         topology_classes = config["dataset"].get("topology_classes", None)
-        # generation_labels/generation_classes/segmentation_labels/segmentation_names/topology_classes
+        parcellation_labels = config["dataset"].get("parcellation_labels", None)
+        parcellation_names = config["dataset"].get("parcellation_names", None)        
+        # generation_labels/generation_classes/segmentation_labels/segmentation_names/topology_classes/parcellation_labels/parcellation_names
         # can be either a str or a list
         if (generation_labels is not None and isinstance(generation_labels, str)):
             generation_labels = np.load(generation_labels)
@@ -112,7 +114,11 @@ class Config:
         if (segmentation_names is not None and isinstance(segmentation_names, str)):
             segmentation_names = np.load(segmentation_names)
         if (topology_classes is not None and isinstance(topology_classes, str)):
-            topology_classes = np.load(topology_classes)            
+            topology_classes = np.load(topology_classes)
+        if (parcellation_labels is not None and isinstance(parcellation_labels, str)):
+            parcellation_labels = np.load(parcellation_labels)
+        if (parcellation_names is not None and isinstance(parcellation_names, str)):
+            parcellation_names = np.load(parcellation_names)            
         # save generation_labels, generation_classes, segmentation_labels
         if (output_folder is not None):
             f_npy = os.path.join(output_folder, "segmentation_labels.npy")
@@ -128,8 +134,11 @@ class Config:
                 np.save(f_npy, np.array(generation_classes).astype(int))
             if (topology_classes is not None):
                 f_npy = os.path.join(output_folder, "topology_classes.npy")
-                np.save(f_npy, np.array(topology_classes).astype(int))                
-        num_labels = len(np.unique(segmentation_labels))
+                np.save(f_npy, np.array(topology_classes).astype(int))
+
+        num_labels = None
+        if (segmentation_labels is not None):
+            num_labels = len(np.unique(segmentation_labels))
         label_mapping = {label:i for i, label in enumerate(np.unique(segmentation_labels))}
         inverse_label_mapping = {v: k for k, v in label_mapping.items()}
         config["dataset"].update({"ndims": config["model"]["ndims"],
@@ -139,6 +148,8 @@ class Config:
                                   "segmentation_labels": segmentation_labels,
                                   "segmentation_names" : segmentation_names,
                                   "topology_classes"   : topology_classes,
+                                  "parcellation_labels": parcellation_labels,
+                                  "parcellation_names" : parcellation_names,
                                   "left_right_corresponding": config["dataset"].get("left_right_corresponding", None),
                                   "label_mapping": label_mapping,
                                   "inverse_label_mapping": inverse_label_mapping,
