@@ -49,7 +49,8 @@ def main():
         logging.info(f"Epoch {epoch+1:3d}/{epochs:<3d}")
         for step in range(steps_per_epoch):
             (batch_idx, images, onehot_labels, priors, dataset_indices) = next(input_generator)
-            logging.info(f"  {step+1:4d}/{steps_per_epoch:<4d} preprocessed batch #{batch_idx:<2d}, (training set index {dataset_indices.tolist()})")
+            batch_indices = ", ".join(str(item).zfill(4) for item in dataset_indices.tolist())
+            logging.info(f"  {step+1:4d}/{steps_per_epoch:<4d} batch #{batch_idx:<2d} ({batch_indices}), images({images.shape}), onehot_labels({onehot_labels.shape}), priors({priors.shape})")
             #torch.cuda._sleep(500)
 
     

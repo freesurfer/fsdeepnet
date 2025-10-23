@@ -189,12 +189,18 @@ class Training:
             train_loss /= steps_per_epoch
             train_dice_avg = np.mean(train_dices)
         
-            # output training dices (n_labels x steps_per_epoch)
+            # output training dices batch_size x (n_labels x steps_per_epoch)
             f_dice_scores = os.path.join(self._dice_dir, f"train_{metric_type}_{epoch+1:03d}.npy")
             np.save(f_dice_scores, train_dices)
-            f_dice_dat = os.path.join(self._dice_dir, f"d.train_{metric_type}_{epoch+1:03d}.dat")
-            # Save in text format as nepochs x nlabels
-            np.savetxt(f_dice_dat, np.transpose(np.squeeze(train_dices)))
+            # Save in text format as (steps_per_epoch x n_labels)
+            if (self._batch_size == 1):
+                """
+                Known Issue: np.savetxt() is designed for saving 1D and 2D arrays to text files.
+                             It does not directly support saving 3D arrays.
+                             Attempting to use savetxt() on a 3D array will result in a ValueError
+                """
+                f_dice_dat = os.path.join(self._dice_dir, f"d.train_{metric_type}_{epoch+1:03d}.dat")            
+                np.savetxt(f_dice_dat, np.transpose(np.squeeze(train_dices)))
     
             if (self._validation_loader is None):
                 loss_dice_avg[epoch-start_epoch] = np.array((train_loss, train_dice_avg))                
@@ -229,9 +235,10 @@ class Training:
                 # output validation dices (n_labels x len(self._validation_loader))
                 f_dice_scores = os.path.join(self._dice_dir, f"validation_{metric_type}_{epoch+1:03d}.npy")
                 np.save(f_dice_scores, validation_dices)
-                f_dice_dat = os.path.join(self._dice_dir, f"d.validation_{metric_type}_{epoch+1:03d}.dat")
-                # Save in text format as nsubjects x nlabels
-                np.savetxt(f_dice_dat, np.transpose(np.squeeze(validation_dices)))
+                if (self._batch_size == 1):
+                    # Save in text format as nsubjects x nlabels
+                    f_dice_dat = os.path.join(self._dice_dir, f"d.validation_{metric_type}_{epoch+1:03d}.dat")
+                    np.savetxt(f_dice_dat, np.transpose(np.squeeze(validation_dices)))
 
                 loss_dice_avg[epoch-start_epoch] = np.array((train_loss, train_dice_avg, validation_loss, validation_dice_avg))                
                 logging.info(
@@ -339,10 +346,11 @@ class Training:
             train_dice_avg += np.mean(train_dices[:, :, step])
 
             # report simple moving loss and dice average or loss/dice for each step
+            batch_indices = ", ".join(str(item).zfill(4) for item in dataset_indices.tolist())
             if (self._report_moving_avg):
-                logging.info(f"  {step+1:>4d}/{steps_per_epoch:<4d} ({dataset_indices.item():04d}) loss: {train_loss/(step+1):.4f}, dice avg: {train_dice_avg/(step+1):.4f}")
+                logging.info(f"  {step+1:>4d}/{steps_per_epoch:<4d} ({batch_indices}) loss: {train_loss/(step+1):.4f}, dice avg: {train_dice_avg/(step+1):.4f}")
             else:
-                logging.info(f"  {step+1:>4d}/{steps_per_epoch:<4d} ({dataset_indices.item():04d}) loss: {loss.item():.4f}, dice avg: {np.mean(train_dices[:, :, step]):.4f}")
+                logging.info(f"  {step+1:>4d}/{steps_per_epoch:<4d} ({batch_indices}) loss: {loss.item():.4f}, dice avg: {np.mean(train_dices[:, :, step]):.4f}")
 
             # begin of debugging volumes output            
             if (self._debug and ((step == 0 and epoch > 0) or (epoch == self._end_epoch-1 and step == steps_per_epoch-1))):
