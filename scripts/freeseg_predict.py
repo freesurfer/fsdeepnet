@@ -146,7 +146,8 @@ def main():
             segmentation_names=segmentation_names,
             keep_biggest_component=args.keep_biggest_component,
             use_topology_classes=args.use_topology_classes,
-            topology_classes=args.topology_classes,)
+            topology_classes=args.topology_classes,
+            checkpoint_parc=args.parc)
 
     # check memory usage
     vmpeak = utils.print_vm_peak()
@@ -166,7 +167,8 @@ def argument_parse():
     parser.add_argument("--dataset_list_file", type=str, help="Image(s) to segment. Can be a path to an image or to a folder.")
     parser.add_argument("--cohort", nargs="+", type=str, default=['test'], help="Dataset cohort. Can be combinations of train, validation, or test")
     parser.add_argument("--o", type=str, required=True, help="Segmentation output(s). Must be a folder if --i designates a folder, or --dataset_list_file is specified.")
-    parser.add_argument("--checkpoint", type=str, required=True, help="Path to a checkpoint file to resume training from")
+    parser.add_argument("--checkpoint", type=str, required=True, help="Path to a segmentation checkpoint file")
+    parser.add_argument("--parc", type=str, help="Path to a cortex parcellation checkpoint")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     parser.add_argument("--target_res", nargs="+", type=float, help="Segmentation output resolution")
     parser.add_argument("--nokeepgeom", action="store_true", help="Donot resample output to be the same as input geometry")
@@ -199,9 +201,9 @@ def argument_parse():
 
 def predict(path_images, out_segmentations, checkpoint, crop_size=None, target_res=None, ctab=None, path_labels=None, path_priors=None, codenames=None,
             path_gt=None, addctab=True, write_posteriors=False, path_volumes=None, device=None, debug=False, keepgeom=False, segmentation_names=None,
-            keep_biggest_component=False, topology_classes=None, use_topology_classes=False):
+            keep_biggest_component=False, topology_classes=None, use_topology_classes=False, checkpoint_parc=None):
     prediction = Prediction(device, ctab=ctab, topology_classes=topology_classes, debug=debug)
-    prediction.build_model(checkpoint)
+    prediction.build_model(checkpoint, checkpoint_parc)
     prediction.predict(path_images, out_segmentations,
                        crop_size=crop_size,
                        target_res=target_res,

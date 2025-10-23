@@ -55,7 +55,8 @@ class Prediction:
         self._crop_size = None
 
 
-    def build_model(self, segmentation_checkpoint, parcellation_checkpoint=None, qc_checkpoint=None):        
+    def build_model(self, segmentation_checkpoint, parcellation_checkpoint=None, qc_checkpoint=None):
+        # load individual models
         segmentation_model = self.load_segmentation_model(segmentation_checkpoint)
 
         parcellation_model, qc_model = None, None        
@@ -64,7 +65,15 @@ class Prediction:
         if (qc_checkpoint is not None):
             qc_model = self.load_qc_model(qc_checkpoint)
 
-        self._ensembled_model = EnsembledModel(segmentation_model, parcellation_model, qc_model)
+        # concatenate segmentation and parcellation
+        self._labels_volume = self._labels_segmentation
+        self._names_volume  = self._names_segmentation
+        if (parcellation_model is not None):
+            self._labels_volume = np.concatenate([self._labels_volume, self._labels_parcellation[1:]])
+            self._names_volume  = np.concatenate([self._names_volume,  self._names_parcellation[1:]])
+
+        # build ensembled model
+        self._ensembled_model = EnsembledModel(segmentation_model, self._label_mapping, parcellation_model, qc_model)
         self._ensembled_model.eval()
 
             
@@ -138,7 +147,51 @@ class Prediction:
 
 
     def load_parcellation_model(self, model_checkpoint):
-        parcellation_model = None
+        assert os.path.isfile(model_checkpoint), "The provided model path %s does not exist." % model_checkpoint
+
+        # Load the Trained Parcellation Model
+        checkpoint = Checkpoint()
+        checkpoint.load(model_checkpoint, device=self._device)
+        assert checkpoint.model_arch_dict is not None, "Model architecture information not available."
+        assert checkpoint.train_dataset_dict is not None, "Training dataset information not available."
+
+        the_model_name = checkpoint.model_arch_dict.get("name", None)
+        assert the_model_name is not None, "Model name is not available."
+
+        model_class = utils.get_class(the_model_name, "freeseg.models.unet")
+        parcellation_model = model_class(checkpoint.model_arch_dict).to(self._device)
+
+        ###
+        self._labels_parcellation = checkpoint.train_dataset_dict.get("parcellation_labels", None)
+        if (self._labels_parcellation is not None):
+            if (isinstance(self._labels_parcellation, str)):
+                self._labels_parcellation = np.load(self._labels_parcellation)
+            self._labels_parcellation, unique_idx = np.unique(self._labels_parcellation, return_index=True)                
+
+        # parcellation_names contains the label names corresponding to parcellation_labels
+        self._names_parcellation = checkpoint.train_dataset_dict.get("parcellation_names", None)
+        if (self._names_parcellation is not None):
+            # parcellation_names needs to be retrieved in the same order as parcellation_labels
+            if (isinstance(self._names_parcellation, str)):
+                self._names_parcellation = np.load(self._names_parcellation)
+            self._names_parcellation = self._names_parcellation[unique_idx]
+        
+        # retrieve self._label_mapping, self._inverse_label_mapping from checkpoint.train_dataset_dict
+        # or compute them from self._labels_parcellation for backward compatibility
+        self._parcellation_label_mapping = checkpoint.train_dataset_dict.get("parcellation_label_mapping", None)
+        self._inverse_parcellation_label_mapping = checkpoint.train_dataset_dict.get("inverse_parcellation_label_mapping", None)
+        if (self._parcellation_label_mapping is None):
+            logging.info(f"compute parcellation_label_mapping ...")
+            self._parcellation_label_mapping = {label:i for i, label in enumerate(self._labels_parcellation)}
+        if (self._inverse_parcellation_label_mapping is None):
+            logging.info(f"compute inverse_parcellation_label_mapping ...")
+            self._inverse_parcellation_label_mapping = {v: k for k, v in self._parcellation_label_mapping.items()}
+        assert self._inverse_parcellation_label_mapping is not None, "inverse_parcellation_label_mapping information not available."
+        ###
+
+        parcellation_model.load_state_dict(checkpoint.model_state_dict)
+        parcellation_model.eval()
+
         return parcellation_model
 
 
@@ -254,6 +307,7 @@ class Prediction:
             utils.save_framedimage(segmentation, out_segmentations[i],
                         geom=target_im_geom,
                         original_framedimage=sfimage,
+                        dtype=np.int32 if (posteriors_parc is not None) else None,
                         orientation=orig_ori,
                         labels=label_lookup if (addctab) else None,
                         resample=resample, method='nearest')
@@ -313,7 +367,7 @@ class Prediction:
 
             logging.info("")  # empty line
             logging.info(f"Evaluating segmentations ...")
-            eval = Evaluation(self._labels_segmentation)                
+            eval = Evaluation(self._labels_volume)                
             if (isinstance(path_gt, list)):
                 eval.evaluate(path_gt, out_segmentations, path_dice=path_dice)
             elif (os.path.isdir(path_gt)):
@@ -439,8 +493,8 @@ class Prediction:
            # obtain posteriors mask for non-background components, voxels outside the mask are marked as background
            tmp_posteriors = posteriors_seg[:, 1:, ...].clone()
            posteriors_mask = torch.sum(tmp_posteriors, axis=1) > 0.25
-           posteriors_mask = utils.get_largest_connected_component(posteriors_mask)
-           posteriors_mask = np.stack([posteriors_mask] * tmp_posteriors.shape[1], axis=1)
+           posteriors_mask = utils.get_largest_connected_component(posteriors_mask)         # [B, H, W (,D)]
+           posteriors_mask = np.stack([posteriors_mask] * tmp_posteriors.shape[1], axis=1)  # [B, C, H, W (,D)]
            tmp_posteriors = utils.mask_volume(tmp_posteriors, posteriors_mask)
            posteriors_seg[:, 1:, ...] = tmp_posteriors
 
@@ -478,6 +532,28 @@ class Prediction:
             segmentation_cropped = utils.remap_labels(predicted_segmentation, self._inverse_label_mapping)
         else:
             segmentation_cropped, vox_counts = utils.remap_labels(predicted_segmentation, self._inverse_label_mapping, return_counts=True)
+
+        # postprocess parcellation
+        if (posteriors_parc is not None):
+            # remove the padding
+            posteriors_parc = CropVolume(posteriors_parc.squeeze(0), pad_idx).unsqueeze(0)
+
+            # obtain parcellation mask
+            parcellation_mask = (segmentation_cropped == 3) | (segmentation_cropped == 42)  # [B, H, W (,D)]
+            # preset background label posteriors to all 1
+            posteriors_parc[:, 0, ...] = torch.ones_like(posteriors_parc[:, 0, ...])
+            # apply parcellation mask to background label posteriors, voxels outside the mask are set to 0
+            posteriors_parc[:, 0, ...] = utils.mask_volume(posteriors_parc[:, 0, ...].clone(), (parcellation_mask.numpy() < 0.1))
+            # normalize posteriors
+            posteriors_parc /= torch.sum(posteriors_parc, axis=1).unsqueeze(1)
+            
+            # get hard segmentation, posteriors is batched tensor [B, C, H, W (,D)], predicted_segmentation is [B, H, W (,D)]            
+            predicted_parcellation = torch.argmax(posteriors_parc, dim=1)
+            # map cortex labels to original id
+            parcellation_cropped = utils.remap_labels(predicted_parcellation, self._inverse_parcellation_label_mapping)
+
+            # paste the cortex labels to segmentation
+            segmentation_cropped[parcellation_mask] = parcellation_cropped[parcellation_mask]
         
         if (crop_idx is not None):
             # re-position predicted segmentation back to the original image indices where the image was cropped out
@@ -614,11 +690,19 @@ class Prediction:
 
 
 class EnsembledModel(torch.nn.Module):
-    def __init__(self, segmentation_model, parcellation_model=None, qc_model=None):
+    def __init__(self, segmentation_model, label_mapping=None, parcellation_model=None, qc_model=None):
         super(EnsembledModel, self).__init__()
         self._segmentation_model = segmentation_model
         self._parcellation_model = parcellation_model
         self._qc_model = qc_model
+
+        self._inverse_label_mapping = {v: k for k, v in label_mapping.items()}
+        self._cortex_label_mapping = label_mapping.copy()
+        for k, v in label_mapping.items():
+            if (k == 3 or k == 42):
+                self._cortex_label_mapping[k] = 1
+            else:
+                self._cortex_label_mapping[k] = 0
 
 
     def forward(self, x, x1=None):
@@ -628,8 +712,14 @@ class EnsembledModel(torch.nn.Module):
             (posteriors_seg, _) = self._segmentation_model(x, x1)
 
         if (self._parcellation_model is not None):
+            seg = torch.argmax(posteriors_seg, dim=1)
+            seg = utils.remap_labels(seg, self._inverse_label_mapping)
+            cortex = utils.remap_labels(seg, self._cortex_label_mapping)
+            onehot_cortex = utils.onehot(cortex, num_classes=2)    
+
+            inputs = torch.cat([x, onehot_cortex], dim=1)
             with torch.no_grad():
-                posteriors_parc = self._parcellation_model(posteriors_seg)
+                (posteriors_parc, _) = self._parcellation_model(inputs)
 
         if (self._qc_model is not None):
             with torch.no_grad():
