@@ -147,7 +147,8 @@ def main():
             keep_biggest_component=args.keep_biggest_component,
             use_topology_classes=args.use_topology_classes,
             topology_classes=args.topology_classes,
-            checkpoint_parc=args.parc)
+            checkpoint_parc=args.parc,
+            fast=args.fast,)
 
     # check memory usage
     vmpeak = utils.print_vm_peak()
@@ -169,6 +170,7 @@ def argument_parse():
     parser.add_argument("--o", type=str, required=True, help="Segmentation output(s). Must be a folder if --i designates a folder, or --dataset_list_file is specified.")
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to a segmentation checkpoint file")
     parser.add_argument("--parc", type=str, help="Path to a cortex parcellation checkpoint")
+    parser.add_argument("--fast", action="store_true", help="Bypass some processing (flip, use_topology_classes) for faster prediction")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     parser.add_argument("--target_res", nargs="+", type=float, help="Segmentation output resolution")
     parser.add_argument("--nokeepgeom", action="store_true", help="Donot resample output to be the same as input geometry")
@@ -201,9 +203,9 @@ def argument_parse():
 
 def predict(path_images, out_segmentations, checkpoint, crop_size=None, target_res=None, ctab=None, path_labels=None, path_priors=None, codenames=None,
             path_gt=None, addctab=True, write_posteriors=False, path_volumes=None, device=None, debug=False, keepgeom=False, segmentation_names=None,
-            keep_biggest_component=False, topology_classes=None, use_topology_classes=False, checkpoint_parc=None):
+            keep_biggest_component=False, topology_classes=None, use_topology_classes=False, checkpoint_parc=None, fast=False):
     prediction = Prediction(device, ctab=ctab, topology_classes=topology_classes, debug=debug)
-    prediction.build_model(checkpoint, checkpoint_parc)
+    prediction.build_model(checkpoint, parcellation_checkpoint=checkpoint_parc, fast=fast)
     prediction.predict(path_images, out_segmentations,
                        crop_size=crop_size,
                        target_res=target_res,

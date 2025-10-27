@@ -31,7 +31,7 @@ class Prediction:
         Prediction Constructor.
         """
 
-        self._ensembled_model = None
+        self._ensemble_model = None
         self._device = device
         if (self._device is None):
             self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -55,10 +55,18 @@ class Prediction:
         self._crop_size = None
 
 
-    def build_model(self, segmentation_checkpoint, parcellation_checkpoint=None, qc_checkpoint=None):
-        # load individual models
+    def build_model(self, segmentation_checkpoint, parcellation_checkpoint=None, qc_checkpoint=None, fast=False):
+        # load segmentation model
         segmentation_model = self.load_segmentation_model(segmentation_checkpoint)
+        
+        # create the posteriors channel indices with left-right flipped labels
+        if (not fast and self._left_right_corresponding is None):
+            logging.info(f"No left_right_corresponding found, set 'fast=True'")
+            fast = True
+        if (not fast):
+            self.get_posteriors_flipped_indices()        
 
+        # load parcellation/qc models if applicable
         parcellation_model, qc_model = None, None        
         if (parcellation_checkpoint is not None):
             parcellation_model = self.load_parcellation_model(parcellation_checkpoint)
@@ -72,9 +80,11 @@ class Prediction:
             self._labels_volume = np.concatenate([self._labels_volume, self._labels_parcellation[1:]])
             self._names_volume  = np.concatenate([self._names_volume,  self._names_parcellation[1:]])
 
-        # build ensembled model
-        self._ensembled_model = EnsembledModel(segmentation_model, self._label_mapping, parcellation_model, qc_model)
-        self._ensembled_model.eval()
+        # build ensemble model
+        self._ensemble_model = EnsembleModel(segmentation_model,
+                                             label_mapping=self._label_mapping, posterior_flipped_indices=self._posterior_flipped_indices,
+                                             parcellation_model=parcellation_model, qc_model=qc_model)
+        self._ensemble_model.eval()
 
             
     def load_segmentation_model(self, model_checkpoint):
@@ -104,15 +114,22 @@ class Prediction:
         self._nb_levels = checkpoint.model_arch_dict["nb_levels"]
         self._ndims = checkpoint.model_arch_dict["ndims"]
         assert (self._ndims == 3 or self._ndims == 2), "Model supports 3D or 2D"
-        
-        self._labels_segmentation, self._unique_idx = np.unique(checkpoint.train_dataset_dict["segmentation_labels"], return_index=True)
+
+        self._posterior_flipped_indices = None
+        self._left_right_corresponding = checkpoint.train_dataset_dict.get("left_right_corresponding", None)
+        if (self._left_right_corresponding is not None):
+            # calculate number of non-sided labels
+            self._num_neutral_labels = len(checkpoint.train_dataset_dict["segmentation_labels"]) - len(self._left_right_corresponding)
+
+        # obtain sorted unique labels and their corresponding indices to the original array
+        self._labels_segmentation, self._unique_idx_seg = np.unique(checkpoint.train_dataset_dict["segmentation_labels"], return_index=True)
         self._num_labels = len(self._labels_segmentation)
 
         # segmentation_names contains the label names corresponding to segmentation_labels
         self._names_segmentation = checkpoint.train_dataset_dict.get("segmentation_names", None)
         if (self._names_segmentation is not None):
             # segmentation_names needs to be retrieved in the same order as segmentation_labels
-            self._names_segmentation = self._names_segmentation[self._unique_idx]
+            self._names_segmentation = self._names_segmentation[self._unique_idx_seg]
         
         # retrieve topology_classes from checkpoint, set them to classes corresponding to segmentation_labels
         # command line input overrides the copy saved in checkpoint
@@ -122,7 +139,7 @@ class Prediction:
             # self._topology_classes can be either str to npy, or numpy array
             if (isinstance(self._topology_classes, str)):
                 self._topology_classes = np.load(self._topology_classes)
-            self._topology_classes = self._topology_classes[self._unique_idx]
+            self._topology_classes = self._topology_classes[self._unique_idx_seg]
 
         # retrieve self._label_mapping, self._inverse_label_mapping from checkpoint.train_dataset_dict
         # or compute them from self._labels_segmentation for backward compatibility
@@ -267,7 +284,7 @@ class Prediction:
         # ??? default to 1mm if self._target_res is None ???
         self._keepgeom = keepgeom
         if (segmentation_names is not None):
-            self._names_segmentation = segmentation_names[self._unique_idx]
+            self._names_segmentation = segmentation_names[self._unique_idx_seg]
 
         path_images, path_labels, path_priors, out_segmentations, codenames, out_posteriors, csv_subjects = \
             self.prepare_output_files(path_images, path_labels, path_priors, out_segmentations, codenames, write_posteriors, path_volumes)
@@ -275,7 +292,7 @@ class Prediction:
         if (self._debug):
             self._out_debug_dir = os.path.join(os.path.dirname(out_segmentations[0]), "debug")
             os.makedirs(self._out_debug_dir, exist_ok=True)            
-            self.register_hook(self._ensembled_model)
+            self.register_hook(self._ensemble_model)
 
         # create empty lists for predictions, label volumes, tivs, voxel counts
         self.list_predictions, self.volumes, self.tivs, self.vox_counts = [], [], [], []
@@ -293,7 +310,7 @@ class Prediction:
 
             ### prediction ###
             with torch.no_grad():
-                (posteriors_seg, posteriors_parc, qc_score) = self._ensembled_model(image_tensor_preprocessed, prior_tensor_preprocessed)
+                (posteriors_seg, posteriors_parc, qc_score) = self._ensemble_model(image_tensor_preprocessed, prior_tensor_preprocessed)
 
             ### postprocessing ###
             segmentation, posteriors, = \
@@ -689,13 +706,54 @@ class Prediction:
         return path_images, path_labels, path_priors, out_segmentations, codenames, out_posteriors, csv_subjects
 
 
-class EnsembledModel(torch.nn.Module):
-    def __init__(self, segmentation_model, label_mapping=None, parcellation_model=None, qc_model=None):
-        super(EnsembledModel, self).__init__()
+    # create the posteriors channel indices with left-right labels flipped
+    # it is to be called after obtaining sorted unique segmentation labels and their corresponding indices to the original array
+    def get_posteriors_flipped_indices(self):
+        # build left->right and right->left label mappings
+        left_right_mapping = {}
+        for idx in range(0, len(self._left_right_corresponding), 2):
+            left_right_mapping.update({self._left_right_corresponding[idx] : self._left_right_corresponding[idx+1]})
+            left_right_mapping.update({self._left_right_corresponding[idx+1] : self._left_right_corresponding[idx]})
+    
+        # keep track of labels processed
+        labels_seg_processed = []
+
+        # create left-right flipped posterior channels
+        self._posterior_flipped_indices = np.arange(self._num_labels)
+        for (posterior_channel, unique_idx) in enumerate(self._unique_idx_seg):
+            if (len(labels_seg_processed) == self._num_labels):
+                break
+        
+            label = self._labels_segmentation[posterior_channel]
+            labels_seg_processed.append(label)
+            if (unique_idx < self._num_neutral_labels):
+                # non-sided labels, keep their posterior channels
+                self._posterior_flipped_indices[posterior_channel] = posterior_channel
+            else:
+                # get the label on opposite side of the brain
+                other_label = left_right_mapping[label]
+                labels_seg_processed.append(other_label)
+                # get its corresponding posterior_channel (its position index to self._labels_segmentation)
+                other_posterior_channel = np.where(self._labels_segmentation == other_label)[0][0]
+                # flip left-right label posterior channels
+                self._posterior_flipped_indices[posterior_channel] = other_posterior_channel
+                self._posterior_flipped_indices[other_posterior_channel] = posterior_channel
+                #print(f"flip left-right label ({label:02d}, {other_label:02d}) posterior channels {posterior_channel:2d} <=> {other_posterior_channel:2d}")                
+
+        # save the indices as list
+        self._posterior_flipped_indices = list(self._posterior_flipped_indices)
+        logging.info(f"posteriors channel indices with left-right flipped labels: {self._posterior_flipped_indices}")
+
+
+class EnsembleModel(torch.nn.Module):
+    def __init__(self, segmentation_model, label_mapping=None, posterior_flipped_indices=None,
+                 parcellation_model=None, qc_model=None):
+        super(EnsembleModel, self).__init__()
         self._segmentation_model = segmentation_model
         self._parcellation_model = parcellation_model
         self._qc_model = qc_model
 
+        self._posterior_flipped_indices = posterior_flipped_indices
         self._inverse_label_mapping = {v: k for k, v in label_mapping.items()}
         self._cortex_label_mapping = label_mapping.copy()
         for k, v in label_mapping.items():
@@ -710,6 +768,23 @@ class EnsembledModel(torch.nn.Module):
 
         with torch.no_grad():
             (posteriors_seg, _) = self._segmentation_model(x, x1)
+
+        if (self._posterior_flipped_indices is not None):
+            # assuming the input x and x1 ([B, C, H, W(, D)]) are in RAS
+            axis = 2  # left-right axis
+
+            # predict left-right flipped image
+            x_flipped = x.flip([axis])
+            x1_flipped = x1.flip([axis]) if (x1 is not None) else x1
+            (posteriors_seg_flipped, _) = self._segmentation_model(x_flipped, x1_flipped)
+
+            # flip the posteriors back
+            posteriors_seg_flipped = posteriors_seg_flipped.flip([axis])
+            # re-order the posteriors channels to match left-right flipped labels
+            posteriors_seg_flipped = posteriors_seg_flipped = posteriors_seg_flipped[:, self._posterior_flipped_indices, ...]
+
+            # average two posteriors
+            posteriors_seg = (posteriors_seg + posteriors_seg_flipped) / 2
 
         if (self._parcellation_model is not None):
             seg = torch.argmax(posteriors_seg, dim=1)
@@ -726,4 +801,3 @@ class EnsembledModel(torch.nn.Module):
                 qc_score = self._qc_model(posteriors_seg)
 
         return posteriors_seg, posteriors_parc, qc_score
-
