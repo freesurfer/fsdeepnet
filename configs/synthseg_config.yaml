@@ -3,7 +3,7 @@ dataset:
   generation_labels: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_charm_choroid_lesions_csf.npy
   generation_classes: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_classes_charm_choroid_lesions_gm_csf.npy
   segmentation_labels: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/segmentation_charm_choroid_lesions_csf.npy
-  segmentation_names: /usr/local/freesurfer/8.0.0/models/synthseg_segmentation_names_2.0.npy
+  segmentation_names: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/segmentation_names_lut_2.0.npy
   topology_classes: /usr/local/freesurfer/8.0.0/models/synthseg_topological_classes_2.0.npy
   left_right_corresponding: [2, 41, 3, 42, 4, 43, 5, 44, 7, 46, 8, 47, 10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54, 25, 57, 26, 58, 28, 60, 30, 62, 136, 163, 137, 164]
   expected_num_channels: 1
@@ -213,3 +213,11 @@ evaluation:
 #names_segmentation_labels = '/usr/local/freesurfer/8.0.0/models/synthseg_segmentation_names_2.0.npy'
 #topology_classes = '/usr/local/freesurfer/8.0.0/models/synthseg_topological_classes_2.0.npy'
 #
+#
+# ll /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/*.npy
+# -rw-rw-r--. 1 greve recon  7168 Oct 27 15:26 /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/segmentation_names_lut_2.0.npy
+# -rwxrwx---. 1 greve recon   348 Mar 11  2022 /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/segmentation_charm_choroid_lesions_csf.npy
+# -rwxrwx---. 1 greve recon   568 Mar 11  2022 /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_classes_charm_choroid_lesions_gm_csf.npy
+# -rwxrwx---. 1 greve recon   348 Mar 11  2022 /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_charm_choroid_lesions_csf.npy
+# -rwxrwx---. 1 greve recon 32512 Dec 15  2021 /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/subject_prob.npy
+# -rwxrwx---. 1 greve recon   248 Nov 12  2021 /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/topology_merged_choroid_ventricles.npy
