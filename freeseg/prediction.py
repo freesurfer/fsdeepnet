@@ -55,22 +55,27 @@ class Prediction:
         self._crop_size = None
 
 
-    def build_model(self, segmentation_checkpoint, parcellation_checkpoint=None, qc_checkpoint=None, fast=False):
+    def build_model(self, segmentation_checkpoint, parcellation_checkpoint=None, qc_checkpoint=None, flip=False):
+        model_info = "segmentation"
+        
         # load segmentation model
         segmentation_model = self.load_segmentation_model(segmentation_checkpoint)
         
         # create the posteriors channel indices with left-right flipped labels
-        if (not fast and self._left_right_corresponding is None):
-            logging.info(f"No left_right_corresponding found, set 'fast=True'")
-            fast = True
-        if (not fast):
+        if (flip and self._left_right_corresponding is None):
+            logging.info(f"No left_right_corresponding found, set 'flip=False'")
+            flip = False
+        if (flip):
+            model_info += " +flip"
             self.get_posteriors_flipped_indices()        
 
         # load parcellation/qc models if applicable
         parcellation_model, qc_model = None, None        
         if (parcellation_checkpoint is not None):
+            model_info += " +parcellation"
             parcellation_model = self.load_parcellation_model(parcellation_checkpoint)
         if (qc_checkpoint is not None):
+            model_info += " +qc"
             qc_model = self.load_qc_model(qc_checkpoint)
 
         # concatenate segmentation and parcellation
@@ -85,6 +90,7 @@ class Prediction:
                                              label_mapping=self._label_mapping, posterior_flipped_indices=self._posterior_flipped_indices,
                                              parcellation_model=parcellation_model, qc_model=qc_model)
         self._ensemble_model.eval()
+        logging.info(f"Prediction.build_model(): ensemble model = {model_info}")
 
             
     def load_segmentation_model(self, model_checkpoint):
