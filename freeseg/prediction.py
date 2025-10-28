@@ -8,7 +8,7 @@ import surfa as sf
 
 from freeseg.checkpoint import Checkpoint
 from freeseg.utils import utility as utils
-from freeseg.augmentation.augmentbase import CenterCrop, RescaleVolume, ResampleVolume, PadVolume, CropVolume
+from freeseg.augmentation.augmentbase import CenterCrop, RescaleVolume, ResampleVolume, PadVolume, CropVolume, GaussianBlur
 
 class Prediction:
     """
@@ -55,7 +55,7 @@ class Prediction:
         self._crop_size = None
 
 
-    def build_model(self, segmentation_checkpoint, parcellation_checkpoint=None, qc_checkpoint=None, flip=False):
+    def build_model(self, segmentation_checkpoint, parcellation_checkpoint=None, qc_checkpoint=None, flip=False, smooth_posteriors=False):
         model_info = "segmentation"
         
         # load segmentation model
@@ -67,7 +67,10 @@ class Prediction:
             flip = False
         if (flip):
             model_info += " +flip"
-            self.get_posteriors_flipped_indices()        
+            self.get_posteriors_flipped_indices()
+
+        if (smooth_posteriors):
+            model_info += " +smooth_posteriors"
 
         # load parcellation/qc models if applicable
         parcellation_model, qc_model = None, None        
@@ -88,6 +91,7 @@ class Prediction:
         # build ensemble model
         self._ensemble_model = EnsembleModel(segmentation_model,
                                              label_mapping=self._label_mapping, posterior_flipped_indices=self._posterior_flipped_indices,
+                                             smooth_sigma=0.5, device=self._device, smooth_posteriors=smooth_posteriors,
                                              parcellation_model=parcellation_model, qc_model=qc_model)
         self._ensemble_model.eval()
         logging.info(f"Prediction.build_model(): ensemble model = {model_info}")
@@ -753,11 +757,21 @@ class Prediction:
 
 class EnsembleModel(torch.nn.Module):
     def __init__(self, segmentation_model, label_mapping=None, posterior_flipped_indices=None,
+                 smooth_sigma=0.5, device=None, smooth_posteriors=False,
                  parcellation_model=None, qc_model=None):
         super(EnsembleModel, self).__init__()
         self._segmentation_model = segmentation_model
         self._parcellation_model = parcellation_model
         self._qc_model = qc_model
+
+        self._device = device
+        if (self._device is None):
+            self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self._smooth_sigma = smooth_sigma
+        self._gaussianblur = None
+        if (smooth_posteriors):
+            # ??? todo: check synthseg kernel size ???
+            self._gaussianblur = GaussianBlur(device=self._device)
 
         self._posterior_flipped_indices = posterior_flipped_indices
         self._inverse_label_mapping = {v: k for k, v in label_mapping.items()}
@@ -774,6 +788,11 @@ class EnsembleModel(torch.nn.Module):
 
         with torch.no_grad():
             (posteriors_seg, _) = self._segmentation_model(x, x1)
+
+        if (self._gaussianblur is not None):
+            # smooth posteriors
+            blur_out = self._gaussianblur({'image':posteriors_seg.squeeze(0)}, self._smooth_sigma)
+            posteriors_seg = blur_out.get("image", None).unsqueeze(0)
 
         if (self._posterior_flipped_indices is not None):
             # assuming the input x and x1 ([B, C, H, W(, D)]) are in RAS
@@ -801,6 +820,11 @@ class EnsembleModel(torch.nn.Module):
             inputs = torch.cat([x, onehot_cortex], dim=1)
             with torch.no_grad():
                 (posteriors_parc, _) = self._parcellation_model(inputs)
+
+            if (self._gaussianblur is not None):
+                # smooth posteriors
+                blur_out = self._gaussianblur({'image':posteriors_parc.squeeze(0)}, self._smooth_sigma)
+                posteriors_parc = blur_out.get("image", None).unsqueeze(0)
 
         if (self._qc_model is not None):
             with torch.no_grad():

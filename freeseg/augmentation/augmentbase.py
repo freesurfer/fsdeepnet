@@ -996,8 +996,8 @@ class GaussianBlur(torch.nn.Module):
         hp = {} if (hp is None) else hp
         """
         'blur_range' introduces a randomness in the blurring kernels, where sigma is now 
-        multiplied by a coefficient dynamically sampled from a uniform distribution with
-        bounds [1/random_blur_range, random_blur_range]
+                     multiplied by a coefficient dynamically sampled from a uniform distribution with
+                     bounds [1/blur_range, blur_range]
         'max_sigma' and 'truncate' are used to compute the 'radius' - size of blurring kernels
         """
         self.blur_range = hp.get("gaussian_blur_range", None)
@@ -1017,9 +1017,6 @@ class GaussianBlur(torch.nn.Module):
         """
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.GaussianBlur'")
-
-        assert (self.max_sigma is not None), \
-            f"freeseg.augmentation.augmentbase.GaussianBlur(): need to specify gaussian_blur_sigma"
 
         image = input.get("image", None)
         label = input.get("label", None)
