@@ -138,6 +138,9 @@ class Prediction:
         # segmentation_names contains the label names corresponding to segmentation_labels
         self._names_segmentation = checkpoint.train_dataset_dict.get("segmentation_names", None)
         if (self._names_segmentation is not None):
+            # self._names_segmentation can be either str to npy, or numpy array
+            if (isinstance(self._names_segmentation, str)):
+                self._names_segmentation = np.load(self._names_segmentation)
             # segmentation_names needs to be retrieved in the same order as segmentation_labels
             self._names_segmentation = self._names_segmentation[self._unique_idx_seg]
         
@@ -165,7 +168,11 @@ class Prediction:
         # set target resolution to the resolution of the training data
         self._target_res = checkpoint.train_dataset_dict.get("target_res", None)
         if (self._label_lookup is None):
+            # 'label_lookup' can be either surfa.LabelLookup object or str to LUT
             self._label_lookup = checkpoint.label_lookup
+            if (isinstance(self._label_lookup, str)):
+                import surfa as sf
+                self._label_lookup = sf.load_label_lookup(self._label_lookup)
 
         segmentation_model.load_state_dict(checkpoint.model_state_dict)
         segmentation_model.eval()
