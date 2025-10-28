@@ -663,19 +663,20 @@ class Training:
             # UPDATE config.dataset
             config["dataset"].update(train_dataset_dict)
 
+        #### update model architecture dict
+        model_arch_dict = config["model"]
+        model_arch_dict["num_channels"] = config["model"].get("num_channels", None)
+        if (model_arch_dict["num_channels"] is None):
+            model_arch_dict["num_channels"] = config["dataset"]["expected_num_channels"]
+        model_arch_dict["nb_labels"] = config["model"].get("final_features", None)
+        if (model_arch_dict["nb_labels"] is None):
+            model_arch_dict["nb_labels"] = config["dataset"]["num_labels"]
+        model_arch_dict["add_priors"] = train_dataset_dict.get("priors", False)
+        model_arch_dict["weight_init"] = config["model"].get("weight_init", None)
+
         #### create the model to train
         model, optimizer_cls = None, None
         if (create_model):
-            model_arch_dict = config["model"]
-            model_arch_dict["num_channels"] = config["model"].get("num_channels", None)
-            if (model_arch_dict["num_channels"] is None):
-                model_arch_dict["num_channels"] = config["dataset"]["expected_num_channels"]
-            model_arch_dict["nb_labels"] = config["model"].get("final_features", None)
-            if (model_arch_dict["nb_labels"] is None):
-                model_arch_dict["nb_labels"] = config["dataset"]["num_labels"]
-            model_arch_dict["add_priors"] = train_dataset_dict.get("priors", False)
-            model_arch_dict["weight_init"] = config["model"].get("weight_init", None)
-
             the_model_name = model_arch_dict.get("name", None)
             assert the_model_name is not None, "Model name is not available."
 
