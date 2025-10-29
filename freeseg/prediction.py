@@ -12,7 +12,7 @@ from freeseg.augmentation.augmentbase import CenterCrop, RescaleVolume, Resample
 
 class Prediction:
     """
-    This class run predictions of the model provided, and evaluations if ground truth is given
+    This class run predictions, and evaluations if ground truth is given
 
     Attributes
     ----------
@@ -20,10 +20,10 @@ class Prediction:
     Methods
     -------
     build_model
-        Load and ensemble the trained models
+        Assemble the inference model
 
     predict
-        Predict with the loaded model
+        Predict with the assembled inference model
     """
         
     def __init__(self, device=None, ctab=None, topology_classes=None, debug=False):
@@ -31,7 +31,7 @@ class Prediction:
         Prediction Constructor.
         """
 
-        self._ensemble_model = None
+        self._inference_model = None
         self._device = device
         if (self._device is None):
             self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -88,13 +88,13 @@ class Prediction:
             self._labels_volume = np.concatenate([self._labels_volume, self._labels_parcellation[1:]])
             self._names_volume  = np.concatenate([self._names_volume,  self._names_parcellation[1:]])
 
-        # build ensemble model
-        self._ensemble_model = EnsembleModel(segmentation_model,
+        # build inference model
+        self._inference_model = InferenceModel(segmentation_model,
                                              label_mapping=self._label_mapping, posterior_flipped_indices=self._posterior_flipped_indices,
                                              smooth_sigma=0.5, device=self._device, smooth_posteriors=smooth_posteriors,
                                              parcellation_model=parcellation_model, qc_model=qc_model)
-        self._ensemble_model.eval()
-        logging.info(f"Prediction.build_model(): ensemble model = {model_info}")
+        self._inference_model.eval()
+        logging.info(f"Prediction.build_model(): InferenceModel = {model_info}")
 
             
     def load_segmentation_model(self, model_checkpoint):
@@ -137,10 +137,10 @@ class Prediction:
 
         # segmentation_names contains the label names corresponding to segmentation_labels
         self._names_segmentation = checkpoint.train_dataset_dict.get("segmentation_names", None)
-        if (self._names_segmentation is not None):
-            # self._names_segmentation can be either str to npy, or numpy array
-            if (isinstance(self._names_segmentation, str)):
-                self._names_segmentation = np.load(self._names_segmentation)
+        # self._names_segmentation can be either str to npy, or numpy array
+        if (isinstance(self._names_segmentation, str)):
+            self._names_segmentation = np.load(self._names_segmentation) if (os.path.exists(self._names_segmentation)) else None
+        if (self._names_segmentation is not None):            
             # segmentation_names needs to be retrieved in the same order as segmentation_labels
             self._names_segmentation = self._names_segmentation[self._unique_idx_seg]
         
@@ -148,10 +148,10 @@ class Prediction:
         # command line input overrides the copy saved in checkpoint
         if (self._topology_classes is None):
             self._topology_classes = checkpoint.train_dataset_dict.get("topology_classes", None)
-        if (self._topology_classes is not None):
-            # self._topology_classes can be either str to npy, or numpy array
-            if (isinstance(self._topology_classes, str)):
-                self._topology_classes = np.load(self._topology_classes)
+        # self._topology_classes can be either str to npy, or numpy array
+        if (isinstance(self._topology_classes, str)):
+            self._topology_classes = np.load(self._topology_classes) if (os.path.exists(self._topology_classes)) else None
+        if (self._topology_classes is not None):            
             self._topology_classes = self._topology_classes[self._unique_idx_seg]
 
         # retrieve self._label_mapping, self._inverse_label_mapping from checkpoint.train_dataset_dict
@@ -171,8 +171,11 @@ class Prediction:
             # 'label_lookup' can be either surfa.LabelLookup object or str to LUT
             self._label_lookup = checkpoint.label_lookup
             if (isinstance(self._label_lookup, str)):
-                import surfa as sf
-                self._label_lookup = sf.load_label_lookup(self._label_lookup)
+                if (not os.path.exists(self._label_lookup)):
+                    self._label_lookup = None
+                else:
+                    import surfa as sf
+                    self._label_lookup = sf.load_label_lookup(self._label_lookup)
 
         segmentation_model.load_state_dict(checkpoint.model_state_dict)
         segmentation_model.eval()
@@ -197,17 +200,17 @@ class Prediction:
 
         ###
         self._labels_parcellation = checkpoint.train_dataset_dict.get("parcellation_labels", None)
-        if (self._labels_parcellation is not None):
-            if (isinstance(self._labels_parcellation, str)):
-                self._labels_parcellation = np.load(self._labels_parcellation)
+        if (isinstance(self._labels_parcellation, str)):
+            self._labels_parcellation = np.load(self._labels_parcellation) if (os.path.exists(self._labels_parcellation)) else None
+        if (self._labels_parcellation is not None):            
             self._labels_parcellation, unique_idx = np.unique(self._labels_parcellation, return_index=True)                
 
         # parcellation_names contains the label names corresponding to parcellation_labels
         self._names_parcellation = checkpoint.train_dataset_dict.get("parcellation_names", None)
-        if (self._names_parcellation is not None):
-            # parcellation_names needs to be retrieved in the same order as parcellation_labels
-            if (isinstance(self._names_parcellation, str)):
-                self._names_parcellation = np.load(self._names_parcellation)
+        # parcellation_names needs to be retrieved in the same order as parcellation_labels
+        if (isinstance(self._names_parcellation, str)):
+            self._names_parcellation = np.load(self._names_parcellation) if (os.path.exists(self._names_parcellation)) else None
+        if (self._names_parcellation is not None):            
             self._names_parcellation = self._names_parcellation[unique_idx]
         
         # retrieve self._label_mapping, self._inverse_label_mapping from checkpoint.train_dataset_dict
@@ -309,7 +312,7 @@ class Prediction:
         if (self._debug):
             self._out_debug_dir = os.path.join(os.path.dirname(out_segmentations[0]), "debug")
             os.makedirs(self._out_debug_dir, exist_ok=True)            
-            self.register_hook(self._ensemble_model)
+            self.register_hook(self._inference_model)
 
         # create empty lists for predictions, label volumes, tivs, voxel counts
         self.list_predictions, self.volumes, self.tivs, self.vox_counts = [], [], [], []
@@ -327,7 +330,7 @@ class Prediction:
 
             ### prediction ###
             with torch.no_grad():
-                (posteriors_seg, posteriors_parc, qc_score) = self._ensemble_model(image_tensor_preprocessed, prior_tensor_preprocessed)
+                (posteriors_seg, posteriors_parc, qc_score) = self._inference_model(image_tensor_preprocessed, prior_tensor_preprocessed)
 
             ### postprocessing ###
             segmentation, posteriors, = \
@@ -524,15 +527,17 @@ class Prediction:
 
         # keep biggest connected components
         if (keep_biggest_component):
-           # obtain posteriors mask for non-background components, voxels outside the mask are marked as background
-           tmp_posteriors = posteriors_seg[:, 1:, ...].clone()
-           posteriors_mask = torch.sum(tmp_posteriors, axis=1) > 0.25
-           posteriors_mask = utils.get_largest_connected_component(posteriors_mask)         # [B, H, W (,D)]
-           posteriors_mask = np.stack([posteriors_mask] * tmp_posteriors.shape[1], axis=1)  # [B, C, H, W (,D)]
-           tmp_posteriors = utils.mask_volume(tmp_posteriors, posteriors_mask)
-           posteriors_seg[:, 1:, ...] = tmp_posteriors
+            logging.info("Prediction.postprocess(): set posteriors outside the biggest connected component to zero")
+            # obtain posteriors mask for non-background components, voxels outside the mask are marked as background
+            tmp_posteriors = posteriors_seg[:, 1:, ...].clone()
+            posteriors_mask = torch.sum(tmp_posteriors, axis=1) > 0.25
+            posteriors_mask = utils.get_largest_connected_component(posteriors_mask)         # [B, H, W (,D)]
+            posteriors_mask = np.stack([posteriors_mask] * tmp_posteriors.shape[1], axis=1)  # [B, C, H, W (,D)]
+            tmp_posteriors = utils.mask_volume(tmp_posteriors, posteriors_mask)
+            posteriors_seg[:, 1:, ...] = tmp_posteriors
 
         if (use_topology_classes and self._topology_classes is not None):
+            logging.info("Prediction.postprocess(): set posteriors outside the largest connected component of each topological class to zero")
             posteriors_mask = posteriors_seg > 0.25
             tmp_posteriors = posteriors_seg.detach().numpy()
             # reset posteriors to zero outside the largest connected component of each topological class
@@ -762,11 +767,11 @@ class Prediction:
         logging.info(f"posteriors channel indices with left-right flipped labels: {self._posterior_flipped_indices}")
 
 
-class EnsembleModel(torch.nn.Module):
+class InferenceModel(torch.nn.Module):
     def __init__(self, segmentation_model, label_mapping=None, posterior_flipped_indices=None,
                  smooth_sigma=0.5, device=None, smooth_posteriors=False,
                  parcellation_model=None, qc_model=None):
-        super(EnsembleModel, self).__init__()
+        super(InferenceModel, self).__init__()
         self._segmentation_model = segmentation_model
         self._parcellation_model = parcellation_model
         self._qc_model = qc_model
