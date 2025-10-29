@@ -15,10 +15,11 @@ from freeseg.utils import utility as utils
 
 description = """
 Usage: freeseg_checkmodel.py 
-       --config <config.yaml> | --checkpoint <checkpoint> [[--info [--detail] [--nkeys <n>] [--keys <>]]
-                                                           [--strip_optimizer_state]
-                                                           [--update label_lookup:<> segmentation_names:<> topology_classes:<> model_class:<> config:config]
-                                                           [--weight_outdir <weight_outdir>]]
+       --config <config.yaml> | --checkpoint <checkpoint> [ [--info [--detail] [--report_type] [--nkeys <n>] [--keys <>] ]
+                                                            [--weight_outdir <weight_outdir>]
+                                                            [--saveas <> 
+                                                              [--strip_optimizer_state]
+                                                              [--update label_lookup:<> segmentation_names:<> topology_classes:<> model_class:<> config:config] ] ]
        [--ndims <n>]
        [--input_shape <H W (D)>]
        [--cpu]
@@ -32,6 +33,10 @@ Usage: freeseg_checkmodel.py
           b) '--update label_lookup:<> segmentation_names:<> topology_classes:<> model_class:<> config:config'
              update pre-trained model with given key:value pairs
              if key:value=='config:config', both train_dataset_dict and model_arch_dict are updated using the config.yaml
+
+Example:
+       fspython freeseg_checkmodel.py --checkpoint 7233351_dice_300.pth --strip_optimizer_state --saveas new2.7233351_dice_300.pth 
+       --update topology_classes:/usr/local/freesurfer/8.0.0/models/synthseg_topological_classes_2.0.npy segmentation_names:/autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/segmentation_names_lut_2.0.npy
 """
 
 # Configure logging settings
@@ -87,7 +92,7 @@ def main():
     if (info):
         if (checkpoint.model_arch_dict is None):
             print("WARN: Model architecture information not available")
-        Checkpoint.print(checkpoint.dict, detail=args.detail, nkeys=args.nkeys, keys=args.keys)
+        Checkpoint.print(checkpoint.dict, detail=args.detail, nkeys=args.nkeys, keys=args.keys, report_type=args.report_type)
         sys.exit(0)
 
     # update checkpoint
@@ -140,6 +145,7 @@ def argument_parse(description):
     parser.add_argument("--checkpoint", type=str, help="Path to a checkpoint file")
     parser.add_argument("--info", action='store_true', help="Report checkpoint root level contents")
     parser.add_argument("--detail", action='store_true', help="Recursively report checkpoint contents in detail, only works with '--info'")
+    parser.add_argument("--report_type", action='store_true', help="Report types for instances other than 'dict', 'torch.Tensor', and 'numpy.ndarray', only works with '--detail'")
     parser.add_argument("--nkeys", type=int, default=30, help="Limit the number of dict keys to report, only works with '--detail'")
     parser.add_argument("--keys", nargs="+", type=str, help="List of dict keys to report, only works with '--detail'")
     parser.add_argument("--weight_outdir", type=str, help="Directory to save trainable parameters in given checkpoint")

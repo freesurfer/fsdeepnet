@@ -53,7 +53,7 @@ class Checkpoint:
 
 
     @staticmethod
-    def print(dictionary, level=0, detail=False, indent=0, nkeys=30, keys=None):
+    def print(dictionary, level=0, detail=False, indent=0, nkeys=30, keys=None, report_type=False):
         import numpy
         
         # print checkpoint dict information
@@ -77,16 +77,17 @@ class Checkpoint:
                 if (isinstance(v, dict)):
                     if (level > 0):  # print keys only if the next level is a dict
                         print(f"{indentation} <<{k}>>")
-                    Checkpoint.print(v, level+1, detail, indent+2, nkeys)
+                    Checkpoint.print(v, level+1, detail, indent+2, nkeys, report_type=report_type)
                 elif (isinstance(v, torch.Tensor)):
-                    print(f"{indentation2} {k} : (torch.Tensor) {list(v.shape)}")
+                    print(f"{indentation2} {k} : (torch.Tensor) {v.dtype} {list(v.shape)}")
                 elif (isinstance(v, numpy.ndarray)):
-                    print(f"{indentation2} {k} : (numpy.ndarray) {list(v.shape)}")
+                    print(f"{indentation2} {k} : (numpy.ndarray) {v.dtype} {list(v.shape)}")
                 elif (v is None or \
                       isinstance(v, int)   or isinstance(v, numpy.int32)   or isinstance(v, numpy.int64)   or \
                       isinstance(v, float) or isinstance(v, numpy.float32) or isinstance(v, numpy.float64) or \
                       isinstance(v, str) or isinstance(v, list) or isinstance(v, tuple)):
-                    print(f"{indentation2} {v}") if (level == 0) else print(f"{indentation2} {k} : {v}")
+                    type_v = f"({type(v)})" if (report_type) else ""
+                    print(f"{indentation2} {v} {type_v}") if (level == 0) else print(f"{indentation2} {k} : {v} {type_v}")
                     
                 else:
                     print(f"{indentation2} {type(v)}") if (level == 0) else print(f"{indentation2} {k} : {type(v)}")
