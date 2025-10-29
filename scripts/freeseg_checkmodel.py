@@ -72,7 +72,7 @@ def main():
     # load config file
     config = None
     if (args.config is not None):
-        config = Config.process(args, logger=logging)
+        config = Config.process(args, logger=logging, require_train_outfolder=False, require_dataset_list=False)
         config, _, _, _, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=False)
 
     # load pre-trained model
