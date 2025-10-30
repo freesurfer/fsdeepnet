@@ -18,6 +18,7 @@ Usage: freeseg_predict.py
        [--i <image_path> | --dataset_list_file <dataset.yaml> --cohort <train|validation|test>]
        --o  <output_segmentations>
        --checkpoint <checkpoint>
+       [--flip] [--smooth_posteriors] [--keep_biggest_component] [--use_topology_classes]
        [--crop_size <W H D>]
        [--ctab <ctab>]
        [--label <input_labels>]
@@ -34,6 +35,11 @@ Usage: freeseg_predict.py
       1. --i <image_path> or 
       2. --dataset_list_file <dataset.yaml> --cohort <train|validation|test>
     * Options --i <image_path> and --dataset_list_file <dataset.yaml> are mutually exclusive.
+    * Options that will affect the final posteriors
+      1. ‘--flip’:                   predict left-right flipped image
+      2. ‘--smooth_posteriors’:      smooth posteriors output from network
+      3. ‘--keep_biggest_component’: posteriors outside the biggest connected component are set to zero
+      4. ‘--use_topology_classes’:   set posteriors to zero outside the largest connected component of each topological class
 """
 
 def main():
