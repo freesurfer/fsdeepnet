@@ -19,7 +19,7 @@ Usage: freeseg_checkmodel.py
                                                             [--weight_outdir <weight_outdir>]
                                                             [--saveas <> 
                                                               [--strip_optimizer_state]
-                                                              [--update label_lookup:<> segmentation_names:<> topology_classes:<> model_class:<> config:config] ] ]
+                                                              [--update label_lookup:<> segmentation_names:<> topology_classes:<> target_res:<> model_class:<> config:config] ] ]
        [--ndims <n>]
        [--input_shape <H W (D)>]
        [--cpu]
@@ -30,7 +30,7 @@ Usage: freeseg_checkmodel.py
           The option is ignored if it is not run with '--checkpoint <>'.
        3. Options to update pre-trained model: 
           a) '--strip_optimizer_state': strip optimizer states
-          b) '--update label_lookup:<> segmentation_names:<> topology_classes:<> model_class:<> config:config'
+          b) '--update label_lookup:<> segmentation_names:<> topology_classes:<> target_res:<> model_class:<> config:config'
              update pre-trained model with given key:value pairs
              if key:value=='config:config', both train_dataset_dict and model_arch_dict are updated using the config.yaml
 
@@ -186,6 +186,10 @@ def update_checkpoint(toupdates, config, checkpoint, saveas, strip_optimizer_sta
         #
         elif (key == "topology_classes"):
             checkpoint.train_dataset_dict["topology_classes"] = value  #np.load(value)
+            dict_update.update({"train_dataset_dict" : checkpoint.train_dataset_dict})
+        #
+        elif (key == "target_res"):
+            checkpoint.train_dataset_dict["target_res"] = float(value)
             dict_update.update({"train_dataset_dict" : checkpoint.train_dataset_dict})
         #
         elif (key == "model_class"):
