@@ -1098,7 +1098,7 @@ class ResampleVolume(torch.nn.Module):
 
         ndims = image.ndim - 1
         image_shape = image.shape[1:]
-        voxsize = geom.voxsize
+        voxsize = geom.voxsize[:ndims]
 
         if (self.target_res is not None and len(self.target_res) == 1):
             self.target_res = np.concatenate([self.target_res] * ndims) # pad length 1 list or array to ndims array
@@ -1119,8 +1119,11 @@ class ResampleVolume(torch.nn.Module):
         stop = start + step * np.ceil(image_shape * factor)
 
         xyzs = [torch.arange(start=start[d], end=stop[d], step=step[d], dtype=torch.float32, device=self.device) for d in range(ndims)]
+        """
         x, y, z = torch.meshgrid(*xyzs, indexing='ij')
         meshgrid = torch.stack((x, y, z), dim=-1)
+        """
+        meshgrid = torch.stack(torch.meshgrid(*xyzs, indexing='ij'), dim=-1)
                 
         # scale meshgrid to range [-1, 1], which is expected by torch.nn.functional.grid_sample()
         for d in range(ndims):
