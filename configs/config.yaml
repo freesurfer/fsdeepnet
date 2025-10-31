@@ -51,7 +51,7 @@ preprocessing:
         warp_smoothing_range: [16, 16]
         warp_magnitude_range: [0, 3]
     # only one type of cropping should be listed
-    - centercrop:           # crop around the image cener
+    - centercrop:           # crop around center of image plus randomized offsets sampled from U(-maxoffset, +maxoffset)
         max_offset: [1, 2, 3]
     #- randomcrop           # crop from a randomly selected point
     #- randomcentercrop     # crop around a randomly selected point    

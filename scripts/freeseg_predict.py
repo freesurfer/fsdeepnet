@@ -38,8 +38,8 @@ Usage: freeseg_predict.py
     * Options that will affect the final posteriors
       1. ‘--flip’:                   predict left-right flipped image
       2. ‘--smooth_posteriors’:      smooth posteriors output from network
-      3. ‘--keep_biggest_component’: posteriors outside the biggest connected component are set to zero
-      4. ‘--use_topology_classes’:   set posteriors to zero outside the largest connected component of each topological class
+      3. ‘--keep_biggest_component’: set posteriors outside the biggest connected component to zero
+      4. ‘--use_topology_classes’:   set posteriors outside the largest connected component of each topological class to zero
 """
 
 def main():

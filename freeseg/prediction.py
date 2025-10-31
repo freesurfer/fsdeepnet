@@ -528,23 +528,33 @@ class Prediction:
         # keep biggest connected components
         if (keep_biggest_component):
             logging.info("Prediction.postprocess(): set posteriors outside the biggest connected component to zero")
-            # obtain posteriors mask for non-background components, voxels outside the mask are marked as background
+            # make a copy non-background posteriors
             tmp_posteriors = posteriors_seg[:, 1:, ...].clone()
-            posteriors_mask = torch.sum(tmp_posteriors, axis=1) > 0.25
+            # obtain mask for non-background labels above the threshold
+            posteriors_mask = torch.sum(tmp_posteriors, axis=1) > 0.25  # [B, H, W (,D)]
+            # get the largest connected component of the mask
             posteriors_mask = utils.get_largest_connected_component(posteriors_mask)         # [B, H, W (,D)]
             posteriors_mask = np.stack([posteriors_mask] * tmp_posteriors.shape[1], axis=1)  # [B, C, H, W (,D)]
+            # set posteriors outside the mask to zero            
             tmp_posteriors = utils.mask_volume(tmp_posteriors, posteriors_mask)
+            # update non-background posteriors
             posteriors_seg[:, 1:, ...] = tmp_posteriors
 
         if (use_topology_classes and self._topology_classes is not None):
             logging.info("Prediction.postprocess(): set posteriors outside the largest connected component of each topological class to zero")
+            # get posteriors mask above the threshold
             posteriors_mask = posteriors_seg > 0.25
             tmp_posteriors = posteriors_seg.detach().numpy()
-            # reset posteriors to zero outside the largest connected component of each topological class
+            # reset posteriors to zero outside the largest connected component of each non-background topological class
             for topology_class in np.unique(self._topology_classes)[1:]:
+                # self._topology_classes corresponds to unique sorted labels
+                # index of self._topology_classes corresponds to posteriors channel
                 tmp_topology_indices = np.where(self._topology_classes == topology_class)[0]
-                tmp_mask = torch.any(posteriors_mask[:, tmp_topology_indices, ...], dim=1)
-                tmp_mask = utils.get_largest_connected_component(tmp_mask)
+                # obtain mask from posteriors channels belonging to the same topological class
+                tmp_mask = torch.any(posteriors_mask[:, tmp_topology_indices, ...], dim=1)  # [B, H, W (,D)]
+                # get largest connected component of the mask
+                tmp_mask = utils.get_largest_connected_component(tmp_mask)  # [B, H, W (,D)]
+                # apply the mask to each posteriors channel belonging to the same topological class
                 for idx in tmp_topology_indices:
                     tmp_posteriors[:, idx, ...] *= tmp_mask
             posteriors_seg = torch.Tensor(tmp_posteriors)
@@ -577,16 +587,16 @@ class Prediction:
             # remove the padding
             posteriors_parc = CropVolume(posteriors_parc.squeeze(0), pad_idx).unsqueeze(0)
 
-            # obtain parcellation mask
+            # obtain parcellation mask from segmentation prediction
             parcellation_mask = (segmentation_cropped == 3) | (segmentation_cropped == 42)  # [B, H, W (,D)]
-            # preset background label posteriors to all 1
+            # preset background label posteriors to all 1 (the background label includes white matter)
             posteriors_parc[:, 0, ...] = torch.ones_like(posteriors_parc[:, 0, ...])
-            # apply parcellation mask to background label posteriors, voxels outside the mask are set to 0
+            # apply parcellation mask to background label posteriors, set posteriors outside the mask to 0
             posteriors_parc[:, 0, ...] = utils.mask_volume(posteriors_parc[:, 0, ...].clone(), (parcellation_mask.numpy() < 0.1))
             # normalize posteriors
             posteriors_parc /= torch.sum(posteriors_parc, axis=1).unsqueeze(1)
             
-            # get hard segmentation, posteriors is batched tensor [B, C, H, W (,D)], predicted_segmentation is [B, H, W (,D)]            
+            # get hard parcellation, posteriors is batched tensor [B, C, H, W (,D)], predicted_parcellation is [B, H, W (,D)]            
             predicted_parcellation = torch.argmax(posteriors_parc, dim=1)
             # map cortex labels to original id
             parcellation_cropped = utils.remap_labels(predicted_parcellation, self._inverse_parcellation_label_mapping)
