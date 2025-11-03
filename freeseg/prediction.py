@@ -8,7 +8,7 @@ import surfa as sf
 
 from freeseg.checkpoint import Checkpoint
 from freeseg.utils import utility as utils
-from freeseg.augmentation.augmentbase import CenterCrop, RescaleVolume, ResampleVolume, PadVolume, CropVolume, GaussianBlur
+from freeseg.augmentation import augmentbase
 
 class Prediction:
     """
@@ -55,7 +55,7 @@ class Prediction:
         self._crop_size = None
 
 
-    def build_model(self, segmentation_checkpoint, parcellation_checkpoint=None, qc_checkpoint=None, flip=False, smooth_posteriors=False):
+    def build_model(self, segmentation_checkpoint, parcellation_checkpoint=None, qc_checkpoint=None, flip=False, smooth_posteriors=False, smooth_sigma=0.5):
         model_info = "segmentation"
         
         # load segmentation model
@@ -91,7 +91,7 @@ class Prediction:
         # build inference model
         self._inference_model = InferenceModel(segmentation_model,
                                              label_mapping=self._label_mapping, posterior_flipped_indices=self._posterior_flipped_indices,
-                                             smooth_sigma=0.5, device=self._device, smooth_posteriors=smooth_posteriors,
+                                             smooth_sigma=smooth_sigma, device=self._device, smooth_posteriors=smooth_posteriors,
                                              parcellation_model=parcellation_model, qc_model=qc_model)
         self._inference_model.eval()
         logging.info(f"Prediction.build_model(): InferenceModel = {model_info}")
@@ -278,6 +278,7 @@ class Prediction:
                 out_segmentations,
                 crop_size=None,
                 target_res=None,
+                resample_thresh=None,
                 path_labels=None,
                 path_priors=None,
                 codenames=None,
@@ -317,9 +318,9 @@ class Prediction:
         # create empty lists for predictions, label volumes, tivs, voxel counts
         self.list_predictions, self.volumes, self.tivs, self.vox_counts = [], [], [], []
 
-        # create RescaleVolume, ResampleVolume, CropVolume objects
-        self.apply_rescale = RescaleVolume(device=self._device)
-        self.apply_resample = ResampleVolume(self._target_res, device=self._device)
+        # create RescaleVolume, ResampleVolume objects
+        self.apply_rescale = augmentbase.RescaleVolume(device=self._device)
+        self.apply_resample = augmentbase.ResampleVolume(self._target_res, resample_thresh=resample_thresh, device=self._device)
 
         # perform segmentation
         for i in range(len(path_images)):
@@ -456,7 +457,7 @@ class Prediction:
         # image_tensor returned from utils.load_framedimage() is non-batched
         if (self._crop_size is not None and np.any(np.array(target_im_shape) > np.array(self._crop_size))):
             # create image cropping object
-            apply_cropping = CenterCrop(self._crop_size, device=self._device)                
+            apply_cropping = augmentbase.CenterCrop(self._crop_size, device=self._device)                
 
             # apply CentroidCrop if label image is available
             if (path_labels is not None):
@@ -509,7 +510,7 @@ class Prediction:
 
         # pad image
         pad_shape = [utils.find_closest_number_divisible_by_m(s, 2 ** self._nb_levels, 'higher') for s in image_tensor_preprocessed.shape[1:]]
-        image_tensor_preprocessed, pad_idx = PadVolume(image_tensor_preprocessed, pad_shape)
+        image_tensor_preprocessed, pad_idx = augmentbase.PadVolume(image_tensor_preprocessed, pad_shape)
                 
         # add batch axes
         image_tensor_preprocessed = image_tensor_preprocessed.unsqueeze(0)
@@ -523,7 +524,7 @@ class Prediction:
                     keep_biggest_component=False, use_topology_classes=False, path_volumes=None,
                     posteriors_parc=None):
         # remove the padding
-        posteriors_seg = CropVolume(posteriors_seg.squeeze(0), pad_idx).unsqueeze(0)
+        posteriors_seg = augmentbase.CropVolume(posteriors_seg.squeeze(0), pad_idx).unsqueeze(0)
 
         # keep biggest connected components
         if (keep_biggest_component):
@@ -533,7 +534,7 @@ class Prediction:
             # obtain mask for non-background labels above the threshold
             posteriors_mask = torch.sum(tmp_posteriors, axis=1) > 0.25  # [B, H, W (,D)]
             # get the largest connected component of the mask
-            posteriors_mask = utils.get_largest_connected_component(posteriors_mask)         # [B, H, W (,D)]
+            posteriors_mask = utils.get_largest_connected_component(posteriors_mask.cpu())         # [B, H, W (,D)]
             posteriors_mask = np.stack([posteriors_mask] * tmp_posteriors.shape[1], axis=1)  # [B, C, H, W (,D)]
             # set posteriors outside the mask to zero            
             tmp_posteriors = utils.mask_volume(tmp_posteriors, posteriors_mask)
@@ -562,7 +563,7 @@ class Prediction:
             # Note that SynthSeg does the cropping here if topology classes are used to reset posteriors
             #   to zero outside the largest connected component of each topological class;
             #   otherwise, it is done at the beginning of postprocess()
-            #posteriors_seg = CropVolume(posteriors_seg.squeeze(0), pad_idx).unsqueeze(0)
+            #posteriors_seg = augmentbase.CropVolume(posteriors_seg.squeeze(0), pad_idx).unsqueeze(0)
         """
         else:
             # the following logic is for 'mri_synthseg --fast'
@@ -585,7 +586,7 @@ class Prediction:
         # postprocess parcellation
         if (posteriors_parc is not None):
             # remove the padding
-            posteriors_parc = CropVolume(posteriors_parc.squeeze(0), pad_idx).unsqueeze(0)
+            posteriors_parc = augmentbase.CropVolume(posteriors_parc.squeeze(0), pad_idx).unsqueeze(0)
 
             # obtain parcellation mask from segmentation prediction
             parcellation_mask = (segmentation_cropped == 3) | (segmentation_cropped == 42)  # [B, H, W (,D)]
@@ -793,7 +794,7 @@ class InferenceModel(torch.nn.Module):
         self._gaussianblur = None
         if (smooth_posteriors):
             # ??? todo: check synthseg kernel size ???
-            self._gaussianblur = GaussianBlur(device=self._device)
+            self._gaussianblur = augmentbase.GaussianBlur(device=self._device)
 
         self._posterior_flipped_indices = posterior_flipped_indices
         self._inverse_label_mapping = {v: k for k, v in label_mapping.items()}

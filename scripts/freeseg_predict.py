@@ -135,27 +135,14 @@ def main():
     segmentation_names = None
     if (args.segmentation_names is not None):    
         segmentation_names=np.load(args.segmentation_names)
-    predict(path_images, args.o, checkpoint,
-            crop_size=args.crop_size,
-            target_res=args.target_res,
-            ctab=args.ctab,
-            path_labels=args.label,
+    predict(path_images, args.o, checkpoint, args,
             path_priors=path_priors,
             codenames=codenames,
             path_gt=path_gt,
             addctab=True if (not args.noaddctab) else False,
-            write_posteriors=args.write_posteriors,
-            path_volumes=args.vol,
             keepgeom=(not args.nokeepgeom),
             device=device,
-            debug=args.debug,
-            segmentation_names=segmentation_names,
-            keep_biggest_component=args.keep_biggest_component,
-            use_topology_classes=args.use_topology_classes,
-            topology_classes=args.topology_classes,
-            checkpoint_parc=args.parc,
-            flip=args.flip,
-            smooth_posteriors=args.smooth_posteriors,)
+            segmentation_names=segmentation_names,)
 
     # check memory usage
     vmpeak = utils.print_vm_peak()
@@ -178,9 +165,11 @@ def argument_parse():
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to a segmentation checkpoint file")
     parser.add_argument("--parc", type=str, help="Path to a cortex parcellation checkpoint")
     parser.add_argument("--flip", action="store_true", help="Perform left-right flipped image prediction")
-    parser.add_argument("--smooth_posteriors", action="store_true", help="Smooth posteriors output from network") 
+    parser.add_argument("--smooth_posteriors", action="store_true", help="Smooth posteriors output from network")
+    parser.add_argument("--smooth_sigma", default=0.5, type=float, help="Sigma to smooth posteriors, default is 0.5")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
-    parser.add_argument("--target_res", nargs="+", type=float, help="Segmentation output resolution")
+    parser.add_argument("--target_res", type=float, help="Segmentation output resolution")
+    parser.add_argument("--resample_thresh", default=0.05, type=float, help="Resolution diff. threshold to resample the image before prediction, default is 0.05mm")
     parser.add_argument("--nokeepgeom", action="store_true", help="Donot resample output to be the same as input geometry")
     parser.add_argument("--keep_biggest_component", action="store_true", help="Keep biggest component")
     parser.add_argument("--use_topology_classes", action="store_true", help="Reset posteriors to zero outside the largest connected component of each topological class")
@@ -205,29 +194,28 @@ def argument_parse():
 
     # parse commandline
     args = parser.parse_args()
-
     return args
 
 
-def predict(path_images, out_segmentations, checkpoint, crop_size=None, target_res=None, ctab=None, path_labels=None, path_priors=None, codenames=None,
-            path_gt=None, addctab=True, write_posteriors=False, path_volumes=None, device=None, debug=False, keepgeom=False, segmentation_names=None,
-            keep_biggest_component=False, topology_classes=None, use_topology_classes=False, checkpoint_parc=None, flip=False, smooth_posteriors=False):
-    prediction = Prediction(device, ctab=ctab, topology_classes=topology_classes, debug=debug)
-    prediction.build_model(checkpoint, parcellation_checkpoint=checkpoint_parc, flip=flip, smooth_posteriors=smooth_posteriors)
+def predict(path_images, out_segmentations, checkpoint, args, path_priors=None, codenames=None,
+            path_gt=None, addctab=True, device=None, keepgeom=False, segmentation_names=None,):
+    prediction = Prediction(device, ctab=args.ctab, topology_classes=args.topology_classes, debug=args.debug)
+    prediction.build_model(checkpoint, parcellation_checkpoint=args.parc, flip=args.flip, smooth_posteriors=args.smooth_posteriors, smooth_sigma=args.smooth_sigma)
     prediction.predict(path_images, out_segmentations,
-                       crop_size=crop_size,
-                       target_res=target_res,
-                       path_labels=path_labels,
+                       crop_size=args.crop_size,
+                       target_res=args.target_res,
+                       resample_thresh=args.resample_thresh,
+                       path_labels=args.label,
                        path_priors=path_priors,
                        codenames=codenames,
                        path_gt=path_gt,
                        addctab=addctab,
-                       write_posteriors=write_posteriors,
-                       path_volumes=path_volumes,
+                       write_posteriors=args.write_posteriors,
+                       path_volumes=args.vol,
                        keepgeom=keepgeom,
                        segmentation_names=segmentation_names,
-                       keep_biggest_component=keep_biggest_component,
-                       use_topology_classes=use_topology_classes,)
+                       keep_biggest_component=args.keep_biggest_component,
+                       use_topology_classes=args.use_topology_classes,)
 
 
 # execute script

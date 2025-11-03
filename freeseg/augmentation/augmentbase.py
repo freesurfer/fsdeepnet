@@ -1066,7 +1066,7 @@ class GaussianBlur(torch.nn.Module):
 
 
 class ResampleVolume(torch.nn.Module):
-    def __init__(self, target_res, hp=None, device=None, sampling_hp=True, verbose=False):
+    def __init__(self, target_res, resample_thresh=None, hp=None, device=None, sampling_hp=True, verbose=False):
         """
         Resamples the volume to the given voxel size space
         """
@@ -1086,6 +1086,8 @@ class ResampleVolume(torch.nn.Module):
         elif (isinstance(self.target_res, list)):
             self.target_res = np.array(self.target_res) # convert list to array
 
+        self.resample_thresh = resample_thresh if (resample_thresh is not None) else AugmentBase.RES_DIFF_THRESH 
+
 
     def forward(self, input, debugsaveprefix=None):
         if (self.verbose):
@@ -1104,7 +1106,7 @@ class ResampleVolume(torch.nn.Module):
             self.target_res = np.concatenate([self.target_res] * ndims) # pad length 1 list or array to ndims array
 
         # return the original input back if no resampling is necessary
-        if ((self.target_res is None) or np.all(abs(voxsize-self.target_res) < AugmentBase.RES_DIFF_THRESH)):
+        if ((self.target_res is None) or np.all(abs(voxsize-self.target_res) < self.resample_thresh)):
             output = {
                 'image': image,
                 'label': label,
