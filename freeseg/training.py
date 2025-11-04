@@ -362,35 +362,37 @@ class Training:
                 # the npy files contain label ids from (0 .. N), the mgz files contain the real segmentation labels
                 logging.debug(f"output augmented images/labels, onehot encoded labels, posteriors, prediciton ...")                
                 for n, idx in enumerate(dataset_indices):
+                    # augmented image
                     out_image = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.augmented_image.mgz")
                     utils.save_framedimage(images[n], out_image)
 
+                    # augmented label onehot
                     out_label_onehot = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.augmented_label_onehot.mgz")
                     utils.save_framedimage(onehot_labels[n], out_label_onehot, onehotencoded=True)
 
                     # convert onehot encoding back to label segmentation
                     out_label = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.augmented_label.mgz")
-                    label_seg = torch.zeros(onehot_labels[n].shape[1:]).int()
+                    label_seg = torch.zeros(onehot_labels[n].shape[1:]).int()  # [H, W(, D)]
                     for ch in range(onehot_labels[n].shape[0]):
                         label_seg[onehot_labels[n][ch] == 1] = ch
-                    np.save(os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.augmented_label.npy"), label_seg)
                     label_seg = utils.remap_labels(label_seg, self._inverse_label_mapping)
-                    utils.save_framedimage(label_seg.unsqueeze(0), out_label)
+                    utils.save_framedimage(label_seg.unsqueeze(0), out_label, labels=self._label_lookup)
 
+                    # augmented prior
                     if (priors is not None and priors.numel() != 0):
                         out_priors = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.augmented_priors.mgz")
                         utils.save_framedimage(priors[n], out_priors)
 
+                    # posteriors
                     out_posteriors = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.posteriors_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.mgz")
                     posteriors = outputs[n]  # non-batched tensor [C, H, W (,D)]
-                    np.save(os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.posteriors_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.npy"), posteriors.movedim(0, -1).cpu().detach().numpy())
                     utils.save_framedimage(posteriors, out_posteriors, onehotencoded=True)
 
+                    # prediction
                     out_segmentation = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.prediction_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.mgz")
                     predicted_segmentation = torch.argmax(outputs[n], dim=0)
-                    np.save(os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.prediction_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.npy"), predicted_segmentation.cpu().int())
                     segmentation = utils.remap_labels(predicted_segmentation, self._inverse_label_mapping)
-                    utils.save_framedimage(segmentation.unsqueeze(0), out_segmentation)
+                    utils.save_framedimage(segmentation.unsqueeze(0), out_segmentation, labels=self._label_lookup)
             # end of debugging volumes output     
 
             # begin of tensorboard summary writer
@@ -451,31 +453,33 @@ class Training:
         validation_loss = 0.0
         validation_dices = np.zeros((self._batch_size, self._num_labels, len(self._validation_loader)))
 
-        self._model.eval()        
+        self._model.eval()
         with torch.no_grad():
             for batch_idx, (dataset_indices, images, onehot_labels, priors) in enumerate(self._validation_loader):
                 images, onehot_labels, priors = images.to(self._device), onehot_labels.to(self._device), priors.to(self._device)
 
                 (outputs, penultimate) = self._model(images, priors)
                 if (self._debug):
-                    np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_image_to_predict.npy"), images.cpu())
-                    if (priors is not None and priors.numel() != 0):
-                        np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_prior_to_predict.npy"), priors.cpu())
-
-                    # predicted, labels from 0 .. N
-                    predicted = torch.argmax(outputs, dim=1)
-                    np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_predicted.npy"), predicted.cpu().int())
-                    
-                    # map labels to original id
-                    predicted_remap = utils.remap_labels(predicted, self._inverse_label_mapping)
-                    np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_predicted_remap.npy"), predicted_remap.cpu().int())
-
-                    # posteriors
-                    posteriors = outputs  #.squeeze(0)  # remove batch axis => non-batched tensor [C, H, W (,D)]
-                    np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_posteriors.npy"), posteriors.cpu().movedim(1, -1))
-
-                    np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_validate_onehot_labels.npy"), onehot_labels.cpu().movedim(1, -1))
-                    
+                    logging.debug(f"output validation debug volumes ...")
+                    for n, idx in enumerate(dataset_indices):
+                        # image
+                        np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_{idx:03d}_validate_image_to_predict.npy"), images[n].cpu().movedim(0, -1).detach().numpy())
+                        # prior
+                        if (priors is not None and priors.numel() != 0):
+                            np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_{idx:03d}_validate_prior_to_predict.npy"), priors[n].cpu().movedim(0, -1).detach().numpy())
+                        # predicted, labels from 0 .. N
+                        predicted = torch.argmax(outputs[0], dim=0)  # [C, H, W (,D)] => [H, W(, D)]
+                        np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_{idx:03d}_validate_predicted.npy"), predicted.unsqueeze(0).cpu().movedim(0, -1).int())
+                        # posteriors
+                        posteriors = outputs[0]    # remove batch axis => non-batched tensor [C, H, W (,D)]
+                        onehot = onehot_labels[0]
+                        if ((posteriors.ndim - 1) == 2):
+                            # for 2D, make posteriors and onehot into shape [C, H, W, 1]
+                            posteriors = posteriors.unsqueeze(-1)
+                            onehot = onehot.unsqueeze(-1)
+                        np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_{idx:03d}_validate_posteriors.npy"), posteriors.cpu().movedim(0, -1))
+                        # onehot label
+                        np.save(os.path.join(self._debug_dir, f"{batch_idx:03d}_{idx:03d}_validate_onehot_labels.npy"), onehot.cpu().movedim(0, -1))
                     
                 if (metric_type == 'wl2'):
                     loss = loss_fn(penultimate, onehot_labels)
@@ -490,6 +494,7 @@ class Training:
                 validation_dices[:, :, batch_idx] = batch_hard_dice.detach().cpu().numpy()
                 logging.info(f"  validation {batch_idx+1:4d}/{len(self._validation_loader):<4d} val loss: {loss.item():.4f}, val dice avg: {np.mean(validation_dices[:, :, batch_idx]):.4f}")
 
+                # begin of tensorboard summary writer
                 if (self._summary_writer is not None):
                     # Write validation loss and Dice to TensorBoard (once per epoch)
                     self._summary_writer.add_scalar(
