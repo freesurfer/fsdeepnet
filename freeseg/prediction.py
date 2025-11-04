@@ -246,6 +246,8 @@ class Prediction:
             layer_output = os.path.join(self._out_debug_dir, f"{self._curr_codename}_layerout.{m_key}.npy")
             logging.info(f"save {self._curr_codename} layer {m_key} output {list(output.size())} : {layer_output}")
             # Can't call numpy() on Tensor that requires grad. Use tensor.detach().numpy() instead
+            if (output.ndim == 4):  # 2D
+                output = output.unsqueeze(-1)
             np.save(layer_output, output.permute(2, 3, 4, 1, 0).cpu().detach().numpy())
 
             
@@ -352,7 +354,7 @@ class Prediction:
             logging.info(f"output segmentation {out_segmentations[i]}")
             if (self._debug):
                 logging.debug("output cropped prediction ...")
-                np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_prediction.cropped.npy"), segmentation.cpu().numpy().astype(np.float32))
+                np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_prediction.cropped.npy"), segmentation.cpu().movedim(0, -1).numpy().astype(np.int32))
                 seg_noreshape = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prediction.cropped.mgz")
                 utils.save_framedimage(segmentation, seg_noreshape,
                             geom=target_im_geom,
@@ -443,7 +445,7 @@ class Prediction:
         target_im_geom = out_resample.get('geom')
         target_im_shape = image_tensor_preprocessed.shape[1:]        
         if (self._debug):
-            np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_resampled_image.npy"), image_tensor_preprocessed.cpu().numpy().astype(np.float32))
+            np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_resampled_image.npy"), image_tensor_preprocessed.cpu().movedim(0, -1).numpy().astype(np.float32))
 
         # calculate crop_size
         if (self._crop_size is not None):
@@ -502,11 +504,11 @@ class Prediction:
 
         # normalize image
         if (self._debug):
-            np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_before_rescale_image.npy"), image_tensor_preprocessed.cpu().numpy().astype(np.float32))
+            np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_before_rescale_image.npy"), image_tensor_preprocessed.cpu().movedim(0, -1).numpy().astype(np.float32))
         out_rescale = self.apply_rescale({'image':image_tensor_preprocessed})
         image_tensor_preprocessed = out_rescale.get('image')
         if (self._debug):
-            np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_rescaled_image.npy"), image_tensor_preprocessed.cpu().numpy().astype(np.float32))
+            np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_rescaled_image.npy"), image_tensor_preprocessed.cpu().movedim(0, -1).numpy().astype(np.float32))
 
         # pad image
         pad_shape = [utils.find_closest_number_divisible_by_m(s, 2 ** self._nb_levels, 'higher') for s in image_tensor_preprocessed.shape[1:]]
