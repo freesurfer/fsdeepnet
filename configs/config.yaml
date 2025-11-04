@@ -35,7 +35,6 @@ preprocessing:
   sampling_hyperparameters: True
   verbose: False
   crop_size: [160, 160, 160]
-  target_res: 1  # in mm
   #augmentation_dir: /path/to-save-augmented-data
   #bbox_labels: list of labels to make the bounding box
   augmentations:

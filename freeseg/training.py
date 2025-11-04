@@ -105,7 +105,7 @@ class Training:
         )
 
         # surfa.core.labels.LabelLookup
-        self._label_lookup = train_dataset_dict.get("label_lookup", None)
+        self._label_lookup = train_dataset_dict.pop("label_lookup", None)
         if (self._ctab is not None):
             import surfa as sf
             self._label_lookup = sf.load_label_lookup(self._ctab)
@@ -171,6 +171,8 @@ class Training:
             logging.info(f"Continue to train {end_epoch-start_epoch} ({epochs}) {metric_type} epochs, lr:{lr}")
             if (self._label_lookup is None):
                 self._label_lookup = self._checkpoint.label_lookup
+                # update label_lookup with the one saved in pre-trained model
+                self._checkpoint.update({"label_lookup" : self._label_lookup})
             self._model_checkpoint = None  # the checkpoint will only be used once in the training
 
         # save last epoch number

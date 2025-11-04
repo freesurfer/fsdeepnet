@@ -45,6 +45,11 @@ class Checkpoint:
         """
 
 
+    def update(self, dict):
+        """ Update self._dict """
+        self._dict.update(dict)
+
+
     def save(self, checkpoint, dict):
         """ Update checkpoint dict, save to file """
         

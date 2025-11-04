@@ -34,7 +34,6 @@ preprocessing:
   #sampling_hyperparameters: True
   #verbose: False
   crop_size: [160, 160, 160]
-  #target_res: 1  # in mm
 
 training:
   trainer_class: freeseg.training.Training
