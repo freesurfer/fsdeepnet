@@ -539,7 +539,7 @@ class Prediction:
             posteriors_mask = utils.get_largest_connected_component(posteriors_mask.cpu())         # [B, H, W (,D)]
             posteriors_mask = np.stack([posteriors_mask] * tmp_posteriors.shape[1], axis=1)  # [B, C, H, W (,D)]
             # set posteriors outside the mask to zero            
-            tmp_posteriors = utils.mask_volume(tmp_posteriors, posteriors_mask)
+            tmp_posteriors = utils.mask_volume(tmp_posteriors.cpu().detach().numpy(), posteriors_mask)
             # update non-background posteriors
             posteriors_seg[:, 1:, ...] = tmp_posteriors
 
@@ -595,7 +595,7 @@ class Prediction:
             # preset background label posteriors to all 1 (the background label includes white matter)
             posteriors_parc[:, 0, ...] = torch.ones_like(posteriors_parc[:, 0, ...])
             # apply parcellation mask to background label posteriors, set posteriors outside the mask to 0
-            posteriors_parc[:, 0, ...] = utils.mask_volume(posteriors_parc[:, 0, ...].clone(), (parcellation_mask.numpy() < 0.1))
+            posteriors_parc[:, 0, ...] = utils.mask_volume(posteriors_parc[:, 0, ...].clone().cpu().detach().numpy(), (parcellation_mask.numpy() < 0.1))
             # normalize posteriors
             posteriors_parc /= torch.sum(posteriors_parc, axis=1).unsqueeze(1)
             

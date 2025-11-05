@@ -368,7 +368,7 @@ def write_volume_stats(fstats, vox_counts, volumes, labels, etiv=None):
 
 def mask_volume(volume, mask):
     """
-    Mask a volume with the given mask. The volume and mask need to have the same shape.
+    Mask a volume with the given mask. The volume and mask are numpy array with the same shapes.
     The regions outside the mask are marked as 0.
     """
 
@@ -381,7 +381,7 @@ def mask_volume(volume, mask):
     masking_value = 0
     new_volume[np.logical_not(mask_to_apply)] = masking_value
 
-    return new_volume.unsqueeze(0)
+    return torch.tensor(new_volume[None, ...])
 
 
 # ================================================================================================
