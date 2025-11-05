@@ -186,6 +186,7 @@ def argument_parse():
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
     parser.add_argument("--threads", type=int, help="Number of threads to run on CPU, default is pytorch determined")
     parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
+    parser.add_argument("--debug_feat", action='store_true', help="Output feature maps from model layers for debugging.")
     #parser.add_argument('--vmp', action='store_true', help='Enable printing of vmpeak at the end.')
 
     if len(sys.argv) < 2:
@@ -199,7 +200,7 @@ def argument_parse():
 
 def predict(path_images, out_segmentations, checkpoint, args, path_priors=None, codenames=None,
             path_gt=None, addctab=True, device=None, keepgeom=False, segmentation_names=None,):
-    prediction = Prediction(device, ctab=args.ctab, topology_classes=args.topology_classes, debug=args.debug)
+    prediction = Prediction(device, ctab=args.ctab, topology_classes=args.topology_classes, debug=args.debug, debug_feat=args.debug_feat)
     prediction.build_model(checkpoint, parcellation_checkpoint=args.parc, flip=args.flip, smooth_posteriors=args.smooth_posteriors, smooth_sigma=args.smooth_sigma)
     prediction.predict(path_images, out_segmentations,
                        crop_size=args.crop_size,

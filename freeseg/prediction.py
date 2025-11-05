@@ -26,7 +26,7 @@ class Prediction:
         Predict with the assembled inference model
     """
         
-    def __init__(self, device=None, ctab=None, topology_classes=None, debug=False):
+    def __init__(self, device=None, ctab=None, topology_classes=None, debug=False, debug_feat=False):
         """
         Prediction Constructor.
         """
@@ -46,6 +46,7 @@ class Prediction:
         self._topology_classes = topology_classes
 
         self._debug = debug
+        self._debug_feat = debug_feat
         self._out_debug_dir = None
 
         # save any hook handlers registered
@@ -243,12 +244,15 @@ class Prediction:
             m_key = f"{name}.{class_name}"
             
             # forward hooks are called after the forward() call, save the output of forward()
-            layer_output = os.path.join(self._out_debug_dir, f"{self._curr_codename}_layerout.{m_key}.npy")
-            logging.info(f"save {self._curr_codename} layer {m_key} output {list(output.size())} : {layer_output}")
-            # Can't call numpy() on Tensor that requires grad. Use tensor.detach().numpy() instead
-            if (output.ndim == 4):  # 2D
-                output = output.unsqueeze(-1)
-            np.save(layer_output, output.permute(2, 3, 4, 1, 0).cpu().detach().numpy())
+            layer_output = os.path.join(self._out_features_dir, f"{self._curr_codename}.{m_key}.npy")
+            if (isinstance(output, torch.Tensor)):
+                logging.info(f"save {self._curr_codename} {m_key} {type(output)} {list(output.size())} : {layer_output}")
+                # Can't call numpy() on Tensor that requires grad. Use tensor.detach().numpy() instead
+                if (output.ndim == 4):  # 2D
+                    output = output.unsqueeze(-1)
+                np.save(layer_output, output.permute(2, 3, 4, 1, 0).cpu().detach().numpy())
+            else:
+                logging.info(f"{self._curr_codename} {m_key} outputs {type(output)}")
 
             
         if isinstance(module, (list, tuple)):
@@ -314,7 +318,10 @@ class Prediction:
         
         if (self._debug):
             self._out_debug_dir = os.path.join(os.path.dirname(out_segmentations[0]), "debug")
-            os.makedirs(self._out_debug_dir, exist_ok=True)            
+            os.makedirs(self._out_debug_dir, exist_ok=True)
+        if (self._debug_feat):
+            self._out_features_dir = os.path.join(os.path.dirname(out_segmentations[0]), "debug/features")
+            os.makedirs(self._out_features_dir, exist_ok=True)
             self.register_hook(self._inference_model)
 
         # create empty lists for predictions, label volumes, tivs, voxel counts
@@ -333,7 +340,7 @@ class Prediction:
 
             ### prediction ###
             with torch.no_grad():
-                (posteriors_seg, posteriors_parc, qc_score) = self._inference_model(image_tensor_preprocessed, prior_tensor_preprocessed)
+                (posteriors_seg, posteriors_parc, qc_score) = self._inference_model(image_tensor_preprocessed, prior_tensor_preprocessed, self)
 
             ### postprocessing ###
             segmentation, posteriors, = \
@@ -429,8 +436,9 @@ class Prediction:
                 f"Expected prior shape [self.num_classes, *image_tensor.shape[1:]], but got {list(prior_tensor.shape)}"
 
         self.list_predictions.append(path_images[idx])
-        if (self._debug):
+        if (self._debug or self._debug_feat):
             self._curr_codename = f"{codenames[idx]}_{str(idx)}"
+        if (self._debug):
             logging.debug("output re-oriented image/prior ...")
             out_reoriented_image = os.path.join(self._out_debug_dir, f"{self._curr_codename}_image.reoriented.RAS.mgz")
             utils.save_framedimage(image_tensor, out_reoriented_image, original_framedimage=sfimage)
@@ -537,6 +545,8 @@ class Prediction:
             posteriors_mask = torch.sum(tmp_posteriors, axis=1) > 0.25  # [B, H, W (,D)]
             # get the largest connected component of the mask
             posteriors_mask = utils.get_largest_connected_component(posteriors_mask.cpu())         # [B, H, W (,D)]
+            if (self._debug):
+                np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_mask_largest_connected_component.npy"), posteriors_mask.squeeze(0).astype(np.float32))
             posteriors_mask = np.stack([posteriors_mask] * tmp_posteriors.shape[1], axis=1)  # [B, C, H, W (,D)]
             # set posteriors outside the mask to zero            
             tmp_posteriors = utils.mask_volume(tmp_posteriors.cpu().detach().numpy(), posteriors_mask)
@@ -557,6 +567,8 @@ class Prediction:
                 tmp_mask = torch.any(posteriors_mask[:, tmp_topology_indices, ...], dim=1)  # [B, H, W (,D)]
                 # get largest connected component of the mask
                 tmp_mask = utils.get_largest_connected_component(tmp_mask)  # [B, H, W (,D)]
+                if (self._debug):
+                    np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_mask_topology_classs{topology_class}.npy"), tmp_mask.squeeze(0).astype(np.float32))
                 # apply the mask to each posteriors channel belonging to the same topological class
                 for idx in tmp_topology_indices:
                     tmp_posteriors[:, idx, ...] *= tmp_mask
@@ -808,7 +820,8 @@ class InferenceModel(torch.nn.Module):
                 self._cortex_label_mapping[k] = 0
 
 
-    def forward(self, x, x1=None):
+    def forward(self, x, x1=None, predict_obj=None):
+        orig_prefix = predict_obj._curr_codename if (predict_obj is not None) else None
         posteriors_parc, qc_score = None, None
 
         with torch.no_grad():
@@ -826,7 +839,10 @@ class InferenceModel(torch.nn.Module):
             # predict left-right flipped image
             x_flipped = x.flip([axis])
             x1_flipped = x1.flip([axis]) if (x1 is not None) else x1
-            (posteriors_seg_flipped, _) = self._segmentation_model(x_flipped, x1_flipped)
+            with torch.no_grad():
+                if (predict_obj is not None):
+                    predict_obj._curr_codename = f"{predict_obj._curr_codename}.flip"
+                (posteriors_seg_flipped, _) = self._segmentation_model(x_flipped, x1_flipped)
 
             # flip the posteriors back
             posteriors_seg_flipped = posteriors_seg_flipped.flip([axis])
@@ -844,6 +860,8 @@ class InferenceModel(torch.nn.Module):
 
             inputs = torch.cat([x, onehot_cortex], dim=1)
             with torch.no_grad():
+                if (predict_obj is not None):
+                    predict_obj._curr_codename = orig_prefix
                 (posteriors_parc, _) = self._parcellation_model(inputs)
 
             if (self._gaussianblur is not None):
@@ -853,6 +871,8 @@ class InferenceModel(torch.nn.Module):
 
         if (self._qc_model is not None):
             with torch.no_grad():
+                if (predict_obj is not None):
+                    predict_obj._curr_codename = orig_prefix
                 qc_score = self._qc_model(posteriors_seg)
 
         return posteriors_seg, posteriors_parc, qc_score
