@@ -167,6 +167,7 @@ def argument_parse():
     parser.add_argument("--flip", action="store_true", help="Perform left-right flipped image prediction")
     parser.add_argument("--smooth_posteriors", action="store_true", help="Smooth posteriors output from network")
     parser.add_argument("--smooth_sigma", default=0.5, type=float, help="Sigma to smooth posteriors, default is 0.5")
+    parser.add_argument("--gc", action="store_true", help="Explicitly invoke the Garbage Collector")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     parser.add_argument("--target_res", type=float, help="Segmentation output resolution")
     parser.add_argument("--resample_thresh", default=0.05, type=float, help="Resolution diff. threshold to resample the image before prediction, default is 0.05mm")
@@ -200,7 +201,7 @@ def argument_parse():
 
 def predict(path_images, out_segmentations, checkpoint, args, path_priors=None, codenames=None,
             path_gt=None, addctab=True, device=None, keepgeom=False, segmentation_names=None,):
-    prediction = Prediction(device, ctab=args.ctab, topology_classes=args.topology_classes, debug=args.debug, debug_feat=args.debug_feat)
+    prediction = Prediction(device, ctab=args.ctab, topology_classes=args.topology_classes, debug=args.debug, debug_feat=args.debug_feat, gc=args.gc)
     prediction.build_model(checkpoint, parcellation_checkpoint=args.parc, flip=args.flip, smooth_posteriors=args.smooth_posteriors, smooth_sigma=args.smooth_sigma)
     prediction.predict(path_images, out_segmentations,
                        crop_size=args.crop_size,

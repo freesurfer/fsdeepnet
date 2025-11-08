@@ -26,7 +26,7 @@ class Prediction:
         Predict with the assembled inference model
     """
         
-    def __init__(self, device=None, ctab=None, topology_classes=None, debug=False, debug_feat=False):
+    def __init__(self, device=None, ctab=None, topology_classes=None, debug=False, debug_feat=False, gc=False):
         """
         Prediction Constructor.
         """
@@ -47,6 +47,7 @@ class Prediction:
 
         self._debug = debug
         self._debug_feat = debug_feat
+        self._gc = gc
         self._out_debug_dir = None
 
         # save any hook handlers registered
@@ -93,7 +94,7 @@ class Prediction:
         self._inference_model = InferenceModel(segmentation_model,
                                              label_mapping=self._label_mapping, posterior_flipped_indices=self._posterior_flipped_indices,
                                              smooth_sigma=smooth_sigma, device=self._device, smooth_posteriors=smooth_posteriors,
-                                             parcellation_model=parcellation_model, qc_model=qc_model)
+                                               parcellation_model=parcellation_model, qc_model=qc_model, gc=self._gc)
         self._inference_model.eval()
         logging.info(f"Prediction.build_model(): InferenceModel = {model_info}")
 
@@ -360,17 +361,18 @@ class Prediction:
                         resample=resample, method='nearest')
             logging.info(f"output segmentation {out_segmentations[i]}")
             if (self._debug):
-                logging.debug("output cropped prediction ...")
-                np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_prediction.cropped.npy"), segmentation.cpu().movedim(0, -1).numpy().astype(np.int32))
-                seg_noreshape = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prediction.cropped.mgz")
+                logging.debug("output prediction ...")
+                np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_prediction_noresample.npy"), segmentation.cpu().movedim(0, -1).numpy().astype(np.int32))
+                seg_noreshape = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prediction_noresample.mgz")
                 utils.save_framedimage(segmentation, seg_noreshape,
                             geom=target_im_geom,
-                            original_framedimage=sfimage, 
+                            original_framedimage=sfimage,
+                            dtype=np.int32 if (posteriors_parc is not None) else None,
                             orientation=orig_ori,
                             labels=label_lookup if (addctab) else None)
 
             ### save posteriors ###
-            if (write_posteriors):  # ??? question: posteriors need to be re-positioned as well ???
+            if (write_posteriors):
                 posteriors = posteriors.squeeze(0)  # remove batch axis => non-batched tensor [C, H, W (,D)]
                 #posteriors = movedim(1, -1)  # move channel to last axis
                 utils.save_framedimage(posteriors, out_posteriors[i], original_framedimage=sfimage, geom=target_im_geom,
@@ -498,16 +500,19 @@ class Prediction:
                 utils.save_framedimage(image_tensor_preprocessed, out_cropped_image, original_framedimage=sfimage)
                 out_cropped_image = os.path.join(self._out_debug_dir, f"{self._curr_codename}_image.{crop}.mgz")
                 utils.save_framedimage(image_tensor_preprocessed, out_cropped_image, original_framedimage=sfimage, orientation=orig_orientation)
+                np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_image.{crop}.npy"), image_tensor_preprocessed.cpu().movedim(0, -1).numpy().astype(np.float32))
                 if (prior_tensor_preprocessed is not None):
                     out_cropped_prior = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prior.{crop}.RAS.mgz")
                     utils.save_framedimage(prior_tensor_preprocessed, out_cropped_prior, original_framedimage=sfprior, dtype=float)
                     out_cropped_prior = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prior.{crop}.mgz")
                     utils.save_framedimage(prior_tensor_preprocessed, out_cropped_prior, original_framedimage=sfprior, orientation=orig_orientation, dtype=float)
+                    np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_prior.{crop}.npy"), prior_tensor_preprocessed.cpu().movedim(0, -1).numpy().astype(np.float32))
                 if (path_labels is not None):
                     out_cropped_label = os.path.join(self._out_debug_dir, f"{self._curr_codename}_label.{crop}.RAS.mgz")
                     utils.save_framedimage(label_tensor_preprocessed, out_cropped_label, original_framedimage=sflabel)
                     out_cropped_label = os.path.join(self._out_debug_dir, f"{self._curr_codename}_label.{crop}.mgz")
                     utils.save_framedimage(label_tensor_preprocessed, out_cropped_label, original_framedimage=sflabel, orientation=orig_orientation)
+                    np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_label.{crop}.npy"), label_tensor_preprocessed.cpu().movedim(0, -1).numpy().astype(np.float32))
                 # end of debugging
 
         # normalize image
@@ -620,13 +625,17 @@ class Prediction:
             segmentation_cropped[parcellation_mask] = parcellation_cropped[parcellation_mask]
         
         if (crop_idx is not None):
-            # re-position predicted segmentation back to the original image indices where the image was cropped out
+            # re-position posteriors and predicted segmentation back to the original image indices where the image was cropped out
             segmentation = np.zeros(shape=(segmentation_cropped.shape[0], *target_im_shape), dtype='int32')
+            posteriors = np.zeros(shape=(posteriors_seg.shape[0], posteriors_seg.shape[1], *target_im_shape), dtype='float32')
+            posteriors[:, 0, ...] = np.ones((posteriors_seg.shape[0], *target_im_shape))  # preset background posterior
             if (self._ndims == 3):
                 segmentation[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] = segmentation_cropped.detach().cpu().numpy()
+                posteriors[..., crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] = posteriors_seg.detach().cpu().numpy()
             else:
-                segmentation[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] = segmentation_cropped.detach().cpu().numpy()
+                posteriors[..., crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] = posteriors_seg.detach().cpu().numpy()
             segmentation = torch.from_numpy(segmentation).to(self._device)
+            posteriors_seg = torch.from_numpy(posteriors).to(self._device)
         else:
             segmentation = segmentation_cropped
 
@@ -795,11 +804,12 @@ class Prediction:
 class InferenceModel(torch.nn.Module):
     def __init__(self, segmentation_model, label_mapping=None, posterior_flipped_indices=None,
                  smooth_sigma=0.5, device=None, smooth_posteriors=False,
-                 parcellation_model=None, qc_model=None):
+                 parcellation_model=None, qc_model=None, gc=False):
         super(InferenceModel, self).__init__()
         self._segmentation_model = segmentation_model
         self._parcellation_model = parcellation_model
         self._qc_model = qc_model
+        self._gc = gc
 
         self._device = device
         if (self._device is None):
@@ -821,18 +831,31 @@ class InferenceModel(torch.nn.Module):
 
 
     def forward(self, x, x1=None, predict_obj=None):
-        orig_prefix = predict_obj._curr_codename if (predict_obj is not None) else None
+        if (self._gc):
+            import gc
+
+        orig_prefix, out_debug_dir = None, None
+        if (predict_obj is not None):
+             orig_prefix = predict_obj._curr_codename
+             out_debug_dir = predict_obj._out_debug_dir
         posteriors_parc, qc_score = None, None
 
         with torch.no_grad():
             (posteriors_seg, _) = self._segmentation_model(x, x1)
+        if (out_debug_dir is not None):
+            np.save(os.path.join(out_debug_dir, f"{predict_obj._curr_codename}_inf_posteriors_seg.npy"), posteriors_seg.squeeze(0).movedim(0, -1).cpu().numpy().astype(np.float32))
 
         if (self._gaussianblur is not None):
             # smooth posteriors
             blur_out = self._gaussianblur({'image':posteriors_seg.squeeze(0)}, self._smooth_sigma)
             posteriors_seg = blur_out.get("image", None).unsqueeze(0)
+            if (out_debug_dir is not None):
+                np.save(os.path.join(out_debug_dir, f"{predict_obj._curr_codename}_inf_posteriors_seg_smooth.npy"), posteriors_seg.squeeze(0).movedim(0, -1).cpu().numpy().astype(np.float32))
 
         if (self._posterior_flipped_indices is not None):
+            if (predict_obj is not None):
+                predict_obj._curr_codename = f"{predict_obj._curr_codename}.flip"            
+
             # assuming the input x and x1 ([B, C, H, W(, D)]) are in RAS
             axis = 2  # left-right axis
 
@@ -840,19 +863,30 @@ class InferenceModel(torch.nn.Module):
             x_flipped = x.flip([axis])
             x1_flipped = x1.flip([axis]) if (x1 is not None) else x1
             with torch.no_grad():
-                if (predict_obj is not None):
-                    predict_obj._curr_codename = f"{predict_obj._curr_codename}.flip"
                 (posteriors_seg_flipped, _) = self._segmentation_model(x_flipped, x1_flipped)
+            if (out_debug_dir is not None):
+                np.save(os.path.join(out_debug_dir, f"{predict_obj._curr_codename}_inf_posteriors_seg.npy"), posteriors_seg_flipped.squeeze(0).movedim(0, -1).cpu().numpy().astype(np.float32))
 
             # flip the posteriors back
             posteriors_seg_flipped = posteriors_seg_flipped.flip([axis])
             # re-order the posteriors channels to match left-right flipped labels
             posteriors_seg_flipped = posteriors_seg_flipped = posteriors_seg_flipped[:, self._posterior_flipped_indices, ...]
+            if (out_debug_dir is not None):
+                np.save(os.path.join(out_debug_dir, f"{predict_obj._curr_codename}_inf_posteriors_seg_flipped.npy"), posteriors_seg_flipped.squeeze(0).movedim(0, -1).cpu().numpy().astype(np.float32))
 
             # average two posteriors
             posteriors_seg = (posteriors_seg + posteriors_seg_flipped) / 2
+            if (out_debug_dir is not None):
+                np.save(os.path.join(out_debug_dir, f"{predict_obj._curr_codename}_inf_posteriors_seg_avg.npy"), posteriors_seg.squeeze(0).movedim(0, -1).cpu().numpy().astype(np.float32))
+
+        if (self._gc):
+            del(self._segmentation_model)
+            gc.collect()
 
         if (self._parcellation_model is not None):
+            if (predict_obj is not None):
+                predict_obj._curr_codename = orig_prefix
+            
             seg = torch.argmax(posteriors_seg, dim=1)
             seg = utils.remap_labels(seg, self._inverse_label_mapping)
             cortex = utils.remap_labels(seg, self._cortex_label_mapping)
@@ -860,19 +894,29 @@ class InferenceModel(torch.nn.Module):
 
             inputs = torch.cat([x, onehot_cortex], dim=1)
             with torch.no_grad():
-                if (predict_obj is not None):
-                    predict_obj._curr_codename = orig_prefix
                 (posteriors_parc, _) = self._parcellation_model(inputs)
+            if (out_debug_dir is not None):
+                np.save(os.path.join(out_debug_dir, f"{predict_obj._curr_codename}_inf_posteriors_parc.npy"), posteriors_parc.squeeze(0).movedim(0, -1).cpu().numpy().astype(np.float32))                
+            if (self._gc):
+                del(self._parcellation_model)
+                gc.collect()
 
             if (self._gaussianblur is not None):
                 # smooth posteriors
                 blur_out = self._gaussianblur({'image':posteriors_parc.squeeze(0)}, self._smooth_sigma)
                 posteriors_parc = blur_out.get("image", None).unsqueeze(0)
+                if (out_debug_dir is not None):
+                    np.save(os.path.join(out_debug_dir, f"{predict_obj._curr_codename}_inf_posteriors_parc_smooth.npy"), posteriors_parc.squeeze(0).movedim(0, -1).cpu().numpy().astype(np.float32))
 
         if (self._qc_model is not None):
+            if (predict_obj is not None):
+                predict_obj._curr_codename = orig_prefix
             with torch.no_grad():
-                if (predict_obj is not None):
-                    predict_obj._curr_codename = orig_prefix
                 qc_score = self._qc_model(posteriors_seg)
+            if (out_debug_dir is not None):
+                np.save(os.path.join(out_debug_dir, f"{predict_obj._curr_codename}_inf_qc_score.npy"), qc_score.squeeze(0).movedim(0, -1).cpu().numpy().astype(np.float32))
+            if (self._gc):
+                del(self._qc_model)
+                gc.collect()
 
         return posteriors_seg, posteriors_parc, qc_score
