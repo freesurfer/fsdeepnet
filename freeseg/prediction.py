@@ -633,6 +633,7 @@ class Prediction:
                 segmentation[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] = segmentation_cropped.detach().cpu().numpy()
                 posteriors[..., crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] = posteriors_seg.detach().cpu().numpy()
             else:
+                segmentation[:, crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] = segmentation_cropped.detach().cpu().numpy()
                 posteriors[..., crop_idx[0]:crop_idx[2], crop_idx[1]:crop_idx[3]] = posteriors_seg.detach().cpu().numpy()
             segmentation = torch.from_numpy(segmentation).to(self._device)
             posteriors_seg = torch.from_numpy(posteriors).to(self._device)
