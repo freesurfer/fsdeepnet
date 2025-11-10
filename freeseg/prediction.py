@@ -643,6 +643,8 @@ class Prediction:
         # compute volumes
         if (path_volumes is not None):
             # skip background
+            if (posteriors_seg.is_cuda):
+                posteriors_seg = posteriors_seg.cpu()
             volumes = np.sum(posteriors_seg.detach().numpy()[:, 1:, ...], tuple(range(2, 2+len(posteriors_seg.shape[2:]))))
             volumes = volumes.squeeze(0)
             tiv = np.array([np.sum(volumes)])  # sum up all volumes except background

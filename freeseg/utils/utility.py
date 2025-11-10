@@ -109,6 +109,8 @@ def remap_labels(labels, mapping, return_counts=False):
         label_mask = labels == old_label
         remapped_labels[label_mask] = new_label
         if (return_counts and new_label != 0):  # exclude background
+            if (label_mask.is_cuda):
+                label_mask = label_mask.cpu()
             vox_counts.append(np.count_nonzero(label_mask))
 
     if (return_counts):
