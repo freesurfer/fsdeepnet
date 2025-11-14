@@ -169,6 +169,7 @@ class Prediction:
 
         # set target resolution to the resolution of the training data
         self._target_res = checkpoint.train_dataset_dict.get("target_res", None)
+        self._resample_thresh = checkpoint.train_dataset_dict.get("res_diff_thresh", None)
         if (self._label_lookup is None):
             # 'label_lookup' can be either surfa.LabelLookup object or str to LUT
             self._label_lookup = checkpoint.label_lookup
@@ -309,7 +310,8 @@ class Prediction:
         # use target_res if it is provided, otherwise use input image resolution
         if (target_res is not None):
             self._target_res = target_res
-        # ??? default to 1mm if self._target_res is None ???
+        if (resample_thresh is not None):
+            self._resample_thresh = resample_thresh
         self._keepgeom = keepgeom
         if (segmentation_names is not None):
             self._names_segmentation = segmentation_names[self._unique_idx_seg]
@@ -330,7 +332,7 @@ class Prediction:
 
         # create RescaleVolume, ResampleVolume objects
         self.apply_rescale = augmentbase.RescaleVolume(device=self._device)
-        self.apply_resample = augmentbase.ResampleVolume(self._target_res, resample_thresh=resample_thresh, device=self._device)
+        self.apply_resample = augmentbase.ResampleVolume(self._target_res, resample_thresh=self._resample_thresh, device=self._device)
 
         # perform segmentation
         for i in range(len(path_images)):

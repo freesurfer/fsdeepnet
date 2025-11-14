@@ -170,7 +170,7 @@ def argument_parse():
     parser.add_argument("--gc", action="store_true", help="Explicitly invoke the Garbage Collector")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     parser.add_argument("--target_res", type=float, help="Segmentation output resolution")
-    parser.add_argument("--resample_thresh", default=0.05, type=float, help="Resolution diff. threshold to resample the image before prediction, default is 0.05mm")
+    parser.add_argument("--resample_thresh", type=float, help="Resolution diff. threshold (percentage in decimal) to resample the image before prediction")
     parser.add_argument("--nokeepgeom", action="store_true", help="Donot resample output to be the same as input geometry")
     parser.add_argument("--keep_biggest_component", action="store_true", help="Keep biggest component")
     parser.add_argument("--use_topology_classes", action="store_true", help="Reset posteriors to zero outside the largest connected component of each topological class")
