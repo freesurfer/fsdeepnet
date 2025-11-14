@@ -607,7 +607,7 @@ class Training:
                                          generation_labels=config["dataset"].get("generation_labels"),
                                          generation_classes=config["dataset"].get("generation_classes"),
                                          segmentation_labels=config["dataset"].get("segmentation_labels"),
-                                         target_res=config["preprocessing"].get("target_res"),
+                                         target_res=config["dataset"].get("target_res"),
                                          output_dir=config["preprocessing"].get("augmentation_dir", None),
                                          device=device,
                                          sampling_hp=cfg_preprocess.get('sampling_hyperparameters', True),

@@ -8,7 +8,7 @@ from freeseg.utils import utility as utils
 from freeseg.filter import Filter
 
 class AugmentBase:
-    RES_DIFF_THRESH = 0.05
+    RES_DIFF_THRESH = 0.05  # 5%
     
     def __init__(self, hp,
                  transforms,
@@ -1106,7 +1106,7 @@ class ResampleVolume(torch.nn.Module):
             self.target_res = np.concatenate([self.target_res] * ndims) # pad length 1 list or array to ndims array
 
         # return the original input back if no resampling is necessary
-        if ((self.target_res is None) or np.all(abs(voxsize-self.target_res) < self.resample_thresh)):
+        if ((self.target_res is None) or np.all(abs(voxsize-self.target_res)/self.target_res < self.resample_thresh)):
             output = {
                 'image': image,
                 'label': label,

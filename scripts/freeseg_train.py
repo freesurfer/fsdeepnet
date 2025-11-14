@@ -63,6 +63,7 @@ def argument_parse():
     parser.add_argument("--config", type=str, required=True, help="Path to the configuration file")
     parser.add_argument("--model_name", type=str, help="Class used to create the model to train")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
+    parser.add_argument("--res_diff_thresh", type=float, help="Training data resolution diff. threshold (percentage in its decimal form)")
     parser.add_argument("--keep_trainset_in_memory", action='store_true', help="Keep preloaded training data in memory")
     parser.add_argument("--preload", action='store_true', help="Preload training dataset")
     parser.add_argument("--train_cohort", nargs="+", type=str, default=['train'], help="Specify training dataset cohort. Can be combinations of train, validation, or test")

@@ -60,6 +60,11 @@ class SegmentationDataset(torch.utils.data.Dataset):
         if (self.data_augment is not None):
             augmentation.check_augmentations(self.data_augment)
 
+        # update augmentation.AugmentBase.RES_DIFF_THRESH
+        res_diff_thresh = self.dset_profile.get("res_diff_thresh", None)
+        if (res_diff_thresh is not None):
+            augmentation.AugmentBase.RES_DIFF_THRESH = res_diff_thresh
+
         # load first label
         label0, label_tensor0, _ = utils.load_framedimage(self.label_files[0], orientation="RAS", device=self.device, ndims=self.ndims)
         self.target_res = label0.geom.voxsize[:self.ndims]
@@ -67,6 +72,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
         self.dset_profile.update({"num_samples": self.num_entries,
                                   "input_shape": list(label_tensor0.shape[1:]),
                                   "target_res": self.target_res,
+                                  "res_diff_thresh": augmentation.AugmentBase.RES_DIFF_THRESH,
                                   "num_channels": self.num_channels,
                                   "image": self.hasimage(),
                                   "priors": self.haspriors(),
@@ -80,8 +86,11 @@ class SegmentationDataset(torch.utils.data.Dataset):
         logging.info(f"  Input resolution: {self.target_res}")
         logging.info(f"  Number of channels: {self.num_channels}")
         if (preload):
-            generation_labels = self.preload()
+            generation_labels, res_diffs = self.preload()
             self.dset_profile.update({"reported_generation_labels": generation_labels})
+            if (res_diffs > 0):
+                logger.error(f"{res_diffs} images/labels resolution not in expected range {self.target_res}+-{augmentation.AugmentBase.RES_DIFF_THRESH*100}%")
+                sys.exit(1)
 
 
     def hasimage(self):
@@ -105,16 +114,16 @@ class SegmentationDataset(torch.utils.data.Dataset):
             # load label
             label, label_tensor, _ = utils.load_framedimage(label_path, orientation="RAS", device=self.device, ndims=self.ndims)
             assert (label_tensor.shape[0] == self.num_channels), \
-                f"Expected {self.num_channels} channels, but got {label_tensor.shape[0]}"
-            assert (np.all(label.geom.voxsize[:self.ndims] == self.target_res)), \
-                f"Expected resolution {self.target_res}mm, but got {label.geom.voxsize}mm"
+                f"{label_path}: Expected {self.num_channels} channels, but got {label_tensor.shape[0]}"
+            assert (np.all(abs(label.geom.voxsize[:self.ndims] - self.target_res)/self.target_res <= augmentation.AugmentBase.RES_DIFF_THRESH)), \
+                f"{label_path}: Expected resolution {self.target_res}, but got {label.geom.voxsize}"
             # load image if they are provided
             if (self.hasimage()):
                 image, image_tensor, _ = utils.load_framedimage(image_path, orientation="RAS", device=self.device, ndims=self.ndims)
                 assert (label_tensor.shape == image_tensor.shape), \
-                    f"image and label need to be in the same shape. label {f_label} has shape {label_tensor.shape}, image {f_image} has shape {image_tensor.shape}"                
+                    f"image and label need to be in the same shape. label {label_path} has shape {label_tensor.shape}, image {image_path} has shape {image_tensor.shape}"                
                 assert (np.all(label.geom.voxsize == image.geom.voxsize)), \
-                    f"image and label need to have the same resolution. label {f_label} is {label.geom.voxsize}mm, image {f_image} is {image.geom.voxsize}mm"
+                    f"image and label need to have the same resolution. label {label_path} is {label.geom.voxsize}mm, image {image_path} is {image.geom.voxsize}mm"
             # load priors if they are provided
             if (self.haspriors()):
                 priors_path = self.priors_files[index]        
@@ -184,6 +193,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
 
         expected_num_channels = self.num_channels
 
+        res_diffs = 0
         generation_labels = set()
         for n in range(self.num_entries):
             ### load labels
@@ -191,7 +201,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
             label, label_tensor, _ = utils.load_framedimage(f_label, orientation="RAS", device=self.device, ndims=self.ndims)
 
             # label_tensor is non-batched [C, H, W (,D)]
-            assert (self.ndims == label_tensor.ndim - 1), f"Expected {self.ndims}D label, but got {label_tensor.ndim - 1}D"
+            assert (self.ndims == label_tensor.ndim - 1), f"{f_label}: Expected {self.ndims}D label, but got {label_tensor.ndim - 1}D"
             input_shape = label_tensor.shape            
 
             ### load images
@@ -214,15 +224,16 @@ class SegmentationDataset(torch.utils.data.Dataset):
                 
                 # prior_tensor is non-batched [self.num_classes, H, W (,D)]
                 assert (list(prior_tensor.shape) == [self.num_classes, *label_tensor.shape[1:]]), \
-                    f"Expected prior shape [self.num_classes, *label_tensor.shape[1:]], but got {list(prior_tensor.shape)}"              
+                    f"{f_prior}: Expected prior shape [self.num_classes, *label_tensor.shape[1:]], but got {list(prior_tensor.shape)}"              
 
             assert (input_shape[0] == expected_num_channels), \
-                f"Expected {expected_num_channels} channels, but got {input_shape[0]}"
+                f"{f_label}: Expected {expected_num_channels} channels, but got {input_shape[0]}"
             if (self.target_res is None):
                 self.target_res = label.geom.voxsize[:self.ndims]
             else:
-                assert (np.all(label.geom.voxsize[:self.ndims] == self.target_res)), \
-                    f"Expected resolution {self.target_res}mm, but got {label.geom.voxsize}mm"
+                if (np.any(abs(label.geom.voxsize[:self.ndims] - self.target_res)/self.target_res > augmentation.AugmentBase.RES_DIFF_THRESH)):
+                    logging.debug(f"{f_label}: Expected resolution {self.target_res}, but got {label.geom.voxsize}")
+                    res_diffs = res_diffs + 1
 
             if (self.keep_trainset_in_memory):
                 self.images.append(image)
@@ -241,7 +252,8 @@ class SegmentationDataset(torch.utils.data.Dataset):
         logging.info(f"  Reported number of labels: {len(generation_labels)}")
         logging.info(f"  Reported generation labels: {sorted(generation_labels)}")
     
-        return generation_labels
+        return generation_labels, res_diffs
+
 
     @property
     def profile(self):

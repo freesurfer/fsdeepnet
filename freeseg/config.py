@@ -150,12 +150,11 @@ class Config:
                                   "topology_classes"   : topology_classes,
                                   "parcellation_labels": parcellation_labels,
                                   "parcellation_names" : parcellation_names,
-                                  "left_right_corresponding": config["dataset"].get("left_right_corresponding", None),
+                                  #"left_right_corresponding": config["dataset"].get("left_right_corresponding", None),
                                   "label_mapping": label_mapping,
                                   "inverse_label_mapping": inverse_label_mapping,
                                   "num_labels": num_labels,
                                   "crop_size": crop_size,
-                                  "target_res": config["preprocessing"].get("target_res", None),
                                  })
     
         ### set training, preprocessing devices
@@ -271,6 +270,8 @@ class Config:
             config["dataloader"]["pin_memory"] = args.pin_memory
         if ('persistent_workers' in args and args.persistent_workers): # bool
             config["dataloader"]["persistent_workers"] = args.persistent_workers
+        if ('res_diff_thresh' in args and args.res_diff_thresh is not None):
+            config["dataset"]["res_diff_thresh"] = args.res_diff_thresh
 
         return config
 
@@ -299,7 +300,6 @@ class Config:
         logger.info(f"report_moving_avg: {cfg['training'].get('report_moving_avg', False)}")
         logger.info(f"batch_size: {cfg['training']['batch_size']}")
         logger.info(f"crop_size: {cfg['preprocessing']['crop_size']}")
-        logger.info(f"target_res: {cfg['preprocessing'].get('target_res', None)}")
 
         logger.info(f"keep_trainset_in_memory: {cfg['keep_trainset_in_memory']}")
         logger.info(f"deterministic: {cfg['preprocessing'].get('deterministic', False)}")
