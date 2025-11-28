@@ -90,23 +90,23 @@ Output [N, nb_labels, H, W, D]
 
 ### Architecture Parameters
 
-| Parameter | Description | Default | Options |
-|-----------|-------------|---------|---------|
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `ndims` | Number of dimensions (2 or 3) | 3 |
 | `nb_levels` | Number of encoder/decoder levels | 3 |
 | `nb_features` | Base number of features | 24 |
 | `feat_mult` | Feature multiplier per level | 2 |
 | `nb_conv_per_level` | Convolutions per level | 2 |
 | `conv_size` | Convolution kernel size | 3 |
 | `pool_size` | Pooling/downsampling size | 2 |
-| `use_residuals` | Use residual connections | False | False or True |
-| `ndims` | Number of dimensions (2 or 3) | 3 |
-| `norm` | Normalization type | "batch" | "batch" or "instance" |
-| `track_running_stats` | Keep running mean and variance | False | False or True |
-| `activation` | Activation function | "elu" | "elu" or "relu" |
-| `final_pred_activation` | Final activation function | "softmax" | "softmax", "sigmod", or "linear" |
-| `upsample_interpolation` | Upsample interpolation method | "linear" | "linear" or "nearest" |
-| `weight_init` | Weight initialization | "xavier_uniform" | "xavier_uniform" or "zeros" |
-| `skip_connect` | Where to take the skip connection from | "norm" | "norm" or "encoder" |
+| `use_residuals` | Use residual connections (False or True) | False |
+| `norm` | Normalization type ("batch" or "instance") | "batch" |
+| `track_running_stats` | Keep running mean and variance (False or True) | False |
+| `activation` | Activation function ("elu" or "relu") | "elu" |
+| `final_pred_activation` | Final activation function ("softmax", "sigmod", or "linear") | "softmax" |
+| `upsample_interpolation` | Upsample interpolation method ("linear" or "nearest") | "linear" |
+| `weight_init` | Weight initialization ("xavier_uniform" or "zeros") | "xavier_uniform" |
+| `skip_connect` | Where to take the skip connection from ("norm" or "encoder") | "norm" |
 
 ### Feature Progression
 
