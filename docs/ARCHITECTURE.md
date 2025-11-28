@@ -31,18 +31,18 @@ FreeSeg is a PyTorch-based deep learning framework for medical image segmentatio
 
 ## U-Net Architecture
 
-### Architecture Overview
+### Overview
 
 FreeSeg implements a 3D/2D U-Net architecture with the following features:
 
 - **Encoder-Decoder Structure**: Symmetric encoder and decoder paths
-- **Skip Connections**: Feature concatenation between encoder and decoder
+- **Skip Connections**: Feature concatenation (not addition) between encoder and decoder
 - **Multi-Scale Features**: Hierarchical feature extraction
 - **Flexible Depth**: Configurable number of levels
 - **Residual Connections**: Optional residual blocks
 - **Normalization**: Batch or instance normalization
 
-### Architecture Parameters
+### Parameters
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
@@ -62,20 +62,12 @@ FreeSeg implements a 3D/2D U-Net architecture with the following features:
 | `weight_init` | Weight initialization ("xavier_uniform" or "zeros") | "xavier_uniform" |
 | `skip_connect` | Where to take the skip connection from ("norm" or "encoder") | "norm" |
 
-### Architecture Diagram
+### Diagram
 
 Example U-Net with `ndim=3`, `nb_levels=5`, `nb_features=24`, `nb_conv_per_level=2`, `feat_mult=2`, `conv_size=3`, `pool_size=2`, `norm=batch`, `activation=elu`, `final_pred_activation=softmax`:
 \
 \
 ![unet diagram](figures/unet_diagram.png)
-
-### Skip Connections
-
-Skip connections concatenate encoder features with decoder features:
-
-- **Type**: Feature concatenation (not addition)
-- **Normalization**: Optional normalization before concatenation
-- **Connection**: From encoder level N to decoder level N
 
 ### Output Layer
 
@@ -128,15 +120,18 @@ Training Loop
 
 **AugmentBase** (`freeseg.augmentation.augmentbase`)
 
-Augmentations are applied in sequence:
+Augmentations are applied in the order they are specified in the configuration file.
 
-1. **Spatial Deformation**: Affine + non-linear warping
+Available Augmentations:
+
+1. **Spatial Deformation**: Affine + non-linear spatial transformations
 2. **Cropping**: Center/random/centroid cropping
 3. **Flipping**: Left-right flipping (with label swapping)
-4. **Bias Field**: MRI bias field corruption
-5. **Intensity**: Noise, gamma correction, normalization
-6. **Resolution**: Resolution mimicking
+4. **Bias Field Corruption**: MRI bias field corruption
+5. **Intensity Augmentation**: Noise, gamma correction, normalization
+6. **Resolution Mimic**: Resolution mimicking
 7. **Label Remapping**: Label remapping
+8. **Sample Conditional GMM**: Conditional intensity image generation using Gaussian Mixture Models
 
 ### Data Loading
 

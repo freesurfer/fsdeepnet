@@ -1,6 +1,6 @@
 # Configuration Guide
 
-This guide explains how to configure FreeSeg for training, prediction, and evaluation.
+This guide explains how to configure FreeSeg for training, and evaluation during training.
 
 ## Table of Contents
 
@@ -157,8 +157,6 @@ preprocessing:
   sampling_hyperparameters: True
   verbose: False
   crop_size: [160, 160, 160]
-  # augmentation_dir: /path/to-save-augmented-data  # optional
-  # bbox_labels: [2, 3, 4]  # labels for bounding box computation
 ```
 
 ### Augmentation Configuration
@@ -182,6 +180,17 @@ preprocessing:
     
     - centercrop:
         max_offset: [1, 2, 3]
+    - randomcrop:
+    - randomcentercrop:
+    - centroidcrop:
+
+    - flip:
+        flip_prob: 0.5
+
+    - sampleconditionalgmm:
+        prior_mean: [0, 225]
+        prior_std: [0, 35]
+        prior_distribution: uniform
     
     - biasfieldcorruption:
         bias_field_probability: 1.0
@@ -203,6 +212,8 @@ preprocessing:
         min_res_probability: 0.05
         max_res_iso: 4      # mm
         max_res_aniso: 8    # mm
+
+    - remaplabels:
 ```
 
 ### Available Augmentations
@@ -213,13 +224,17 @@ preprocessing:
   - `affine_probability`: Probability of applying affine transformation
   - `max_translation`: Maximum translation in mm
   - `max_rotation`: Maximum rotation in degrees
-  - `max_shearing`: Maximum shearing factor
+  - `max_shearing`: Maximum shearing
   - `max_scaling`: Maximum scaling factor
   - `warp_probability`: Probability of applying non-linear warp
   - `warp_integrations`: Number of integration steps
-  - `warp_generation_method`: "blur" or "upsample"
+  - `warp_generation_method`: Method for displacement field generation ("gaussian" or "perlin")
+  - `warp_nonlin_scale`: for warp_generation_method=gaussian
+  - `warp_nonlin_std`:  warp_generation_method=gaussian
+  - `warp_perlin_method`: Method for displacement field generation when `warp_generation_method` is "perlin" ("upsample", or "blur")
   - `warp_smoothing_range`: Smoothing range for warp field
   - `warp_magnitude_range`: Magnitude range for warp field
+- **Note**: Parameters `warp_perlin_method`, `warp_smoothing_range`, `warp_magnitude_range` are for `warp_generation_method` is "perlin".
 
 #### 2. Cropping
 - **Types**:
@@ -228,7 +243,8 @@ preprocessing:
   - `randomcentercrop`: Crop around random center
   - `centroidcrop`: Crop around label centroid
 - **Parameters**:
-  - `max_offset`: Maximum offset for center crop [W, H(, D)]
+  - `max_offset`: Maximum offset for center crop [W, H(, D)] (for `centercrop` only)
+- **Note**: Only one type of cropping should be listed.
 
 #### 3. Flip
 - **Purpose**: Left-right flipping with label swapping
@@ -239,36 +255,38 @@ preprocessing:
 #### 4. Bias Field Corruption
 - **Purpose**: Simulates MRI bias field artifacts
 - **Parameters**:
-  - `bias_field_probability`: Probability of applying bias field
-  - `bias_field_max_magnitude`: Maximum bias field magnitude
-  - `bias_field_generation_method`: "blur" or "upsample"
-  - `bias_field_scale`: Bias field scale
+  - `bias_field_probability`: Probability of applying bias field corruption
+  - `bias_field_max_magnitude`: Maximum value to sample the standard deviation of a normal distribution from U[0, `bias_field_max_magnitude`];
+  Maximum bias field magnitude
+  - `bias_field_scale`: Ratio between the shape of the input tensor and the shape of the sampled SVF.
+  - `bias_field_generation_method`: Method to generate SVF ("blur" or "upsample").
+- **Note**: `bias_field_generation_method` is for augmentvoxynth.biasfieldcorruption only.  
 
 #### 5. Intensity Augmentation
 - **Purpose**: Applies intensity transformations
 - **Parameters**:
   - `clip_values`: Intensity clipping range [min, max]
-  - `normalize`: Whether to normalize intensities
-  - `added_noise_probability`: Probability of adding noise
-  - `added_noise_max_sigma`: Maximum noise standard deviation
-  - `gamma_scaling_probability`: Probability of gamma correction
-  - `gamma_scaling_max`: Maximum gamma value
+  - `normalize`: Whether to apply min-max intensities normalization between 0 and 1
+  - `added_noise_probability`: Probability of apply noise injection
+  - `added_noise_max_sigma`: Maximum value to sample the standard deviation of the Gaussian white noise from U[0, `added_noise_max_sigma`)
+  - `gamma_scaling_probability`: Probability of applying gamma augmentation (voxel-wise exponentiation by a randomly sampled power from N(0, `gamma_scaling_max`)
+  - `gamma_scaling_max`: Maximum standard deviation the normal distribution from which we sample gamma
 
 #### 6. Mimic Resolution
 - **Purpose**: Simulates different image resolutions
 - **Parameters**:
   - `mimic_probability`: Probability of applying resolution mimicry
-  - `isotropic_probability`: Probability of isotropic resolution
-  - `min_res_probability`: Probability of using original resolution
+  - `isotropic_probability`: Probability to sample an isotropic resolution if both max_res_iso and max_res_aniso are specified
+  - `min_res_probability`: Probability of using original image resolution
   - `max_res_iso`: Maximum isotropic resolution (mm)
   - `max_res_aniso`: Maximum anisotropic resolution (mm)
 
 #### 7. Sample Conditional GMM
-- **Purpose**: Conditional generation using Gaussian Mixture Models
+- **Purpose**: Conditional intensity image generation using Gaussian Mixture Models
 - **Parameters**:
-  - `prior_mean`: Prior means for GMM
-  - `prior_std`: Prior standard deviations
-  - `prior_distribution`: Distribution type ("uniform" or "normal")
+  - `prior_mean`: The means of Gaussian distributions of the GMM
+  - `prior_std`: The standard deviations of Gaussian distributions of the GMM
+  - `prior_distribution`: Type of distribution ("uniform" or "normal") to sample `prior_mean` and `prior_std`
 
 #### 8. Remap Labels
 - **Purpose**: Remaps generation labels to segmentation labels
