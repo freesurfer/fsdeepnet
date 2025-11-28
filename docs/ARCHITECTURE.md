@@ -65,7 +65,9 @@ FreeSeg implements a 3D/2D U-Net architecture with the following features:
 ### Architecture Diagram
 
 Example U-Net with `ndim=3`, `nb_levels=5`, `nb_features=24`, `nb_conv_per_level=2`, `feat_mult=2`, `conv_size=3`, `pool_size=2`, `norm=batch`, `activation=elu`, `final_pred_activation=softmax`:
-![unet diagram](docs/figures/unet_diagram.png)
+\
+\
+![unet diagram](figures/unet_diagram.png)
 
 ### Skip Connections
 
