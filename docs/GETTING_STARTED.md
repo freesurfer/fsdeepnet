@@ -17,7 +17,7 @@ This guide will help you get started with FreeSeg for medical image segmentation
 ### Prerequisites
 
 1. **FreeSurfer**: FreeSeg requires FreeSurfer to be installed and configured
-2. **Python**: Python 3.7+ (via FreeSurfer's fspython)
+2. **Python**: Python 3.8 (via FreeSurfer's fspython)
 3. **CUDA**: GPU with CUDA support (optional but recommended)
 
 ### Installation Steps

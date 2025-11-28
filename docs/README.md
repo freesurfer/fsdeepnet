@@ -96,6 +96,12 @@ If you find errors or want to improve the documentation:
 - **FreeSurfer**: https://freesurfer.net/
 - **PyTorch**: https://pytorch.org/
 - **TensorBoard**: https://www.tensorflow.org/tensorboard
+- **SynthSeg: Segmentation of brain MRI scans of any contrast and resolution without retraining** \
+B. Billot, D.N. Greve, O. Puonti, A. Thielscher, K. Van Leemput, B. Fischl, A.V. Dalca, J.E. Iglesias \
+Medical Image Analysis (2023) \
+[ [article](https://www.sciencedirect.com/science/article/pii/S1361841523000506) | [arxiv](https://arxiv.org/abs/2107.09559)
+]
+
 
 ---
 

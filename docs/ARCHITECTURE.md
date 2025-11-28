@@ -363,7 +363,7 @@ freeseg/
   |-- training.py          # Training class
   |-- prediction.py        # Prediction class
   |-- evaluation.py        # Evaluation class
-  |-- checkpoint.py         # Checkpoint management
+  |-- checkpoint.py        # Checkpoint management
   |-- metrics.py           # Loss functions and metrics
   |-- filter.py            # Filtering utilities
 ```
@@ -523,4 +523,8 @@ Potential improvements:
 - U-Net: Convolutional Networks for Biomedical Image Segmentation (Ronneberger et al., 2015)
 - PyTorch Documentation: https://pytorch.org/docs/
 - FreeSurfer: https://freesurfer.net/
-
+- **SynthSeg: Segmentation of brain MRI scans of any contrast and resolution without retraining** \
+B. Billot, D.N. Greve, O. Puonti, A. Thielscher, K. Van Leemput, B. Fischl, A.V. Dalca, J.E. Iglesias \
+Medical Image Analysis (2023) \
+[ [article](https://www.sciencedirect.com/science/article/pii/S1361841523000506) | [arxiv](https://arxiv.org/abs/2107.09559)
+]
