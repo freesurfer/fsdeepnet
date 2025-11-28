@@ -118,9 +118,9 @@ Training Loop
 
 ### Augmentation Pipeline
 
-**AugmentBase** (`freeseg.augmentation.augmentbase`)
-**AugmentVoxynth** (`freeseg.augmentation.augmentvoxynth`)
-- Derived class from `AugmentBase` using Voxynth library (https://github.com/dalcalab/voxynth/)
+- **AugmentBase** (`freeseg.augmentation.augmentbase`)
+- **AugmentVoxynth** (`freeseg.augmentation.augmentvoxynth`)
+  - Derived class from `AugmentBase` using Voxynth library (https://github.com/dalcalab/voxynth/)
 
 Augmentations are applied in the order they are specified in the configuration file.
 
