@@ -1,6 +1,15 @@
 # freeseg
 A generic pyTorch deep-learning pipeline to accompany freesurfer adjacent models.
 
+## Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+
+- **[Getting Started Guide](docs/GETTING_STARTED.md)** - Quick start guide for new users
+- **[API Documentation](docs/API.md)** - Complete API reference for all modules and classes
+- **[Configuration Guide](docs/CONFIGURATION.md)** - Detailed configuration file documentation
+- **[Training Guide](docs/TRAINING.md)** - Training workflow, best practices, and troubleshooting
+- **[Architecture Documentation](docs/ARCHITECTURE.md)** - System architecture and design principles
 
 ## Get Started
 
