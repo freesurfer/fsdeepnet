@@ -16,7 +16,7 @@ This guide explains how to configure FreeSeg for training, prediction, and evalu
 
 ## Configuration File Structure
 
-FreeSeg uses YAML configuration files to specify all training and inference parameters. The main configuration file is typically named `config.yaml`.
+FreeSeg uses YAML configuration files to specify all training parameters. The main configuration file is typically named `config.yaml`.
 
 ### Basic Structure
 
@@ -90,7 +90,8 @@ train:
     prior_filepath: /path/train_prior1.mgz  # optional
   - image_filepath: /path/train_image2.mgz
     label_filepath: /path/train_label2.mgz
-
+    prior_filepath: /path/train_prior2.mgz  # optional
+    
 validation:
   - image_filepath: /path/val_image1.mgz
     label_filepath: /path/val_label1.mgz
@@ -102,14 +103,8 @@ test:
 
 **Notes:**
 - `prior_filepath` is optional and only needed if using prior information
-- Images, labels, and priors should have the same filename for each subject
-- The directory structure can be organized as:
-  ```
-  data_folder/
-    |-- images/
-    |-- labels/
-    |-- priors/  # optional
-  ```
+- `image_filepath` is optional if it is used for synthseg styled training
+- `image_filepath`, `label_filepath`, and `prior_filepath` should have the same length
 
 ---
 
@@ -120,22 +115,22 @@ test:
 ```yaml
 model:
   name: freeseg.models.unet.UNet
-  nb_levels: 3              # Number of U-Net levels (encoder/decoder depth)
-  nb_features: 24           # Base number of features
-  feat_mult: 2              # Feature multiplier per level
-  nb_conv_per_level: 2      # Number of convolutions per level
-  ndims: 3                  # Number of dimensions (2 or 3)
-  conv_size: 3             # Convolution kernel size
-  pool_size: 2             # Pooling size
-  use_residuals: False     # Whether to use residual connections
-  refine_conv: False       # Whether to use refinement convolution
-  final_pred_activation: softmax  # "softmax" or "sigmoid"
-  weight_init: xavier_uniform     # "xavier_uniform" or "zeros"
-  upsample_interpolation: linear  # "linear" or "nearest"
-  skip_connect: norm       # "norm" or "encoder"
-  norm: batch              # "batch" or "instance"
-  track_running_stats: False
-  activation: elu          # "elu" or "relu"
+  nb_levels: 3                    # Number of U-Net levels (encoder/decoder depth)
+  nb_features: 24                 # Base number of features
+  feat_mult: 2                    # Feature multiplier per level
+  nb_conv_per_level: 2            # Number of convolutions per level
+  ndims: 3                        # Number of dimensions (2 or 3)
+  conv_size: 3                    # Convolution kernel size
+  pool_size: 2                    # Pooling size
+  use_residuals: False            # Whether to use residual connections
+  refine_conv: False              # Whether to use refinement convolution
+  final_pred_activation: softmax  # Final activation function ("softmax", "sigmoid", or "linear")
+  weight_init: xavier_uniform     # Weight initialization ("xavier_uniform" or "zeros")
+  upsample_interpolation: linear  # Upsample interpolation method ("linear" or "nearest")
+  skip_connect: norm              # Where to take the skip connection from ("norm" or "encoder")
+  norm: batch                     # Normalization type ("batch" or "instance")
+  track_running_stats: False      # Whether to keep running mean and variance
+  activation: elu                 # Activation function ("elu" or "relu")
 ```
 
 ### Architecture Constraints
@@ -352,17 +347,19 @@ When `perform_evaluation=True`, the model is evaluated on the validation set aft
 
 ```yaml
 dataloader:
-  num_workers: 0           # Number of data loading workers (0 = main process)
-  pin_memory: False         # Whether to pin memory
-  persistent_workers: False  # Whether to use persistent workers
-  prefetch_factor: 2        # Prefetch factor (ignored if num_workers=0)
+  num_workers: 0             # Number of data loading workers (0 = data loading occurs in the main process)
+  pin_memory: False          # Whether to copy Tensors to CUDA pinned memory.
+  persistent_workers: False  # Whether to keep worker processes around
+  prefetch_factor: 2         # Number of batches loaded in advance by each worker (ignored if num_workers=0).
+                             # This can improve throughput by ensuring workers always have data ready for the main process.
 ```
 
 **Notes:**
-- `num_workers=0`: Data loading happens in main process (slower but simpler)
-- `num_workers>0`: Parallel data loading (faster but requires more memory)
-- `pin_memory=True`: Faster GPU transfer (only if using GPU)
-- `persistent_workers=True`: Workers persist between epochs (only if `num_workers>0`)
+- `num_workers=0`:           Data loading happens in main process (slower but simpler)
+- `num_workers>0`:           Parallel data loading (faster but requires more memory).
+                             Increasing num_workers can speed up data loading, especially for large datasets, but depends on system resources (CPU cores, I/O speed).
+- `pin_memory=True`:         Copy Tensors to CUDA pinned memory. This can accelerate data transfer to the GPU if you are training on a GPU.
+- `persistent_workers=True`: The data loader will not shut down the worker processes after each epoch, which can reduce startup overhead for subsequent epochs (only if `num_workers>0`).
 
 ---
 
