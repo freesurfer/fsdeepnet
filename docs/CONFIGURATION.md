@@ -257,7 +257,6 @@ preprocessing:
 - **Parameters**:
   - `bias_field_probability`: Probability of applying bias field corruption
   - `bias_field_max_magnitude`: Maximum value to sample the standard deviation of a normal distribution from U[0, `bias_field_max_magnitude`];
-  Maximum bias field magnitude
   - `bias_field_scale`: Ratio between the shape of the input tensor and the shape of the sampled SVF.
   - `bias_field_generation_method`: Method to generate SVF ("blur" or "upsample").
 - **Note**: `bias_field_generation_method` is for augmentvoxynth.biasfieldcorruption only.  

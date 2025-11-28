@@ -119,6 +119,8 @@ Training Loop
 ### Augmentation Pipeline
 
 **AugmentBase** (`freeseg.augmentation.augmentbase`)
+**AugmentVoxynth** (`freeseg.augmentation.augmentvoxynth`)
+- Derived class from `AugmentBase` using Voxynth library (https://github.com/dalcalab/voxynth/)
 
 Augmentations are applied in the order they are specified in the configuration file.
 
@@ -132,6 +134,7 @@ Available Augmentations:
 6. **Resolution Mimic**: Resolution mimicking
 7. **Label Remapping**: Label remapping
 8. **Sample Conditional GMM**: Conditional intensity image generation using Gaussian Mixture Models
+
 
 ### Data Loading
 
@@ -331,6 +334,7 @@ freeseg/utils/
 ```
 
 ### Voxynth Modules
+**Note**: Modified from Voxynth implementation https://github.com/dalcalab/voxynth/
 
 ```
 freeseg/voxynth/
@@ -452,6 +456,7 @@ Potential improvements:
 - U-Net: Convolutional Networks for Biomedical Image Segmentation (Ronneberger et al., 2015)
 - PyTorch Documentation: https://pytorch.org/docs/
 - FreeSurfer: https://freesurfer.net/
+- Voxynth: https://github.com/dalcalab/voxynth/
 - **SynthSeg: Segmentation of brain MRI scans of any contrast and resolution without retraining** \
 B. Billot, D.N. Greve, O. Puonti, A. Thielscher, K. Van Leemput, B. Fischl, A.V. Dalca, J.E. Iglesias \
 Medical Image Analysis (2023) \
