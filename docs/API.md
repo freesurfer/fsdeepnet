@@ -433,7 +433,7 @@ AugmentBase(
 
 ### `freeseg.augmentation.augmentvoxynth.AugmentVoxynth`
 
-Extended augmentation class using Voxynth library for advanced augmentations.
+Extended augmentation class using Voxynth library (https://github.com/dalcalab/voxynth/).
 
 ---
 

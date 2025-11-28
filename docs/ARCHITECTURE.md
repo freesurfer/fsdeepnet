@@ -118,22 +118,22 @@ Training Loop
 
 ### Augmentation Pipeline
 
-- **AugmentBase** (`freeseg.augmentation.augmentbase`)
-- **AugmentVoxynth** (`freeseg.augmentation.augmentvoxynth`)
-  - Derived class from `AugmentBase` using Voxynth library (https://github.com/dalcalab/voxynth/)
-
 Augmentations are applied in the order they are specified in the configuration file.
 
-Available Augmentations:
-
-1. **Spatial Deformation**: Affine + non-linear spatial transformations
-2. **Cropping**: Center/random/centroid cropping
-3. **Flipping**: Left-right flipping (with label swapping)
-4. **Bias Field Corruption**: MRI bias field corruption
-5. **Intensity Augmentation**: Noise, gamma correction, normalization
-6. **Resolution Mimic**: Resolution mimicking
-7. **Label Remapping**: Label remapping
-8. **Sample Conditional GMM**: Conditional intensity image generation using Gaussian Mixture Models
+- **AugmentBase** (`freeseg.augmentation.augmentbase`)
+  1. **Spatial Deformation**: Affine + non-linear spatial transformations
+  2. **Cropping**: Center/random/centroid cropping
+  3. **Flipping**: Left-right flipping (with label swapping)
+  4. **Bias Field Corruption**: MRI bias field corruption
+  5. **Intensity Augmentation**: Noise, gamma correction, normalization
+  6. **Resolution Mimic**: Resolution mimicking
+  7. **Label Remapping**: Label remapping
+  8. **Sample Conditional GMM**: Conditional intensity image generation using Gaussian Mixture Models
+- **AugmentVoxynth** (`freeseg.augmentation.augmentvoxynth`)
+  - Derived class `AugmentVoxynth` → `AugmentBase`
+  - Augmentations implemented using Voxynth library (https://github.com/dalcalab/voxynth/)
+    1. **Bias Field Corruption**: MRI bias field corruption
+    2. **Intensity Augmentation**: Noise, gamma correction, normalization
 
 
 ### Data Loading
