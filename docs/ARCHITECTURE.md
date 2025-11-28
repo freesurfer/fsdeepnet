@@ -42,52 +42,6 @@ FreeSeg implements a 3D/2D U-Net architecture with the following features:
 - **Residual Connections**: Optional residual blocks
 - **Normalization**: Batch or instance normalization
 
-### Architecture Diagram
-
-```
-Input [N, C, H, W, D]
-  |
-  v
-Level 0 (Encoder)
-  |-- ConvBlock (nb_features)
-  |-- Downsample (pool_size)
-  |
-  v
-Level 1 (Encoder)
-  |-- ConvBlock (nb_features * feat_mult)
-  |-- Downsample
-  |
-  v
-Level 2 (Encoder)
-  |-- ConvBlock (nb_features * feat_mult^2)
-  |-- Downsample
-  |
-  v
-Bottleneck
-  |-- ConvBlock (nb_features * feat_mult^nb_levels)
-  |
-  v
-Level 2 (Decoder)
-  |-- Upsample
-  |-- Skip Connection (from Level 2 Encoder)
-  |-- ConvBlock
-  |
-  v
-Level 1 (Decoder)
-  |-- Upsample
-  |-- Skip Connection (from Level 1 Encoder)
-  |-- ConvBlock
-  |
-  v
-Level 0 (Decoder)
-  |-- Upsample
-  |-- Skip Connection (from Level 0 Encoder)
-  |-- ConvBlock
-  |
-  v
-Output [N, nb_labels, H, W, D]
-```
-
 ### Architecture Parameters
 
 | Parameter | Description | Default |
@@ -108,37 +62,10 @@ Output [N, nb_labels, H, W, D]
 | `weight_init` | Weight initialization ("xavier_uniform" or "zeros") | "xavier_uniform" |
 | `skip_connect` | Where to take the skip connection from ("norm" or "encoder") | "norm" |
 
-### Feature Progression
+### Architecture Diagram
 
-For a U-Net with `nb_levels=3`, `nb_features=24`, `feat_mult=2`:
-
-- **Level 0**: 24 features
-- **Level 1**: 48 features (24 × 2)
-- **Level 2**: 96 features (24 × 2²)
-- **Bottleneck**: 192 features (24 × 2³)
-
-### Convolutional Block
-
-Each level contains `nb_conv_per_level` convolutional blocks:
-
-```
-Input
-  |
-  v
-Conv (in_channels → out_channels)
-  |
-  v
-Activation (ELU/ReLU)
-  |
-  v
-[Repeat nb_conv_per_level times]
-  |
-  v
-[Optional: Residual Connection]
-  |
-  v
-Output
-```
+Example U-Net with `ndim=3`, `nb_levels=5`, `nb_features=24`, `nb_conv_per_level=2`, `feat_mult=2`, `conv_size=3`, `pool_size=2`, `norm=batch`, `activation=elu`, `final_pred_activation=softmax`:
+![unet diagram](docs/figures/unet_diagram.png)
 
 ### Skip Connections
 
