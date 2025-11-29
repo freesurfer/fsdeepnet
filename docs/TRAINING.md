@@ -9,9 +9,8 @@ This guide provides detailed information about training models with FreeSeg.
 - [Training Options](#training-options)
 - [Monitoring Training](#monitoring-training)
 - [Resuming Training](#resuming-training)
-- [Example Training Commands](#example_training_commands)
+- [Example Training Commands](#example-training-commands)
 - [Next Steps](#next-steps)
-- [Troubleshooting](#troubleshooting)
 
 ---
 

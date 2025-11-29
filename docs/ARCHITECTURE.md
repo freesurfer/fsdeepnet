@@ -12,7 +12,6 @@ This document describes the architecture and design of FreeSeg.
 - [Extension Points](#extension-points)
 - [Future Enhancements](#future-enhancements)
 - [References](#references)
-- [Module Structure](#module-structure)
 
 ---
 
@@ -33,6 +32,69 @@ FreeSeg is a PyTorch-based deep learning framework for medical image segmentatio
 \
 \
 ![system workflow diagram](figures/system_workflow.png)
+
+### Module Structure
+
+#### Core Modules
+
+```
+freeseg/
+  |-- __init__.py          # Package initialization
+  |-- config.py            # Configuration management
+  |-- training.py          # Training class
+  |-- prediction.py        # Prediction class
+  |-- evaluation.py        # Evaluation class
+  |-- checkpoint.py        # Checkpoint management
+  |-- metrics.py           # Loss functions and metrics
+  |-- filter.py            # Filtering utilities
+```
+
+#### Model Modules
+
+```
+freeseg/models/
+  |-- __init__.py
+  |-- unet.py              # U-Net architecture
+```
+
+#### Dataset Modules
+
+```
+freeseg/datasets/
+  |-- __init__.py
+  |-- segmentationdataset.py  # Segmentation dataset
+```
+
+#### Augmentation Modules
+
+```
+freeseg/augmentation/
+  |-- __init__.py
+  |-- augmentbase.py      # Base augmentation class
+  |-- augmentvoxynth.py   # Voxynth augmentation class
+```
+
+#### Utility Modules
+
+```
+freeseg/utils/
+  |-- __init__.py
+  |-- utility.py          # Utility functions
+```
+
+#### Voxynth Modules
+**Note**: Modified from Voxynth implementation https://github.com/dalcalab/voxynth/
+
+```
+freeseg/voxynth/
+  |-- __init__.py
+  |-- augment.py          # Voxynth augmentations
+  |-- filter.py           # Filtering
+  |-- noise.py            # Noise generation
+  |-- synth.py            # Synthesis
+  |-- transform.py        # Transformations
+  |-- utility.py          # Utilities
+```
 
 ### Design Principles
 
@@ -236,71 +298,6 @@ Output Segmentation
 - **With Priors**: Use prior information
 - **With Flipping**: Test-time augmentation
 - **Smooth Posteriors**: Gaussian smoothing
-
----
-
-## Module Structure
-
-### Core Modules
-
-```
-freeseg/
-  |-- __init__.py          # Package initialization
-  |-- config.py            # Configuration management
-  |-- training.py          # Training class
-  |-- prediction.py        # Prediction class
-  |-- evaluation.py        # Evaluation class
-  |-- checkpoint.py        # Checkpoint management
-  |-- metrics.py           # Loss functions and metrics
-  |-- filter.py            # Filtering utilities
-```
-
-### Model Modules
-
-```
-freeseg/models/
-  |-- __init__.py
-  |-- unet.py              # U-Net architecture
-```
-
-### Dataset Modules
-
-```
-freeseg/datasets/
-  |-- __init__.py
-  |-- segmentationdataset.py  # Segmentation dataset
-```
-
-### Augmentation Modules
-
-```
-freeseg/augmentation/
-  |-- __init__.py
-  |-- augmentbase.py      # Base augmentation class
-  |-- augmentvoxynth.py   # Voxynth augmentation class
-```
-
-### Utility Modules
-
-```
-freeseg/utils/
-  |-- __init__.py
-  |-- utility.py          # Utility functions
-```
-
-### Voxynth Modules
-**Note**: Modified from Voxynth implementation https://github.com/dalcalab/voxynth/
-
-```
-freeseg/voxynth/
-  |-- __init__.py
-  |-- augment.py          # Voxynth augmentations
-  |-- filter.py           # Filtering
-  |-- noise.py            # Noise generation
-  |-- synth.py            # Synthesis
-  |-- transform.py        # Transformations
-  |-- utility.py          # Utilities
-```
 
 ---
 
