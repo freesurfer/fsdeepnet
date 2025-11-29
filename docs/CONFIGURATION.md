@@ -447,19 +447,6 @@ fspython scripts/freeseg_evaluate.py \
 
 ---
 
-## Configuration Best Practices
-
-1. **Start Simple**: Begin with minimal augmentations and gradually add more
-2. **Crop Size**: Choose crop sizes divisible by `2^(nb_levels)`
-3. **Batch Size**: Adjust based on GPU memory (typically 1-4 for 3D)
-4. **Learning Rate**: Start with 0.0001 and adjust based on training dynamics
-5. **Augmentation Probability**: Use 1.0 for training, 0.0 for validation
-6. **Two-Stage Training**: Use weighted L2 pre-training for better initialization
-7. **Evaluation**: Enable `perform_evaluation` to track validation performance
-8. **TensorBoard**: Enable `write_tensorboard_summary` for visualization
-
----
-
 ## Example Configuration Files
 
 See `configs/config.yaml` for a complete example configuration file.

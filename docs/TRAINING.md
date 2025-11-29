@@ -9,7 +9,8 @@ This guide provides detailed information about training models with FreeSeg.
 - [Training Options](#training-options)
 - [Monitoring Training](#monitoring-training)
 - [Resuming Training](#resuming-training)
-- [Best Practices](#best-practices)
+- [Example Training Commands](#example_training_commands)
+- [Next Steps](#next-steps)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -256,7 +257,7 @@ Training logs are saved to:
 - Validation metrics (if evaluation enabled)
 - Model checkpoint information
 
-### TensorBoard
+### TensorBoard (to be tested)
 
 Enable TensorBoard logging:
 ```bash
@@ -339,126 +340,6 @@ Checkpoint.print(checkpoint, detail=True)
 ```
 
 ---
-
-## Best Practices
-
-### 1. Dataset Preparation
-
-- **Balance classes:** Ensure balanced representation of all labels
-- **Validation set:** Use 10-20% of data for validation
-- **Test set:** Keep a separate test set for final evaluation
-- **Data quality:** Verify label quality and consistency
-
-### 2. Configuration
-
-- **Start simple:** Begin with minimal augmentations
-- **Crop size:** Choose appropriate crop size based on GPU memory
-- **Batch size:** Use batch size 1-4 for 3D images
-- **Learning rate:** Start with 0.0001 and adjust based on training
-
-### 3. Training Strategy
-
-- **Two-stage training:** Use weighted L2 pre-training for better initialization
-- **Evaluation:** Enable `--perform_evaluation` to track validation performance
-- **Early stopping:** Monitor validation metrics to avoid overfitting
-- **Checkpointing:** Save checkpoints regularly
-
-### 4. Augmentation
-
-- **Spatial deformations:** Essential for data augmentation
-- **Intensity augmentation:** Helps with intensity variations
-- **Resolution mimicry:** Important for multi-site datasets
-- **Probability:** Use probability 1.0 for training augmentations
-
-### 5. Monitoring
-
-- **TensorBoard:** Enable for visualization
-- **Log files:** Check logs regularly for errors
-- **Validation metrics:** Monitor validation Dice scores
-- **Overfitting:** Watch for gap between train and validation metrics
-
-### 6. Hyperparameter Tuning
-
-- **Learning rate:** Adjust if loss doesn't decrease
-- **Batch size:** Increase if GPU memory allows
-- **Epochs:** Train until validation metrics plateau
-- **Augmentation:** Adjust augmentation strength based on dataset
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-#### 1. Out of Memory (OOM)
-
-**Symptoms:**
-- CUDA out of memory errors
-- Training crashes
-
-**Solutions:**
-- Reduce `batch_size` (e.g., from 2 to 1)
-- Reduce `crop_size` (e.g., from [160,160,160] to [128,128,128])
-- Reduce `num_workers` or set to 0
-- Use `--cpu` for debugging
-
-#### 2. Loss Not Decreasing
-
-**Symptoms:**
-- Loss stays constant or increases
-- Dice scores don't improve
-
-**Solutions:**
-- Check learning rate (may be too high or too low)
-- Verify data loading (check if images/labels are correct)
-- Check augmentation (may be too aggressive)
-- Verify model architecture (check nb_levels, nb_features)
-
-#### 3. Training Too Slow
-
-**Symptoms:**
-- Training takes very long per epoch
-
-**Solutions:**
-- Increase `num_workers` (if CPU allows)
-- Enable `--pin_memory` (if using GPU)
-- Reduce `steps_per_epoch` for faster iterations
-- Use `--keep_trainset_in_memory` (if memory allows)
-
-#### 4. Validation Metrics Worse Than Training
-
-**Symptoms:**
-- Large gap between train and validation metrics
-
-**Solutions:**
-- Reduce augmentation strength
-- Add regularization (dropout, weight decay)
-- Increase training data
-- Check for data leakage between train/val sets
-
-#### 5. Crop Size Error
-
-**Symptoms:**
-- Error: "crop_size needs to be divisible by 2^(nb_levels)"
-
-**Solutions:**
-- Adjust `crop_size` to be divisible by `2^(nb_levels)`
-- Example: `nb_levels=3` → crop_size divisible by 8
-- Valid: [128,128,128], [160,160,160], [192,192,192]
-- Invalid: [150,150,150], [130,130,130]
-
-#### 6. Dataset Loading Errors
-
-**Symptoms:**
-- File not found errors
-- Shape mismatch errors
-
-**Solutions:**
-- Verify dataset list file paths
-- Check file permissions
-- Ensure images and labels have same dimensions
-- Check resolution differences (use `res_diff_thresh`)
-
 ### Debugging Tips
 
 1. **Enable verbose mode:**

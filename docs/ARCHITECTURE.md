@@ -6,9 +6,12 @@ This document describes the architecture and design of FreeSeg.
 
 - [System Overview](#system-overview)
 - [U-Net Architecture](#u-net-architecture)
-- [Data Pipeline](#data-pipeline)
+- [Augmentation Pipeline](#augmentation-pipeline)
 - [Training Pipeline](#training-pipeline)
 - [Inference Pipeline](#inference-pipeline)
+- [Extension Points](#extension-points)
+- [Future Enhancements](#future-enhancements)
+- [References](#references)
 - [Module Structure](#module-structure)
 
 ---
@@ -19,13 +22,52 @@ FreeSeg is a PyTorch-based deep learning framework for medical image segmentatio
 
 ### Key Components
 
-1. **Models**: Neural network architectures (U-Net)
-2. **Datasets**: Data loading and preprocessing
-3. **Augmentation**: Data augmentation pipeline
-4. **Training**: Training loop and optimization
-5. **Prediction**: Inference and segmentation
-6. **Evaluation**: Metrics and evaluation tools
-7. **Configuration**: Configuration management
+- **Models**: Neural network architectures (U-Net)
+- **Datasets**: Data loading and preprocessing
+- **Augmentation**: Data augmentation pipeline
+- **Training**: Training loop and optimization
+- **Prediction**: Inference and segmentation
+- **Evaluation**: Metrics and evaluation tools
+- **Configuration**: Configuration management
+
+\
+\
+![system workflow diagram](figures/system_workflow.png)
+
+### Design Principles
+
+#### Modularity
+
+- Each component is independent and reusable
+- Clear separation of concerns
+- Easy to extend and modify
+
+#### Flexibility
+
+- Configurable via YAML and CLI
+- Support for different architectures
+- Extensible augmentation pipeline
+
+#### Reproducibility
+
+- Deterministic training option
+- Checkpoint saving/loading
+- Configuration saving
+
+#### Performance
+
+- Efficient data loading
+- GPU acceleration
+- Memory optimization
+
+#### Usability
+
+- Simple command-line interface
+- Comprehensive logging
+- TensorBoard integration (to be tested)
+\
+\
+![design principle diagram](figures/design_principle.png)
 
 ---
 
@@ -42,7 +84,7 @@ FreeSeg implements a 3D/2D U-Net architecture with the following features:
 - **Residual Connections**: Optional residual blocks
 - **Normalization**: Batch or instance normalization
 
-### Parameters
+### Network Parameters
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
@@ -62,7 +104,7 @@ FreeSeg implements a 3D/2D U-Net architecture with the following features:
 | `weight_init` | Weight initialization ("xavier_uniform" or "zeros") | "xavier_uniform" |
 | `skip_connect` | Where to take the skip connection from ("norm" or "encoder") | "norm" |
 
-### Diagram
+### Network Diagram
 
 Example U-Net with `ndim=3`, `nb_levels=5`, `nb_features=24`, `nb_conv_per_level=2`, `feat_mult=2`, `conv_size=3`, `pool_size=2`, `norm=batch`, `activation=elu`, `final_pred_activation=softmax`:
 \
@@ -77,46 +119,7 @@ Example U-Net with `ndim=3`, `nb_levels=5`, `nb_features=24`, `nb_conv_per_level
 
 ---
 
-## Data Pipeline
-
-### Data Flow
-
-```
-Raw Images/Labels
-  |
-  v
-Dataset List (YAML)
-  |
-  v
-SegmentationDataset
-  |-- Load images/labels
-  |-- Apply augmentations
-  |-- Crop to crop_size
-  |-- Normalize
-  |
-  v
-DataLoader
-  |-- Batch creation
-  |-- Shuffling
-  |-- Multi-worker loading
-  |
-  v
-Training Loop
-```
-
-### Dataset Class
-
-**SegmentationDataset** (`freeseg.datasets.segmentationdataset`)
-
-- **Input**: Dataset list with image/label/prior filepaths
-- **Processing**:
-  - Load medical images (MGZ, NIFTI, etc.)
-  - Apply augmentations
-  - Crop to specified size
-  - Convert to tensors
-- **Output**: Batched tensors for training
-
-### Augmentation Pipeline
+## Augmentation Pipeline
 
 Augmentations are applied in the order they are specified in the configuration file.
 
@@ -135,57 +138,9 @@ Augmentations are applied in the order they are specified in the configuration f
     - **Bias Field Corruption**: MRI bias field corruption
     - **Intensity Augmentation**: Noise, gamma correction, normalization
 
-
-### Data Loading
-
-- **Workers**: Multi-process data loading
-- **Prefetching**: Prefetch batches for faster training
-- **Memory Pinning**: Pin memory for GPU transfer
-- **Persistent Workers**: Keep workers alive between epochs
-
 ---
 
 ## Training Pipeline
-
-### Training Flow
-
-```
-Configuration (YAML + CLI args)
-  |
-  v
-Config Processing
-  |-- Load YAML
-  |-- Override with CLI args
-  |-- Validate parameters
-  |
-  v
-Model Setup
-  |-- Initialize model
-  |-- Load checkpoint (if resuming)
-  |-- Move to device
-  |
-  v
-Dataset Setup
-  |-- Load dataset list
-  |-- Create train/val datasets
-  |-- Create data loaders
-  |
-  v
-Training Loop
-  |-- Stage 1: Weighted L2 (if enabled)
-  |-- Stage 2: Dice Loss
-  |-- Epoch loop
-  |   |-- Batch loop
-  |   |   |-- Forward pass
-  |   |   |-- Loss computation
-  |   |   |-- Backward pass
-  |   |   |-- Optimizer step
-  |   |-- Validation (if enabled)
-  |   |-- Checkpoint saving
-  |
-  v
-Best Model Selection
-```
 
 ### Two-Stage Training
 
@@ -276,11 +231,11 @@ Output Segmentation
 
 ### Inference Modes
 
-1. **Single Image**: Predict on one image
-2. **Batch**: Predict on multiple images
-3. **With Priors**: Use prior information
-4. **With Flipping**: Test-time augmentation
-5. **Smooth Posteriors**: Gaussian smoothing
+- **Single Image**: Predict on one image
+- **Batch**: Predict on multiple images
+- **With Priors**: Use prior information
+- **With Flipping**: Test-time augmentation
+- **Smooth Posteriors**: Gaussian smoothing
 
 ---
 
@@ -349,40 +304,6 @@ freeseg/voxynth/
 
 ---
 
-## Design Principles
-
-### 1. Modularity
-
-- Each component is independent and reusable
-- Clear separation of concerns
-- Easy to extend and modify
-
-### 2. Flexibility
-
-- Configurable via YAML and CLI
-- Support for different architectures
-- Extensible augmentation pipeline
-
-### 3. Reproducibility
-
-- Deterministic training option
-- Checkpoint saving/loading
-- Configuration saving
-
-### 4. Performance
-
-- Efficient data loading
-- GPU acceleration
-- Memory optimization
-
-### 5. Usability
-
-- Simple command-line interface
-- Comprehensive logging
-- TensorBoard integration
-
----
-
 ## Extension Points
 
 ### Adding New Models
@@ -414,40 +335,8 @@ freeseg/voxynth/
 
 ---
 
-## Performance Considerations
-
-### Memory Optimization
-
-- **Crop Size**: Smaller crops use less memory
-- **Batch Size**: Reduce for large images
-- **Gradient Accumulation**: Simulate larger batches
-- **Mixed Precision**: Use FP16 for faster training
-
-### Speed Optimization
-
-- **Data Loading**: Multi-worker loading
-- **Prefetching**: Prefetch batches
-- **Memory Pinning**: Faster GPU transfer
-- **Persistent Workers**: Avoid worker recreation
-
-### GPU Utilization
-
-- **Batch Size**: Maximize GPU memory usage
-- **Crop Size**: Balance memory and context
-- **Multi-GPU**: DataParallel or DistributedDataParallel
-
----
-
 ## Future Enhancements
 
-Potential improvements:
-
-1. **Additional Architectures**: V-Net, Attention U-Net
-2. **Advanced Augmentations**: Mixup, CutMix
-3. **Loss Functions**: Focal loss, Tversky loss
-4. **Optimization**: Learning rate scheduling, warmup
-5. **Distributed Training**: Multi-GPU, multi-node
-6. **Model Compression**: Quantization, pruning
 
 ---
 

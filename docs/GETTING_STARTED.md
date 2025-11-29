@@ -215,7 +215,7 @@ fspython scripts/freeseg_train.py \
    tail -f output/first_training/log.*
    ```
 
-2. **View TensorBoard:**
+2. **View TensorBoard:** (to be tested)
    ```bash
    tensorboard --logdir output/first_training
    ```
@@ -354,67 +354,11 @@ fspython scripts/freeseg_evaluate.py \
    - Multi-GPU training
    - Hyperparameter tuning
 
-### Tips for Success
-
-1. **Start Small:**
-   - Use small crop sizes initially
-   - Train for fewer epochs to test
-   - Use minimal augmentations
-
-2. **Monitor Training:**
-   - Enable TensorBoard
-   - Check logs regularly
-   - Monitor validation metrics
-
-3. **Iterate:**
-   - Adjust hyperparameters based on results
-   - Try different augmentations
-   - Experiment with model architectures
-
-4. **Validate:**
-   - Always use a validation set
-   - Evaluate on a separate test set
-   - Check for overfitting
-
 ### Getting Help
 
 - **Documentation:** See `docs/` directory
 - **Issues:** Report issues on GitHub
 - **Examples:** Check `tutorials/` directory
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Import Errors:**
-   ```bash
-   # Make sure FreeSurfer is sourced
-   source $FREESURFER_HOME/SetUpFreeSurfer.sh
-   
-   # Verify installation
-   fspython -c "import freeseg"
-   ```
-
-2. **CUDA Errors:**
-   ```bash
-   # Use CPU mode for debugging
-   fspython scripts/freeseg_train.py ... --cpu
-   ```
-
-3. **Memory Errors:**
-   ```bash
-   # Reduce batch size and crop size
-   --batch_size 1 --crop_size 128 128 128
-   ```
-
-4. **Data Loading Errors:**
-   - Check file paths in dataset list
-   - Verify file permissions
-   - Check image/label dimensions match
-
-For more troubleshooting, see [Training Guide - Troubleshooting](TRAINING.md#troubleshooting).
 
 ---
 

@@ -38,8 +38,6 @@ Detailed guide to training models with FreeSeg. Includes:
 - Training options and parameters
 - Monitoring training (logs, TensorBoard)
 - Resuming training from checkpoints
-- Best practices
-- Troubleshooting common issues
 
 **Read this for training best practices and troubleshooting.**
 
@@ -47,7 +45,7 @@ Detailed guide to training models with FreeSeg. Includes:
 System architecture and design documentation. Covers:
 - System overview
 - U-Net architecture details
-- Data pipeline
+- Augmentation pipeline
 - Training pipeline
 - Inference pipeline
 - Module structure
