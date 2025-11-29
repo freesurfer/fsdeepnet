@@ -22,7 +22,7 @@ This guide will help you get started with FreeSeg for medical image segmentation
 
 ### Installation Steps
 
-1. **Build FreeSurfer with Python support:**
+1. **Build FreeSurfer with Python and CUDA support:**
    ```bash
    # Build FreeSurfer with cmake options:
    cmake -DDISTRIBUTE_FSPYTHON=ON -DFSPYTHON_INSTALL_CUDA=ON ...
@@ -158,7 +158,7 @@ fspython scripts/freeseg_train.py \
 fspython scripts/freeseg_predict.py \
   --i /path/to/new_image.mgz \
   --o /path/to/output_segmentation.mgz \
-  --checkpoint output/my_training/checkpoints/best_model.pt
+  --checkpoint output/my_training/checkpoints/best_model.pth
 ```
 
 ---
@@ -243,7 +243,7 @@ fspython scripts/freeseg_evaluate.py \
 
 Make sure you have a trained checkpoint:
 ```bash
-ls output/first_training/checkpoints/best_model.pt
+ls output/first_training/checkpoints/best_model.pth
 ```
 
 ### Step 2: Run Prediction
@@ -252,7 +252,7 @@ ls output/first_training/checkpoints/best_model.pt
 fspython scripts/freeseg_predict.py \
   --i /path/to/test_image.mgz \
   --o /path/to/output_segmentation.mgz \
-  --checkpoint output/first_training/checkpoints/best_model.pt
+  --checkpoint output/first_training/checkpoints/best_model.pth
 ```
 
 ### Step 3: Verify Output
@@ -301,7 +301,7 @@ fspython scripts/freeseg_train.py \
 # 1. Start from pre-trained checkpoint
 fspython scripts/freeseg_train.py \
   --config configs/config.yaml \
-  --checkpoint pretrained_model.pt \
+  --checkpoint pretrained_model.pth \
   --train_output_folder output/finetuning \
   --dataset_list_file data/new_dataset_list.yaml \
   --dice_epochs 50 \
@@ -317,7 +317,7 @@ fspython scripts/freeseg_predict.py \
   --dataset_list_file data/prediction_list.yaml \
   --cohort test \
   --o output/predictions/ \
-  --checkpoint checkpoints/best_model.pt
+  --checkpoint checkpoints/best_model.pth
 ```
 
 ### Workflow 4: Evaluation
@@ -392,7 +392,7 @@ fspython scripts/freeseg_predict.py \
   --dataset_list_file dataset_list.yaml \
   --cohort test \
   --o output/predictions/ \
-  --checkpoint output/training/checkpoints/best_model.pt
+  --checkpoint output/training/checkpoints/best_model.pth
 
 # 7. Evaluate predictions
 fspython scripts/freeseg_evaluate.py \

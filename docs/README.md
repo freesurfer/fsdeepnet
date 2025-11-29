@@ -5,7 +5,7 @@ Welcome to the FreeSeg documentation! This directory contains comprehensive docu
 ## Documentation Index
 
 ### [Getting Started Guide](GETTING_STARTED.md)
-A beginner-friendly guide to get you up and running with FreeSeg quickly. Includes installation instructions, quick start examples, and common workflows.
+A beginner guide to get you up and running with FreeSeg quickly. Includes installation instructions, quick start examples, and common workflows.
 
 **Start here if you're new to FreeSeg!**
 
@@ -44,11 +44,10 @@ Detailed guide to training models with FreeSeg. Includes:
 ### [Architecture Documentation](ARCHITECTURE.md)
 System architecture and design documentation. Covers:
 - System overview
-- U-Net architecture details
+- U-Net architecture
 - Augmentation pipeline
 - Training pipeline
 - Inference pipeline
-- Module structure
 - Extension points
 
 **Use this to understand the system design and extend FreeSeg.**
@@ -57,7 +56,7 @@ System architecture and design documentation. Covers:
 
 - **Installation**: See [Getting Started Guide - Installation](GETTING_STARTED.md#installation)
 - **First Training**: See [Getting Started Guide - Your First Training](GETTING_STARTED.md#your-first-training)
-- **Configuration Examples**: See [Configuration Guide](CONFIGURATION.md)
+- **Configurations**: See [Configuration Guide](CONFIGURATION.md)
 - **Training Options**: See [Training Guide - Training Options](TRAINING.md#training-options)
 - **API Reference**: See [API Documentation](API.md)
 
@@ -72,15 +71,6 @@ docs/
 ├── TRAINING.md            # Training guide
 └── ARCHITECTURE.md        # Architecture documentation
 ```
-
-## Contributing to Documentation
-
-If you find errors or want to improve the documentation:
-
-1. Check existing documentation first
-2. Follow the existing documentation style
-3. Include code examples where helpful
-4. Keep documentation up to date with code changes
 
 ## Getting Help
 

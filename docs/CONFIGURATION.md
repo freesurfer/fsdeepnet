@@ -405,7 +405,7 @@ fspython scripts/freeseg_train.py \
   --learning_rate 0.0001 \
   --dice_epochs 100 \
   --wl2_epochs 5 \
-  --checkpoint checkpoints/resume.pt \
+  --checkpoint checkpoints/resume.pth \
   --deterministic \
   --write_tensorboard_summary \
   --perform_evaluation \
@@ -423,7 +423,7 @@ fspython scripts/freeseg_train.py \
 fspython scripts/freeseg_predict.py \
   --i input_image.mgz \
   --o output_segmentation.mgz \
-  --checkpoint checkpoints/best_model.pt \
+  --checkpoint checkpoints/best_model.pth \
   --crop_size 160 160 160 \
   --ctab color_table.ctab \
   --prior input_prior.mgz \

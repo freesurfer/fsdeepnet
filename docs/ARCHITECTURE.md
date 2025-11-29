@@ -101,26 +101,18 @@ freeseg/voxynth/
 #### Modularity
 
 - Each component is independent and reusable
-- Clear separation of concerns
 - Easy to extend and modify
 
 #### Flexibility
 
 - Configurable via YAML and CLI
-- Support for different architectures
-- Extensible augmentation pipeline
+- Extensible components (network architectures, augmentation pipeline, ...)
 
 #### Reproducibility
 
 - Deterministic training option
 - Checkpoint saving/loading
 - Configuration saving
-
-#### Performance
-
-- Efficient data loading
-- GPU acceleration
-- Memory optimization
 
 #### Usability
 

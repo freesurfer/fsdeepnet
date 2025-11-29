@@ -211,7 +211,7 @@ Metric to select best model when `--perform_evaluation` is enabled.
 ### Other Options
 
 ```bash
---checkpoint <checkpoint.pt>
+--checkpoint <checkpoint.pth>
 ```
 Resume training from checkpoint.
 
@@ -283,16 +283,16 @@ The training output directory contains:
 ```
 output/training/
   |-- config.<timestamp>.yaml          # Saved configuration
-  |-- dataset_list.<timestamp>.yaml     # Saved dataset list
+  |-- dataset_list.<timestamp>.yaml    # Saved dataset list
   |-- segmentation_labels.npy          # Segmentation labels
   |-- segmentation_names.npy           # Label names (if provided)
   |-- generation_labels.npy            # Generation labels (if provided)
   |-- topology_classes.npy             # Topology classes (if provided)
   |-- checkpoints/
-  |   |-- checkpoint_epoch_<n>.pt       # Epoch checkpoints
-  |   |-- best_model.pt                 # Best model (if evaluation enabled)
-  |-- tensorboard/                      # TensorBoard logs (if enabled)
-  |-- log.<timestamp>                   # Training log
+  |   |-- checkpoint_epoch_<n>.pth     # Epoch checkpoints
+  |   |-- best_model.pth               # Best model (if evaluation enabled)
+  |-- tensorboard/                     # TensorBoard logs (if enabled)
+  |-- log.<timestamp>                  # Training log
 ```
 
 ### Checkpoint Files
@@ -315,7 +315,7 @@ Checkpoints contain:
 ```bash
 fspython scripts/freeseg_train.py \
   --config configs/config.yaml \
-  --checkpoint output/training/checkpoints/checkpoint_epoch_50.pt \
+  --checkpoint output/training/checkpoints/checkpoint_epoch_50.pth \
   --train_output_folder output/training
 ```
 
@@ -334,7 +334,7 @@ View checkpoint contents:
 from freeseg.checkpoint import Checkpoint
 import torch
 
-checkpoint = torch.load("checkpoints/best_model.pt")
+checkpoint = torch.load("checkpoints/best_model.pth")
 Checkpoint.print(checkpoint, detail=True)
 ```
 
@@ -413,7 +413,7 @@ fspython scripts/freeseg_train.py \
 ```bash
 fspython scripts/freeseg_train.py \
   --config configs/config.yaml \
-  --checkpoint output/training/checkpoints/checkpoint_epoch_50.pt \
+  --checkpoint output/training/checkpoints/checkpoint_epoch_50.pth \
   --train_output_folder output/training
 ```
 
