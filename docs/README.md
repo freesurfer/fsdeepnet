@@ -1,6 +1,6 @@
 # FreeSeg Documentation
 
-Welcome to the FreeSeg documentation! This directory contains comprehensive documentation for the FreeSeg package.
+Welcome to the FreeSeg documentation! This directory contains documentation for the FreeSeg package.
 
 ## Documentation Index
 
@@ -10,7 +10,7 @@ A beginner guide to get you up and running with FreeSeg quickly. Includes instal
 **Start here if you're new to FreeSeg!**
 
 ### [API Documentation](API.md)
-Complete API reference for all modules, classes, and functions in FreeSeg. Includes:
+API reference for all modules, classes, and functions in FreeSeg. Includes:
 - Core modules (Config, Training, Prediction, Evaluation)
 - Models (U-Net architecture)
 - Datasets (SegmentationDataset)

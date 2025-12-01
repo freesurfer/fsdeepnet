@@ -331,10 +331,10 @@ Output Segmentation
 
 ## References
 
-- U-Net: Convolutional Networks for Biomedical Image Segmentation (Ronneberger et al., 2015)
-- PyTorch Documentation: https://pytorch.org/docs/
-- FreeSurfer: https://freesurfer.net/
-- Voxynth: https://github.com/dalcalab/voxynth/
+- **U-Net: Convolutional Networks for Biomedical Image Segmentation (Ronneberger et al., 2015)**
+- **PyTorch Documentation**: https://pytorch.org/docs/
+- **FreeSurfer**: https://freesurfer.net/
+- **Voxynth**: https://github.com/dalcalab/voxynth/
 - **SynthSeg: Segmentation of brain MRI scans of any contrast and resolution without retraining** \
 B. Billot, D.N. Greve, O. Puonti, A. Thielscher, K. Van Leemput, B. Fischl, A.V. Dalca, J.E. Iglesias \
 Medical Image Analysis (2023) \

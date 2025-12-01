@@ -64,8 +64,10 @@ dataset:
   # For left-right symmetric structures (e.g., SynthSeg)
   left_right_corresponding: [2, 41, 3, 42, 4, 43, ...]
   
-  # Generation labels (for conditional generation)
+  # Generation labels
   generation_labels: [0, 2, 3, 4]
+
+  # Generation Classes for conditional intensity image generation using Gaussian Mixture Models
   generation_classes: [0, 1, 1, 1]
   
   # Topology classes
@@ -243,7 +245,7 @@ preprocessing:
   - `randomcentercrop`: Crop around random center
   - `centroidcrop`: Crop around label centroid
 - **Parameters**:
-  - `max_offset`: Maximum offset for center crop [W, H(, D)] (for `centercrop` only)
+  - `max_offset`: Maximum offset for center crop [W, H(, D)] (for `centercrop` and `centroidcrop` only)
 - **Note**: Only one type of cropping should be listed.
 
 #### 3. Flip
@@ -286,9 +288,12 @@ preprocessing:
   - `prior_mean`: The means of Gaussian distributions of the GMM
   - `prior_std`: The standard deviations of Gaussian distributions of the GMM
   - `prior_distribution`: Type of distribution ("uniform" or "normal") to sample `prior_mean` and `prior_std`
+- **Note**: Requires `generation_classes` in dataset config
+  
 
 #### 8. Remap Labels
 - **Purpose**: Remaps generation labels to segmentation labels
+- **Note**: Requires `generation_labels` in dataset config
 
 ---
 

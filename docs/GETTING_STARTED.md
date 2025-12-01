@@ -1,6 +1,6 @@
 # Getting Started with FreeSeg
 
-This guide will help you get started with FreeSeg for medical image segmentation.
+This guide will help you get started with FreeSeg to train models for medical image segmentation.
 
 ## Table of Contents
 
@@ -48,41 +48,13 @@ This guide will help you get started with FreeSeg for medical image segmentation
    fspython -m pip install --editable .
    ```
 
-### Verify Installation
-
-```bash
-# Check if freeseg is installed
-fspython -c "import freeseg; print(freeseg.__file__)"
-
-# Check if scripts are available
-which freeseg_train.py
-which freeseg_predict.py
-which freeseg_evaluate.py
-```
-
 ---
 
 ## Quick Start
 
-### 1. Prepare Your Data
+### 1. Prepare Your Dataset List
 
-Organize your data in the following structure:
-
-```
-my_data/
-  |-- images/
-  |   |-- subject001.mgz
-  |   |-- subject002.mgz
-  |   |-- ...
-  |-- labels/
-  |   |-- subject001.mgz
-  |   |-- subject002.mgz
-  |   |-- ...
-```
-
-### 2. Create Dataset List
-
-Create a YAML file (`dataset_list.yaml`):
+Create a YAML file (`dataset_list.yaml`) manually:
 
 ```yaml
 train:
@@ -100,7 +72,32 @@ test:
     label_filepath: /path/to/my_data/labels/subject201.mgz
 ```
 
-### 3. Create Configuration File
+Or, use the helper script `scripts/freeseg_create_data_list.py`:
+
+**Organize data:**
+Organize your data in the following structure:
+
+```
+my_data/
+  |-- images/
+  |   |-- subject001.mgz
+  |   |-- subject002.mgz
+  |   |-- ...
+  |-- labels/
+  |   |-- subject001.mgz
+  |   |-- subject002.mgz
+  |   |-- ...
+```
+
+**Create dataset list:**
+   ```bash
+   # Use the helper script (if available)
+   fspython scripts/freeseg_create_data_list.py \
+     -d data/ \
+     -o dataset_list.yaml
+   ```
+
+### 2. Create Configuration File
 
 Copy the example configuration:
 
@@ -143,7 +140,7 @@ training:
   steps_per_epoch: 100
 ```
 
-### 4. Train Your Model
+### 3. Train Your Model
 
 ```bash
 fspython scripts/freeseg_train.py \
@@ -152,128 +149,13 @@ fspython scripts/freeseg_train.py \
   --dataset_list_file /path/to/dataset_list.yaml
 ```
 
-### 5. Predict on New Images
+### 4. Predict on New Images
 
 ```bash
 fspython scripts/freeseg_predict.py \
   --i /path/to/new_image.mgz \
   --o /path/to/output_segmentation.mgz \
   --checkpoint output/my_training/checkpoints/best_model.pth
-```
-
----
-
-## Your First Training
-
-### Step-by-Step Training
-
-#### Step 1: Prepare Dataset
-
-1. **Organize data:**
-   - Place images in `data/images/`
-   - Place labels in `data/labels/`
-   - Ensure matching filenames
-
-2. **Create dataset list:**
-   ```bash
-   # Use the helper script (if available)
-   fspython scripts/freeseg_create_data_list.py \
-     -d data/ \
-     -o dataset_list.yaml
-   ```
-
-   Or create manually (see [Quick Start](#quick-start))
-
-#### Step 2: Configure Training
-
-1. **Copy example config:**
-   ```bash
-   cp configs/config.yaml my_config.yaml
-   ```
-
-2. **Edit configuration:**
-   - Set `segmentation_labels` to your label values
-   - Set `dataset_list_file` to your dataset list path
-   - Adjust `crop_size` based on your image size and GPU memory
-   - Adjust `batch_size` (start with 1 for 3D images)
-   - Set `dice_epochs` (start with 50-100)
-
-#### Step 3: Start Training
-
-```bash
-fspython scripts/freeseg_train.py \
-  --config my_config.yaml \
-  --train_output_folder output/first_training \
-  --dataset_list_file dataset_list.yaml \
-  --write_tensorboard_summary
-```
-
-#### Step 4: Monitor Training
-
-1. **Check log file:**
-   ```bash
-   tail -f output/first_training/log.*
-   ```
-
-2. **View TensorBoard:** (to be tested)
-   ```bash
-   tensorboard --logdir output/first_training
-   ```
-   Open browser to `http://localhost:6006`
-
-3. **Check checkpoints:**
-   ```bash
-   ls output/first_training/checkpoints/
-   ```
-
-#### Step 5: Evaluate Model
-
-```bash
-fspython scripts/freeseg_evaluate.py \
-  --gt /path/to/ground_truth_folder \
-  --seg /path/to/predicted_segmentations_folder \
-  --segmentation_labels output/first_training/segmentation_labels.npy
-```
-
----
-
-## Your First Prediction
-
-### Step 1: Load Trained Model
-
-Make sure you have a trained checkpoint:
-```bash
-ls output/first_training/checkpoints/best_model.pth
-```
-
-### Step 2: Run Prediction
-
-```bash
-fspython scripts/freeseg_predict.py \
-  --i /path/to/test_image.mgz \
-  --o /path/to/output_segmentation.mgz \
-  --checkpoint output/first_training/checkpoints/best_model.pth
-```
-
-### Step 3: Verify Output
-
-```bash
-# Check if output file exists
-ls -lh /path/to/output_segmentation.mgz
-
-# View in FreeView (if available)
-freeview /path/to/test_image.mgz /path/to/output_segmentation.mgz
-```
-
-### Step 4: Evaluate Prediction
-
-If you have ground truth:
-
-```bash
-fspython scripts/freeseg_evaluate.py \
-  --gt /path/to/ground_truth.mgz \
-  --seg /path/to/output_segmentation.mgz \
-  --segmentation_labels output/first_training/segmentation_labels.npy
 ```
 
 ---
@@ -348,12 +230,6 @@ fspython scripts/freeseg_evaluate.py \
    - Check `tutorials/` directory for example workflows
    - Review `configs/` for example configurations
 
-3. **Advanced Topics:**
-   - Custom augmentations
-   - Custom models
-   - Multi-GPU training
-   - Hyperparameter tuning
-
 ### Getting Help
 
 - **Documentation:** See `docs/` directory
@@ -384,17 +260,14 @@ fspython scripts/freeseg_train.py \
   --write_tensorboard_summary \
   --perform_evaluation
 
-# 5. Monitor training
-tensorboard --logdir output/training
-
-# 6. Predict on test images
+# 5. Predict on test images
 fspython scripts/freeseg_predict.py \
   --dataset_list_file dataset_list.yaml \
   --cohort test \
   --o output/predictions/ \
   --checkpoint output/training/checkpoints/best_model.pth
 
-# 7. Evaluate predictions
+# 6. Evaluate predictions
 fspython scripts/freeseg_evaluate.py \
   --gt data/test_labels/ \
   --seg output/predictions/ \
@@ -404,5 +277,5 @@ fspython scripts/freeseg_evaluate.py \
 
 ---
 
-Congratulations! You're now ready to use FreeSeg for medical image segmentation. For more detailed information, refer to the other documentation files in the `docs/` directory.
+Congratulations! You're now ready to use FreeSeg to train models for medical image segmentation. For more detailed information, refer to the other documentation files in the `docs/` directory.
 
