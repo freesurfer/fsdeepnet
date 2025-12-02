@@ -1,4 +1,4 @@
-# FreeSeg API Documentation (??? need work)
+# FreeSeg API Documentation (WIP)
 
 This document provides API documentation for the FreeSeg package, a PyTorch-based deep learning pipeline.
 

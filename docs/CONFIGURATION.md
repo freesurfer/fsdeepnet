@@ -124,7 +124,7 @@ test:
 **Notes:**
 - `prior_filepath` is optional and only needed if using prior information
 - `image_filepath` is optional if it is used for synthseg styled training
-- `image_filepath`, `label_filepath`, and `prior_filepath` should have the same length of entries
+- `image_filepath`, `label_filepath`, and `prior_filepath` should have the same number of entries
 
 ---
 
@@ -161,7 +161,7 @@ model:
 
 ```yaml
 preprocessing:
-  # augmentation class
+  # augmentation wrapper class
   # alternative: freeseg.augmentation.augmentvoxynth.AugmentVoxynth
   augmentation_class: freeseg.augmentation.augmentbase.AugmentBase
   

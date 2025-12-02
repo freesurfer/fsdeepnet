@@ -200,16 +200,14 @@ Augmentations are applied in the order they are specified in the configuration f
 
 #### Stage 1: Weighted L2 Pre-training
 
-- **Purpose**: Initialize model with target value prediction
+- **Purpose**: Pre-train model with weighted L2 norm loss function to provide initialization for Dice loss training
 - **Loss**: Weighted L2 loss
-- **Target**: Predict `wl2_gt_target_value` for ground truth labels
 - **Duration**: `wl2_epochs` epochs
 
 #### Stage 2: Dice Loss Training
 
-- **Purpose**: Fine-tune for segmentation
-- **Loss**: Dice loss (soft or hard)
-- **Optimization**: Adam optimizer
+- **Purpose**: Fine-tune model using soft Dice loss
+- **Loss**: Soft Dice loss
 - **Duration**: `dice_epochs` epochs
 
 ### Training Components
@@ -221,7 +219,7 @@ Augmentations are applied in the order they are specified in the configuration f
 - **Loss Computation**: Dice loss, weighted L2 loss
 - **Metrics**: Dice scores, loss tracking
 - **Evaluation**: Validation during training
-- **Logging**: TensorBoard, log files
+- **Logging**: log files, TensorBoard (??? to be tested)
 
 ### Checkpoint System
 
@@ -238,7 +236,7 @@ Checkpoints contain:
 
 ---
 
-## Inference Pipeline (??? need work)
+## Inference Pipeline
 
 ### Prediction Flow
 
@@ -246,29 +244,31 @@ Checkpoints contain:
 Input Image
   |
   v
-Model Loading
+Inference Model Building
   |-- Load checkpoint
   |-- Initialize model
   |-- Load weights
+  |-- Assemble `inference model = segmentation model + smooth posteriors (optional) + left-right flipped image prediction (optional) + parcellation model (optional)`
   |
   v
 Preprocessing
   |-- Load image
-  |-- Resample (if needed)
-  |-- Normalize
-  |-- Crop (if needed)
+  |-- Resample image to target resolution (if needed)
+  |-- Crop image (if needed)
+  |-- Normalize image
+  |-- Pad image (if needed)
   |
   v
 Inference
-  |-- Forward pass
-  |-- Softmax/Sigmoid
-  |-- Argmax (for labels)
+  |-- Inference model forward pass
   |
   v
-Post-processing
-  |-- Smooth posteriors (optional)
-  |-- Left-right flipping (optional)
-  |-- Combine predictions
+Postprocessing
+  |-- Remove posteriors padding (if needed)
+  |-- Keep biggest connected components (optional)
+  |-- Process topology classes (optional)
+  |-- Get hard segmentation
+  |-- Combine segmentation and parcellation (optional)
   |
   v
 Output Segmentation
@@ -278,49 +278,52 @@ Output Segmentation
 
 **Prediction Class** (`freeseg.prediction.Prediction`)
 
-- **Model Building**: Load and assemble models
-- **Inference**: Run predictions on images
-- **Post-processing**: Smoothing, flipping, combining
-- **Output**: Save segmentations and posteriors
-
-### Inference Modes
-
-- **Single Image**: Predict on one image
-- **Batch**: Predict on multiple images
-- **With Priors**: Use prior information
-- **With Flipping**: Test-time augmentation
-- **Smooth Posteriors**: Gaussian smoothing
+- **__init__**: Class constructor
+- **build_model**: Load and assemble models
+  `inference model = segmentation model + smooth posteriors (optional) + left-right flipped image prediction (optional) + parcellation model (optional)`
+- **predict**
+  |-- **preprocess**
+  |   |-- Load image
+  |   |-- Resample image to target resolution (if needed)
+  |   |-- Crop image (if needed)
+  |   |-- Normalize image
+  |   |-- Pad image (if needed)
+  |-- Run images through the inference model
+  |-- **Postprocess**:
+  |   |-- Remove posteriors padding (if needed)
+  |   |-- Keep biggest connected components (optional)
+  |   |-- Process topology classes (optional)
+  |   |-- Get hard segmentation
+  |   |-- Combine segmentation and parcellation (optional)
+  |-- Output segmentations and posteriors
 
 ---
 
-## Extension Points (??? need work)
+## Extension Points
 
 ### Adding New Models
 
 1. Create model class in `freeseg/models/`
 2. Implement `__init__` and `forward` methods
-3. Register in configuration
 
 ### Adding New Augmentations
 
-1. Create augmentation class in `freeseg/augmentation/`
-2. Inherit from base augmentation class
-3. Implement `forward` method
+1. Create augmentation wrapper class in `freeseg/augmentation/`
+2. (optional) Inherit from base augmentation wrapper class freeseg.augmentation.augmentbase.AugmentBase
+3. Implement individual augmentation class (inherit from `torch.nn.Module`)
 4. Add to valid augmentations list
 
 ### Adding New Metrics
 
 1. Create metric class in `freeseg/metrics.py`
-2. Inherit from `nn.Module`
-3. Implement `forward` method
-4. Register in configuration
+2. Inherit from `torch.nn.Module`
+3. Implement `__init__` and `forward` methods
 
 ### Adding New Datasets
 
 1. Create dataset class in `freeseg/datasets/`
 2. Inherit from `torch.utils.data.Dataset`
 3. Implement `__getitem__` and `__len__`
-4. Register in configuration
 
 ---
 
