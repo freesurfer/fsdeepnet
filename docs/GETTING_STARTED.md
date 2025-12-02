@@ -53,7 +53,7 @@ This guide will help you get started with FreeSeg.
 
 ### 1. Prepare Your Dataset List
 
-- Manually prepare a YAML file (`dataset_list.yaml`):
+- Method 1: Manually prepare a YAML file (`dataset_list.yaml`):
 
 ```yaml
 train:
@@ -71,9 +71,9 @@ test:
     label_filepath: /path/to/my_data/labels/subject201.mgz
 ```
 
-- Use the helper script `scripts/freeseg_create_data_list.py`:
+- Method 2: Use the helper script `scripts/freeseg_create_data_list.py`:
 
-  #### **Organize data:** Organize your data in the following structure:
+  - #### **Organize data:** Organize your data in the following structure:
 
   ```
   my_data/
@@ -87,7 +87,7 @@ test:
     |   |-- ...
   ```
 
-  #### **Create dataset list:** Use the helper script
+  - #### **Create dataset list:** Use the helper script
   ```bash
    fspython scripts/freeseg_create_data_list.py \
      -d data/ \

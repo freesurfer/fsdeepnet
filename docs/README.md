@@ -26,8 +26,8 @@ Comprehensive guide to configuring FreeSeg. Covers:
 - Dataset configuration
 - Model architecture parameters
 - Preprocessing and augmentation settings
-- Training Configuration
-- Training Script Command-line arguments
+- Training configuration
+- Training script command-line arguments
 
 **Reference this when setting up your training configuration.**
 
@@ -36,10 +36,9 @@ Detailed guide to training models with FreeSeg. Includes:
 - Training workflow
 - Two-stage training (Weighted L2 + Dice Loss)
 - Training options and parameters
-- Monitoring training (logs, TensorBoard)
 - Resuming training from checkpoints
 
-**Read this for training best practices and troubleshooting.**
+**Read this for training workflows*
 
 ### [Architecture Documentation](ARCHITECTURE.md)
 System architecture and design documentation. Covers:

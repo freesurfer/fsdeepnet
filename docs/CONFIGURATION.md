@@ -42,7 +42,7 @@ evaluation:
 
 ### Example Configuration Files
 
-See `configs/config.yaml` and `configs/synthseg_config.yaml` for a complete example configuration file.
+See `configs/config.yaml` and `configs/synthseg_config.yaml` for complete example configuration files.
 
 ---
 
@@ -342,7 +342,7 @@ training:
   wl2_metrics: freeseg.metrics.WeightedL2Loss
 ```
 
-- **Purpose**: Pre-train model with weighted L2 norm loss function
+- **Purpose**: Pre-train model with weighted L2 norm loss function to provide initialization for Dice loss training
 - **Parameters**:
   - `wl2_epochs`: Number of pre-training epochs
   - `wl2_gt_target_value`: Target value for ground truth labels of the layer before `final_pred_activation`: gt_target_value when gt = 1, -gt_target_value when gt = 0.
@@ -411,7 +411,7 @@ evaluation:
 
 Most configuration parameters can be overridden via `scripts/freeseg_train.py` command-line arguments.
 
-Example:
+**Example:**
 
 ```bash
 fspython scripts/freeseg_train.py \
