@@ -38,7 +38,7 @@ Detailed guide to training models with FreeSeg. Includes:
 - Training options and parameters
 - Resuming training from checkpoints
 
-**Read this for training workflows*
+**Read this for training workflows.**
 
 ### [Architecture Documentation](ARCHITECTURE.md)
 System architecture and design documentation. Covers:
@@ -80,14 +80,16 @@ docs/
 
 ## Additional Resources
 
-- **FreeSurfer**: https://freesurfer.net/
+- **U-Net: Convolutional Networks for Biomedical Image Segmentation (Ronneberger et al., 2015)**
 - **PyTorch**: https://pytorch.org/
 - **TensorBoard**: https://www.tensorflow.org/tensorboard
+- **FreeSurfer**: https://freesurfer.net/
 - **SynthSeg: Segmentation of brain MRI scans of any contrast and resolution without retraining** \
 B. Billot, D.N. Greve, O. Puonti, A. Thielscher, K. Van Leemput, B. Fischl, A.V. Dalca, J.E. Iglesias \
 Medical Image Analysis (2023) \
 [ [article](https://www.sciencedirect.com/science/article/pii/S1361841523000506) | [arxiv](https://arxiv.org/abs/2107.09559)
 ]
+- **Voxynth**: https://github.com/dalcalab/voxynth/
 
 
 ---

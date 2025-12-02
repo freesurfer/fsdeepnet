@@ -16,7 +16,7 @@ This guide provides detailed information about training models with FreeSeg.
 
 ### Step 1: Prepare Dataset
 
-1. **Organize your data:**
+- **Organize your data:**
    ```
    data_folder/
      |-- images/
@@ -32,7 +32,7 @@ This guide provides detailed information about training models with FreeSeg.
      |   |-- ...
    ```
 
-2. **Create dataset list file:**
+- **Create dataset list file:**
    ```yaml
    train:
      - image_filepath: /path/to/images/subject001.mgz

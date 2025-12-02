@@ -1,6 +1,6 @@
-# FreeSeg API Documentation
+# FreeSeg API Documentation (??? need work)
 
-This document provides comprehensive API documentation for the FreeSeg package, a PyTorch-based deep learning pipeline for medical image segmentation.
+This document provides API documentation for the FreeSeg package, a PyTorch-based deep learning pipeline.
 
 ## Table of Contents
 
