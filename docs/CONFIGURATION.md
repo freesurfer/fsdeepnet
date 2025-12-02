@@ -1,6 +1,6 @@
 # Configuration Guide
 
-This guide explains how to configure FreeSeg for training, and evaluation during training.
+This guide explains how to configure FreeSeg for training.
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@ This guide explains how to configure FreeSeg for training, and evaluation during
 
 ## Configuration File Structure
 
-FreeSeg uses YAML configuration files to specify all training parameters. The main configuration file is typically named `config.yaml`.
+FreeSeg uses YAML configuration files to specify all training parameters.
 
 ### Basic Structure
 
@@ -40,6 +40,10 @@ evaluation:
   # Evaluation configuration
 ```
 
+### Example Configuration Files
+
+See `configs/config.yaml` and `configs/synthseg_config.yaml` for a complete example configuration file.
+
 ---
 
 ## Dataset Configuration
@@ -48,9 +52,16 @@ evaluation:
 
 ```yaml
 dataset:
+  # torch.utils.data.Dataset class
   dataset_classname: freeseg.datasets.segmentationdataset.SegmentationDataset
+  
+  # label ids in the final segmentation 
   segmentation_labels: [0, 2, 3, 4, 17, 41, 42, 43, 53]
+
+  # number of channels of the input data
   expected_num_channels: 1
+
+  # the dataset list YAML file
   dataset_list_file: /path/to/dataset_list.yaml
 ```
 
@@ -58,26 +69,33 @@ dataset:
 
 ```yaml
 dataset:
-  # Label names corresponding to segmentation_labels
-  segmentation_names: /path/segmentation_names.npy  # or a list
+  # label names corresponding to segmentation_labels
+  segmentation_names: /path/segmentation_names.npy, or a list
   
-  # For left-right symmetric structures (e.g., SynthSeg)
-  left_right_corresponding: [2, 41, 3, 42, 4, 43, ...]
+  # left-right corresponding structures
+  # required for `flip` augmentation
+  left_right_corresponding: list 
   
-  # Generation labels
-  generation_labels: [0, 2, 3, 4]
+  # all possible label ids in the training label maps
+  # needs to be the same length as `segmentation_labels`
+  # all occurrences of generation_labels[i] in the input label maps will be mapped to segmentation_labels[i]
+  # required for `remaplabels` augmentation
+  generation_labels: /path/generation_labels.npy, or a list
 
-  # Generation Classes for conditional intensity image generation using Gaussian Mixture Models
-  generation_classes: [0, 1, 1, 1]
+  # indices regrouping `segmentation_labels` into classes of same intensity distribution
+  # labels regrouped to the same class will share the same Gaussian when sampling a new intensity image using Gaussian Mixture Models
+  generation_classes: /path/generation_classes.npy, or a list
   
   # Topology classes
-  topology_classes: [0, 1, 1, 1, ...]
+  topology_classes: /path/topology_classes.npy, or a list
   
-  # Parcellation labels
-  parcellation_labels: [0, 1000, 1001, ...]
-  parcellation_names: /path/parcellation_names.npy
+  # parcellation labels and names
+  parcellation_labels: /path/parcellation_labels.npy, or a list
+  parcellation_names: /path/parcellation_names.npy, or a list
   
-  # Resolution difference threshold (default: 0.05 = 5%)
+  # resolution difference threshold (default: 0.05 = 5%)
+  # the input image will be resampled to target resolution if its resolution is not within `target resolution+-res_diff_thresh`
+  # the target resolution is obtained from the training data
   res_diff_thresh: 0.05
 ```
 
@@ -106,7 +124,7 @@ test:
 **Notes:**
 - `prior_filepath` is optional and only needed if using prior information
 - `image_filepath` is optional if it is used for synthseg styled training
-- `image_filepath`, `label_filepath`, and `prior_filepath` should have the same length
+- `image_filepath`, `label_filepath`, and `prior_filepath` should have the same length of entries
 
 ---
 
@@ -116,35 +134,24 @@ test:
 
 ```yaml
 model:
-  name: freeseg.models.unet.UNet
-  nb_levels: 3                    # Number of U-Net levels (encoder/decoder depth)
-  nb_features: 24                 # Base number of features
-  feat_mult: 2                    # Feature multiplier per level
-  nb_conv_per_level: 2            # Number of convolutions per level
-  ndims: 3                        # Number of dimensions (2 or 3)
-  conv_size: 3                    # Convolution kernel size
-  pool_size: 2                    # Pooling size
-  use_residuals: False            # Whether to use residual connections
-  refine_conv: False              # Whether to use refinement convolution
-  final_pred_activation: softmax  # Final activation function ("softmax", "sigmoid", or "linear")
-  weight_init: xavier_uniform     # Weight initialization ("xavier_uniform" or "zeros")
-  upsample_interpolation: linear  # Upsample interpolation method ("linear" or "nearest")
-  skip_connect: norm              # Where to take the skip connection from ("norm" or "encoder")
-  norm: batch                     # Normalization type ("batch" or "instance")
-  track_running_stats: False      # Whether to keep running mean and variance
-  activation: elu                 # Activation function ("elu" or "relu")
+  name: freeseg.models.unet.UNet   # torch.nn.Module class
+  nb_levels: 3                     # number of U-Net levels (encoder/decoder depth)
+  nb_features: 24                  # base number of features
+  feat_mult: 2                     # feature multiplier per level
+  nb_conv_per_level: 2             # number of convolutions per level
+  ndims: 3                         # number of dimensions (2 or 3)
+  conv_size: 3                     # convolution kernel size
+  pool_size: 2                     # pooling size
+  use_residuals: False             # whether to use residual connections
+  refine_conv: False               # whether to use refinement convolution
+  final_pred_activation: softmax   # final activation function ("softmax", "sigmoid", or "linear")
+  weight_init: xavier_uniform      # weight initialization ("xavier_uniform" or "zeros")
+  upsample_interpolation: linear   # upsample interpolation method ("linear" or "nearest")
+  skip_connect: norm               # where to take the skip connection from ("norm" or "encoder")
+  norm: batch                      # normalization type ("batch" or "instance")
+  track_running_stats: False       # whether to keep running mean and variance
+  activation: elu                  # activation function ("elu" or "relu")
 ```
-
-### Architecture Constraints
-
-- `crop_size` must be divisible by `2^(nb_levels)`
-- For 3D: `crop_size = [W, H, D]`
-- For 2D: `crop_size = [W, H]`
-
-**Example:**
-- `nb_levels = 3` → `crop_size` must be divisible by 8
-- Valid: `[160, 160, 160]`, `[128, 128, 128]`
-- Invalid: `[150, 150, 150]` (not divisible by 8)
 
 ---
 
@@ -154,73 +161,22 @@ model:
 
 ```yaml
 preprocessing:
+  # augmentation class
+  # alternative: freeseg.augmentation.augmentvoxynth.AugmentVoxynth
   augmentation_class: freeseg.augmentation.augmentbase.AugmentBase
-  # Alternative: freeseg.augmentation.augmentvoxynth.AugmentVoxynth
-  sampling_hyperparameters: True
-  verbose: False
-  crop_size: [160, 160, 160]
+  
+  # constrained by the U-Net architecture
+  # must be divisible by `2^(nb_levels)`
+  crop_size: [W, H(, D)]
 ```
 
 ### Augmentation Configuration
 
-Augmentations are specified as a list in the `augmentations` section:
-
-```yaml
-preprocessing:
-  augmentations:
-    - spatialdeformation:
-        affine_probability: 1.0
-        max_translation: 30      # mm
-        max_rotation: 20         # degrees
-        max_shearing: 0.015
-        max_scaling: 1.2
-        warp_probability: 1.0
-        warp_integrations: 7
-        warp_generation_method: "upsample"  # "blur" or "upsample"
-        warp_smoothing_range: [16, 16]
-        warp_magnitude_range: [0, 3]
-    
-    - centercrop:
-        max_offset: [1, 2, 3]
-    - randomcrop:
-    - randomcentercrop:
-    - centroidcrop:
-
-    - flip:
-        flip_prob: 0.5
-
-    - sampleconditionalgmm:
-        prior_mean: [0, 225]
-        prior_std: [0, 35]
-        prior_distribution: uniform
-    
-    - biasfieldcorruption:
-        bias_field_probability: 1.0
-        bias_field_max_magnitude: 0.5
-        bias_field_generation_method: "blur"
-        bias_field_scale: 0.025
-    
-    - intensityaugmentation:
-        clip_values: [0, 300]
-        normalize: True
-        added_noise_probability: 1.0
-        added_noise_max_sigma: 1.0
-        gamma_scaling_probability: 1.0
-        gamma_scaling_max: 0.59
-    
-    - mimicresolution:
-        mimic_probability: 1.0
-        isotropic_probability: 0.1
-        min_res_probability: 0.05
-        max_res_iso: 4      # mm
-        max_res_aniso: 8    # mm
-
-    - remaplabels:
-```
+Augmentations are specified as a list in the `augmentations` section along with the hyperparameters. They are applied in the same order as specified. The augmentation names are case-insensitive.
 
 ### Available Augmentations
 
-#### 1. Spatial Deformation
+#### 1. `spatialdeformation`
 - **Purpose**: Applies affine and non-linear spatial transformations
 - **Parameters**:
   - `affine_probability`: Probability of applying affine transformation
@@ -238,23 +194,23 @@ preprocessing:
   - `warp_magnitude_range`: Magnitude range for warp field
 - **Note**: Parameters `warp_perlin_method`, `warp_smoothing_range`, `warp_magnitude_range` are for `warp_generation_method` is "perlin".
 
-#### 2. Cropping
-- **Types**:
-  - `centercrop`: Crop around center with random offsets
+#### 2. cropping methods:
+- **Choices**:
+  - `centercrop`: Crop around center with random offsets sampled from U[`-max_offset`, `+max_offset`]
   - `randomcrop`: Crop from random location
   - `randomcentercrop`: Crop around random center
-  - `centroidcrop`: Crop around label centroid
+  - `centroidcrop`: Crop around label centroid with random offsets sampled from U[`-max_offset`, `+max_offset`]
 - **Parameters**:
-  - `max_offset`: Maximum offset for center crop [W, H(, D)] (for `centercrop` and `centroidcrop` only)
-- **Note**: Only one type of cropping should be listed.
+  - `max_offset`: For `centercrop` and `centroidcrop` only, maximum value [W, H(, D)] to sample a random offset from U[`-max_offset`, `+max_offset`]
+- **Note**: Only one cropping method should be listed.
 
-#### 3. Flip
+#### 3. `flip`
 - **Purpose**: Left-right flipping with label swapping
 - **Parameters**:
   - `flip_prob`: Probability of flipping (0.0 to 1.0)
 - **Note**: Requires `left_right_corresponding` in dataset config
 
-#### 4. Bias Field Corruption
+#### 4. `biasfieldcorruption`
 - **Purpose**: Simulates MRI bias field artifacts
 - **Parameters**:
   - `bias_field_probability`: Probability of applying bias field corruption
@@ -263,7 +219,7 @@ preprocessing:
   - `bias_field_generation_method`: Method to generate SVF ("blur" or "upsample").
 - **Note**: `bias_field_generation_method` is for augmentvoxynth.biasfieldcorruption only.  
 
-#### 5. Intensity Augmentation
+#### 5. `intensityaugmentation`
 - **Purpose**: Applies intensity transformations
 - **Parameters**:
   - `clip_values`: Intensity clipping range [min, max]
@@ -273,7 +229,7 @@ preprocessing:
   - `gamma_scaling_probability`: Probability of applying gamma augmentation (voxel-wise exponentiation by a randomly sampled power from N(0, `gamma_scaling_max`)
   - `gamma_scaling_max`: Maximum standard deviation the normal distribution from which we sample gamma
 
-#### 6. Mimic Resolution
+#### 6. `mimicresolution`
 - **Purpose**: Simulates different image resolutions
 - **Parameters**:
   - `mimic_probability`: Probability of applying resolution mimicry
@@ -282,18 +238,78 @@ preprocessing:
   - `max_res_iso`: Maximum isotropic resolution (mm)
   - `max_res_aniso`: Maximum anisotropic resolution (mm)
 
-#### 7. Sample Conditional GMM
+#### 7. `sampleconditionalgmm`
 - **Purpose**: Conditional intensity image generation using Gaussian Mixture Models
 - **Parameters**:
-  - `prior_mean`: The means of Gaussian distributions of the GMM
-  - `prior_std`: The standard deviations of Gaussian distributions of the GMM
+  - `prior_mean`: The Gaussian means of the GMM
+  - `prior_std`: The Gaussian standard deviations of the GMM
   - `prior_distribution`: Type of distribution ("uniform" or "normal") to sample `prior_mean` and `prior_std`
 - **Note**: Requires `generation_classes` in dataset config
   
 
-#### 8. Remap Labels
-- **Purpose**: Remaps generation labels to segmentation labels
+#### 8. `remaplabels`
+- **Purpose**: Remaps `generation labels` to `segmentation labels`
 - **Note**: Requires `generation_labels` in dataset config
+
+
+### Example:
+```yaml
+preprocessing:
+  augmentations:
+    # Spatial Deformation
+    - spatialdeformation:
+        affine_probability: 1.0
+        max_translation: 30      # mm
+        max_rotation: 20         # degrees
+        max_shearing: 0.015
+        max_scaling: 1.2
+        warp_probability: 1.0
+        warp_integrations: 7
+        warp_generation_method: "upsample"  # "blur" or "upsample"
+        warp_smoothing_range: [16, 16]
+        warp_magnitude_range: [0, 3]
+
+    # choices of cropping methods: `centercrop`, `randomcrop`, `randomcentercrop`, and `centroidcrop`
+    - centercrop:
+        max_offset: [1, 2, 3]
+
+    # left-right flipping with label swapping
+    - flip:
+        flip_prob: 0.5
+
+    # Sample Conditional GMM
+    - sampleconditionalgmm:
+        prior_mean: [0, 225]
+        prior_std: [0, 35]
+        prior_distribution: uniform
+
+    # Bias Field Corruption
+    - biasfieldcorruption:
+        bias_field_probability: 1.0
+        bias_field_max_magnitude: 0.5
+        bias_field_generation_method: "blur"
+        bias_field_scale: 0.025
+
+    # Intensity Augmentation
+    - intensityaugmentation:
+        clip_values: [0, 300]
+        normalize: True
+        added_noise_probability: 1.0
+        added_noise_max_sigma: 1.0
+        gamma_scaling_probability: 1.0
+        gamma_scaling_max: 0.59
+
+    # Mimic Resolution
+    - mimicresolution:
+        mimic_probability: 1.0
+        isotropic_probability: 0.1
+        min_res_probability: 0.05
+        max_res_iso: 4      # mm
+        max_res_aniso: 8    # mm
+
+    # Remap Labels
+    - remaplabels:
+```
 
 ---
 
@@ -303,16 +319,13 @@ preprocessing:
 
 ```yaml
 training:
-  trainer_class: freeseg.training.Training
-  batch_size: 1
-  deterministic: False
-  report_moving_avg: False
-  steps_per_epoch: 1000
-  learning_rate: 0.0001
-  optimizer: torch.optim.Adam
-  write_tensorboard_summary: False
-  perform_evaluation: False
-  best_model_metric: dice  # "loss" or "dice"
+  trainer_class: freeseg.training.Training   # the trainer class
+  batch_size: 1                              # number of training samples passed through network per training step
+  deterministic: False                       # whether to do deterministic training
+  report_moving_avg: False                   # whether to report moving average training loss and dice
+  steps_per_epoch: 1000                      # number of steps per training epoch
+  optimizer: torch.optim.Adam                # optimizer class
+  write_tensorboard_summary: False           # whether to write tensorboard summary (to be tested)
 ```
 
 ### Two-Stage Training
@@ -323,16 +336,16 @@ FreeSeg supports two-stage training:
 
 ```yaml
 training:
-  wl2_epochs: 5
+  wl2_epochs: 5  
   wl2_gt_target_value: 15
   pre_train_learning_rate: 0.0001
   wl2_metrics: freeseg.metrics.WeightedL2Loss
 ```
 
-- **Purpose**: Pre-train model to predict target values for labels
+- **Purpose**: Pre-train model with weighted L2 norm loss function
 - **Parameters**:
   - `wl2_epochs`: Number of pre-training epochs
-  - `wl2_gt_target_value`: Target value for ground truth labels
+  - `wl2_gt_target_value`: Target value for ground truth labels of the layer before `final_pred_activation`: gt_target_value when gt = 1, -gt_target_value when gt = 0.
   - `pre_train_learning_rate`: Learning rate for pre-training
   - `wl2_metrics`: Loss function class
 
@@ -346,22 +359,22 @@ training:
   model_metrics: freeseg.metrics.DiceLoss
 ```
 
-- **Purpose**: Fine-tune model using Dice loss
+- **Purpose**: Fine-tune model using soft Dice loss function
 - **Parameters**:
   - `dice_epochs`: Number of training epochs
   - `dice_squared_form`: Whether to use squared Dice form
   - `learning_rate`: Learning rate for training
   - `model_metrics`: Loss function class
 
-### Evaluation During Training
+### Perform Evaluation During Training
 
 ```yaml
 training:
-  perform_evaluation: True
-  best_model_metric: dice  # Metric to select best model
+  perform_evaluation: False                  # whether to perform evaluation at the end of each training epoch
+  best_model_metric: dice                    # metric to pick best model when `perform_evaluation=True` ("loss" or "dice")
 ```
 
-When `perform_evaluation=True`, the model is evaluated on the validation set after each epoch, and the best model is saved based on `best_model_metric`.
+When `perform_evaluation=True`, the model is evaluated on the validation set at the end of each training epoch, and the best model is saved based on `best_model_metric`.
 
 ---
 
@@ -369,11 +382,11 @@ When `perform_evaluation=True`, the model is evaluated on the validation set aft
 
 ```yaml
 dataloader:
-  num_workers: 0             # Number of data loading workers (0 = data loading occurs in the main process)
-  pin_memory: False          # Whether to copy Tensors to CUDA pinned memory.
-  persistent_workers: False  # Whether to keep worker processes around
-  prefetch_factor: 2         # Number of batches loaded in advance by each worker (ignored if num_workers=0).
-                             # This can improve throughput by ensuring workers always have data ready for the main process.
+  num_workers: 0              # Number of data loading workers (0 = data loading occurs in the main process)
+  pin_memory: False           # Whether to copy Tensors to CUDA pinned memory.
+  persistent_workers: False   # Whether to keep worker processes around
+  prefetch_factor: 2          # Number of batches loaded in advance by each worker (ignored if num_workers=0).
+                              # This can improve throughput by ensuring workers always have data ready for the main process.
 ```
 
 **Notes:**
@@ -394,17 +407,17 @@ evaluation:
 
 ---
 
-## Command-Line Arguments
+## Training Script Command-Line Arguments
 
-Most configuration parameters can be overridden via command-line arguments.
+Most configuration parameters can be overridden via `scripts/freeseg_train.py` command-line arguments.
 
-### Training Script Arguments
+Example:
 
 ```bash
 fspython scripts/freeseg_train.py \
   --config configs/config.yaml \
-  --train_output_folder output/training \
   --dataset_list_file data/dataset_list.yaml \
+  --train_output_folder output/training \
   --crop_size 160 160 160 \
   --batch_size 2 \
   --learning_rate 0.0001 \
@@ -422,37 +435,4 @@ fspython scripts/freeseg_train.py \
   --logfile training.log
 ```
 
-### Prediction Script Arguments
-
-```bash
-fspython scripts/freeseg_predict.py \
-  --i input_image.mgz \
-  --o output_segmentation.mgz \
-  --checkpoint checkpoints/best_model.pth \
-  --crop_size 160 160 160 \
-  --ctab color_table.ctab \
-  --prior input_prior.mgz \
-  --gt ground_truth.mgz \
-  --write_posteriors \
-  --cpu \
-  --logfile prediction.log
-```
-
-### Evaluation Script Arguments
-
-```bash
-fspython scripts/freeseg_evaluate.py \
-  --gt ground_truth_folder \
-  --seg segmentation_folder \
-  --segmentation_labels segmentation_labels.npy \
-  --evaluation_labels 2 3 4 17 41 \
-  --path_dice dice_scores.npy \
-  --logfile evaluation.log
-```
-
----
-
-## Example Configuration Files
-
-See `configs/config.yaml` for a complete example configuration file.
 

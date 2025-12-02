@@ -26,8 +26,8 @@ Comprehensive guide to configuring FreeSeg. Covers:
 - Dataset configuration
 - Model architecture parameters
 - Preprocessing and augmentation settings
-- Training hyperparameters
-- Command-line arguments
+- Training Configuration
+- Training Script Command-line arguments
 
 **Reference this when setting up your training configuration.**
 

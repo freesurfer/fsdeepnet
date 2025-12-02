@@ -1,13 +1,12 @@
 # Getting Started with FreeSeg
 
-This guide will help you get started with FreeSeg to train models for medical image segmentation.
+This guide will help you get started with FreeSeg.
 
 ## Table of Contents
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [Your First Training](#your-first-training)
-- [Your First Prediction](#your-first-prediction)
+- [Common Workflow](#common-workflows)
 - [Next Steps](#next-steps)
 
 ---
@@ -54,7 +53,7 @@ This guide will help you get started with FreeSeg to train models for medical im
 
 ### 1. Prepare Your Dataset List
 
-Create a YAML file (`dataset_list.yaml`) manually:
+- Manually prepare a YAML file (`dataset_list.yaml`):
 
 ```yaml
 train:
@@ -72,30 +71,28 @@ test:
     label_filepath: /path/to/my_data/labels/subject201.mgz
 ```
 
-Or, use the helper script `scripts/freeseg_create_data_list.py`:
+- Use the helper script `scripts/freeseg_create_data_list.py`:
 
-**Organize data:**
-Organize your data in the following structure:
+  #### **Organize data:** Organize your data in the following structure:
 
-```
-my_data/
-  |-- images/
-  |   |-- subject001.mgz
-  |   |-- subject002.mgz
-  |   |-- ...
-  |-- labels/
-  |   |-- subject001.mgz
-  |   |-- subject002.mgz
-  |   |-- ...
-```
+  ```
+  my_data/
+    |-- images/
+    |   |-- subject001.mgz
+    |   |-- subject002.mgz
+    |   |-- ...
+    |-- labels/
+    |   |-- subject001.mgz
+    |   |-- subject002.mgz
+    |   |-- ...
+  ```
 
-**Create dataset list:**
-   ```bash
-   # Use the helper script (if available)
+  #### **Create dataset list:** Use the helper script
+  ```bash
    fspython scripts/freeseg_create_data_list.py \
      -d data/ \
      -o dataset_list.yaml
-   ```
+  ```
 
 ### 2. Create Configuration File
 
@@ -238,44 +235,5 @@ fspython scripts/freeseg_evaluate.py \
 
 ---
 
-## Example: Complete Workflow
-
-Here's a complete example workflow:
-
-```bash
-# 1. Prepare data (organize in data/ directory)
-
-# 2. Create dataset list
-fspython scripts/freeseg_create_data_list.py -d data/ -o dataset_list.yaml
-
-# 3. Configure training
-cp configs/config.yaml my_config.yaml
-# Edit my_config.yaml with your settings
-
-# 4. Train model
-fspython scripts/freeseg_train.py \
-  --config my_config.yaml \
-  --train_output_folder output/training \
-  --dataset_list_file dataset_list.yaml \
-  --write_tensorboard_summary \
-  --perform_evaluation
-
-# 5. Predict on test images
-fspython scripts/freeseg_predict.py \
-  --dataset_list_file dataset_list.yaml \
-  --cohort test \
-  --o output/predictions/ \
-  --checkpoint output/training/checkpoints/best_model.pth
-
-# 6. Evaluate predictions
-fspython scripts/freeseg_evaluate.py \
-  --gt data/test_labels/ \
-  --seg output/predictions/ \
-  --segmentation_labels output/training/segmentation_labels.npy \
-  --path_dice output/dice_scores.npy
-```
-
----
-
-Congratulations! You're now ready to use FreeSeg to train models for medical image segmentation. For more detailed information, refer to the other documentation files in the `docs/` directory.
+Congratulations! You're now ready to use FreeSeg. For more detailed information, refer to the other documentations in the `docs/` directory.
 
