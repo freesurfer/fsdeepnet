@@ -248,7 +248,7 @@ Inference Model Building
   |-- Load checkpoint
   |-- Initialize model
   |-- Load weights
-  |-- Assemble `inference model = segmentation model + smooth posteriors (optional) + left-right flipped image prediction (optional) + parcellation model (optional)`
+  |-- Assemble inference model
   |
   v
 Preprocessing
@@ -280,8 +280,14 @@ Output Segmentation
 
 - **__init__**: Class constructor
 - **build_model**: Load and assemble models
-  `inference model = segmentation model + smooth posteriors (optional) + left-right flipped image prediction (optional) + parcellation model (optional)`
-- **predict**
+  ```
+  inference model =   segmentation model
+                    + smooth posteriors (optional)
+		    + left-right flipped image prediction (optional)
+		    + parcellation model (optional)
+  ```
+- **predict**:
+  ```
   |-- **preprocess**
   |   |-- Load image
   |   |-- Resample image to target resolution (if needed)
@@ -296,6 +302,7 @@ Output Segmentation
   |   |-- Get hard segmentation
   |   |-- Combine segmentation and parcellation (optional)
   |-- Output segmentations and posteriors
+  ```
 
 ---
 
