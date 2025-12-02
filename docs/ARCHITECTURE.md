@@ -283,19 +283,19 @@ Output Segmentation
   ```
   inference model =   segmentation model
                     + smooth posteriors (optional)
-		    + left-right flipped image prediction (optional)
-		    + parcellation model (optional)
+                    + left-right flipped image prediction (optional)
+                    + parcellation model (optional)
   ```
 - **predict**:
   ```
-  |-- **preprocess**
+  |-- preprocess
   |   |-- Load image
   |   |-- Resample image to target resolution (if needed)
   |   |-- Crop image (if needed)
   |   |-- Normalize image
   |   |-- Pad image (if needed)
   |-- Run images through the inference model
-  |-- **Postprocess**:
+  |-- Postprocess
   |   |-- Remove posteriors padding (if needed)
   |   |-- Keep biggest connected components (optional)
   |   |-- Process topology classes (optional)
