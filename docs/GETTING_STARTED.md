@@ -142,8 +142,8 @@ training:
 ```bash
 fspython scripts/freeseg_train.py \
   --config my_config.yaml \
-  --train_output_folder output/my_training \
-  --dataset_list_file /path/to/dataset_list.yaml
+  --dataset_list_file /path/to/dataset_list.yaml \  
+  --train_output_folder output/my_training
 ```
 
 ### 4. Predict on New Images
@@ -168,10 +168,9 @@ fspython scripts/freeseg_predict.py \
 # 4. Train
 fspython scripts/freeseg_train.py \
   --config configs/config.yaml \
+  --dataset_list_file data/dataset_list.yaml \  
   --train_output_folder output/training \
-  --dataset_list_file data/dataset_list.yaml \
-  --dice_epochs 100 \
-  --write_tensorboard_summary
+  --dice_epochs 100
 ```
 
 ### Workflow 2: Fine-tuning
@@ -180,11 +179,11 @@ fspython scripts/freeseg_train.py \
 # 1. Start from pre-trained checkpoint
 fspython scripts/freeseg_train.py \
   --config configs/config.yaml \
-  --checkpoint pretrained_model.pth \
+  --dataset_list_file data/new_dataset_list.yaml \  
   --train_output_folder output/finetuning \
-  --dataset_list_file data/new_dataset_list.yaml \
-  --dice_epochs 50 \
-  --learning_rate 0.00005  # Lower learning rate
+  --checkpoint pretrained_model.pth \  # pre-trained model 
+  --dice_epochs 50 \  # 50 epochs more
+  --learning_rate 0.00005  # lower learning rate
 ```
 
 ### Workflow 3: Batch Prediction

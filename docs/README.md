@@ -2,15 +2,23 @@
 
 Welcome to the FreeSeg documentation! This directory contains documentation for the FreeSeg package.
 
-## Documentation Index
 
+## Quick Links
+
+- **[Getting Started Guide](docs/GETTING_STARTED.md)** - Quick start guide for new users
+- **[API Documentation](docs/API.md)** - Complete API reference for all modules and classes
+- **[Configuration Guide](docs/CONFIGURATION.md)** - Detailed configuration file documentation
+- **[Training Guide](docs/TRAINING.md)** - Training options
+- **[Architecture Documentation](docs/ARCHITECTURE.md)** - System architecture and design principles
+
+## Documentation Index
 ### [Getting Started Guide](GETTING_STARTED.md)
 A beginner guide to get you up and running with FreeSeg quickly. Includes installation instructions, quick start examples, and common workflows.
 
 **Start here if you're new to FreeSeg!**
 
 ### [API Documentation](API.md)
-API reference for all modules, classes, and functions in FreeSeg. Includes:
+API reference for modules, classes, and functions in FreeSeg. Includes:
 - Core modules (Config, Training, Prediction, Evaluation)
 - Models (U-Net architecture)
 - Datasets (SegmentationDataset)
@@ -35,7 +43,6 @@ Comprehensive guide to configuring FreeSeg. Covers:
 Detailed guide to training models with FreeSeg. Includes:
 - Training workflow
 - Two-stage training (Weighted L2 + Dice Loss)
-- Training options and parameters
 - Resuming training from checkpoints
 
 **Read this for training workflows.**
@@ -50,14 +57,6 @@ System architecture and design documentation. Covers:
 - Extension points
 
 **Use this to understand the system design and extend FreeSeg.**
-
-## Quick Links
-
-- **Installation**: See [Getting Started Guide - Installation](GETTING_STARTED.md#installation)
-- **First Training**: See [Getting Started Guide - Your First Training](GETTING_STARTED.md#your-first-training)
-- **Configurations**: See [Configuration Guide](CONFIGURATION.md)
-- **Training Options**: See [Training Guide - Training Options](TRAINING.md#training-options)
-- **API Reference**: See [API Documentation](API.md)
 
 ## Documentation Structure
 

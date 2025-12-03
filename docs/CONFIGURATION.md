@@ -176,7 +176,7 @@ Augmentations are specified as a list in the `augmentations` section along with 
 
 ### Available Augmentations
 
-#### 1. `spatialdeformation`
+#### 1. **`spatialdeformation`**
 - **Purpose**: Applies affine and non-linear spatial transformations
 - **Parameters**:
   - `affine_probability`: Probability of applying affine transformation
@@ -194,7 +194,7 @@ Augmentations are specified as a list in the `augmentations` section along with 
   - `warp_magnitude_range`: Magnitude range for warp field
 - **Note**: Parameters `warp_perlin_method`, `warp_smoothing_range`, `warp_magnitude_range` are for `warp_generation_method` is "perlin".
 
-#### 2. cropping methods:
+#### 2. **cropping methods**
 - **Choices**:
   - `centercrop`: Crop around center with random offsets sampled from U[`-max_offset`, `+max_offset`]
   - `randomcrop`: Crop from random location
@@ -204,13 +204,13 @@ Augmentations are specified as a list in the `augmentations` section along with 
   - `max_offset`: For `centercrop` and `centroidcrop` only, maximum value [W, H(, D)] to sample a random offset from U[`-max_offset`, `+max_offset`]
 - **Note**: Only one cropping method should be listed.
 
-#### 3. `flip`
+#### 3. **`flip`**
 - **Purpose**: Left-right flipping with label swapping
 - **Parameters**:
   - `flip_prob`: Probability of flipping (0.0 to 1.0)
 - **Note**: Requires `left_right_corresponding` in dataset config
 
-#### 4. `biasfieldcorruption`
+#### 4. **`biasfieldcorruption`**
 - **Purpose**: Simulates MRI bias field artifacts
 - **Parameters**:
   - `bias_field_probability`: Probability of applying bias field corruption
@@ -219,7 +219,7 @@ Augmentations are specified as a list in the `augmentations` section along with 
   - `bias_field_generation_method`: Method to generate SVF ("blur" or "upsample").
 - **Note**: `bias_field_generation_method` is for augmentvoxynth.biasfieldcorruption only.  
 
-#### 5. `intensityaugmentation`
+#### 5. **`intensityaugmentation`**
 - **Purpose**: Applies intensity transformations
 - **Parameters**:
   - `clip_values`: Intensity clipping range [min, max]
@@ -229,7 +229,7 @@ Augmentations are specified as a list in the `augmentations` section along with 
   - `gamma_scaling_probability`: Probability of applying gamma augmentation (voxel-wise exponentiation by a randomly sampled power from N(0, `gamma_scaling_max`)
   - `gamma_scaling_max`: Maximum standard deviation the normal distribution from which we sample gamma
 
-#### 6. `mimicresolution`
+#### 6. **`mimicresolution`**
 - **Purpose**: Simulates different image resolutions
 - **Parameters**:
   - `mimic_probability`: Probability of applying resolution mimicry
@@ -238,7 +238,7 @@ Augmentations are specified as a list in the `augmentations` section along with 
   - `max_res_iso`: Maximum isotropic resolution (mm)
   - `max_res_aniso`: Maximum anisotropic resolution (mm)
 
-#### 7. `sampleconditionalgmm`
+#### 7. **`sampleconditionalgmm`**
 - **Purpose**: Conditional intensity image generation using Gaussian Mixture Models
 - **Parameters**:
   - `prior_mean`: The Gaussian means of the GMM
@@ -247,7 +247,7 @@ Augmentations are specified as a list in the `augmentations` section along with 
 - **Note**: Requires `generation_classes` in dataset config
   
 
-#### 8. `remaplabels`
+#### 8. **`remaplabels`**
 - **Purpose**: Remaps `generation labels` to `segmentation labels`
 - **Note**: Requires `generation_labels` in dataset config
 
@@ -425,7 +425,6 @@ fspython scripts/freeseg_train.py \
   --wl2_epochs 5 \
   --checkpoint checkpoints/resume.pth \
   --deterministic \
-  --write_tensorboard_summary \
   --perform_evaluation \
   --best_model_metric dice \
   --num_workers 4 \

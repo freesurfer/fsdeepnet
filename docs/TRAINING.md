@@ -7,6 +7,7 @@ This guide provides detailed information about training models with FreeSeg.
 - [Training Workflow](#training-workflow)
 - [Two-Stage Training](#two-stage-training)
 - [Monitoring Training](#monitoring-training)
+- [Training Output)(#training-output)
 - [Resuming Training](#resuming-training)
 - [Example Training Commands](#example-training-commands)
 
@@ -130,7 +131,11 @@ tensorboard --logdir output/training
 - Validation loss (if evaluation enabled)
 - Validation Dice scores (if evaluation enabled)
 
-### Training Output Directory
+---
+
+## Training Output
+
+### Output Directory Content
 
 The training output directory contains:
 
@@ -205,8 +210,7 @@ fspython scripts/freeseg_train.py \
   --dataset_list_file data/dataset_list.yaml \  
   --train_output_folder output/training \
   --perform_evaluation \
-  --best_model_metric dice \
-  --write_tensorboard_summary
+  --best_model_metric dice
 ```
 
 ### Training with Custom Hyperparameters

@@ -201,13 +201,13 @@ Augmentations are applied in the order they are specified in the configuration f
 #### Stage 1: Weighted L2 Pre-training
 
 - **Purpose**: Pre-train model with weighted L2 norm loss function to provide initialization for Dice loss training
-- **Loss**: Weighted L2 loss
+- **Loss**: Weighted L2 Loss
 - **Duration**: `wl2_epochs` epochs
 
 #### Stage 2: Dice Loss Training
 
 - **Purpose**: Fine-tune model using soft Dice loss
-- **Loss**: Soft Dice loss
+- **Loss**: Soft Dice Loss
 - **Duration**: `dice_epochs` epochs
 
 ### Training Components
@@ -265,30 +265,32 @@ Inference
   v
 Postprocessing
   |-- Remove posteriors padding (if needed)
-  |-- Keep biggest connected components (optional)
-  |-- Process topology classes (optional)
+  |-- Set posteriors outside the biggest connected component to zero (optional)
+  |-- Set posteriors outside the largest connected component of each topological class to zero (optional)
   |-- Get hard segmentation
   |-- Combine segmentation and parcellation (optional)
   |
   v
 Output Segmentation
 ```
+**Notes:** The parcellation model is converted from SynthSeg Tensorflow model.
+
 
 ### Prediction Class
 
 **Prediction Class** (`freeseg.prediction.Prediction`)
 
-- **__init__**: Class constructor
-- **build_model**: Load and assemble models
+- **`__init__`**: Class constructor
+- **`build_model`**: Load and assemble models
   ```
   inference model =   segmentation model
-                    + smooth posteriors (optional)
-                    + left-right flipped image prediction (optional)
+                    + smooth posteriors (optional, '--smooth_posteriors')
+                    + left-right flipped image prediction (optional, '--flip')
                     + parcellation model (optional)
   ```
-- **predict**:
+- **`predict`**: Predict with the assembled inference model
   ```
-  |-- preprocess
+  |-- Preprocess
   |   |-- Load image
   |   |-- Resample image to target resolution (if needed)
   |   |-- Crop image (if needed)
@@ -297,10 +299,10 @@ Output Segmentation
   |-- Run images through the inference model
   |-- Postprocess
   |   |-- Remove posteriors padding (if needed)
-  |   |-- Keep biggest connected components (optional)
-  |   |-- Process topology classes (optional)
+  |   |-- Set posteriors outside the biggest connected component to zero (optional, '--keep_biggest_component')
+  |   |-- Set posteriors outside the largest connected component of each topological class to zero (optional, '--use_topology_classes')
   |   |-- Get hard segmentation
-  |   |-- Combine segmentation and parcellation (optional)
+  |   |-- Combine segmentation and parcellation (optional, '--parc parc.pth')
   |-- Output segmentations and posteriors
   ```
 
