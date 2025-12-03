@@ -5,11 +5,11 @@ Welcome to the FreeSeg documentation! This directory contains documentation for 
 
 ## Quick Links
 
-- **[Getting Started Guide](docs/GETTING_STARTED.md)** - Quick start guide for new users
-- **[API Documentation](docs/API.md)** - Complete API reference for all modules and classes
-- **[Configuration Guide](docs/CONFIGURATION.md)** - Detailed configuration file documentation
-- **[Training Guide](docs/TRAINING.md)** - Training options
-- **[Architecture Documentation](docs/ARCHITECTURE.md)** - System architecture and design principles
+- **[Getting Started Guide](GETTING_STARTED.md)** - Quick start guide for new users
+- **[API Documentation](API.md)** - Complete API reference for all modules and classes
+- **[Configuration Guide](CONFIGURATION.md)** - Detailed configuration file documentation
+- **[Training Guide](TRAINING.md)** - Training options
+- **[Architecture Documentation](ARCHITECTURE.md)** - System architecture and design principles
 
 ## Documentation Index
 ### [Getting Started Guide](GETTING_STARTED.md)
