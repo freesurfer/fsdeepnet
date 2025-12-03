@@ -273,8 +273,6 @@ Postprocessing
   v
 Output Segmentation
 ```
-**Notes:** The parcellation model is converted from SynthSeg Tensorflow model.
-
 
 ### Prediction Class
 
@@ -288,6 +286,12 @@ Output Segmentation
                     + left-right flipped image prediction (optional, '--flip')
                     + parcellation model (optional)
   ```
+  **Notes:** The parcellation model is converted from the SynthSeg+ Tensorflow model. \
+  **Robust machine learning segmentation for large-scale analysis of heterogeneous clinical brain MRI datasets** \
+    B. Billot, M. Colin, Y. Cheng, S.E. Arnold, S. Das, J.E. Iglesias \
+    PNAS (2023) \
+    [ [article](https://www.pnas.org/doi/full/10.1073/pnas.2216399120#bibliography) | [arxiv](https://arxiv.org/abs/2203.01969) ]
+
 - **`predict`**: Predict with the assembled inference model
   ```
   |-- Preprocess
