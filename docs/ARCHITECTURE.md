@@ -287,10 +287,10 @@ Output Segmentation
                     + parcellation model (optional)
   ```
   **Notes:** The parcellation model is converted from the SynthSeg+ Tensorflow model. \
-  **Robust machine learning segmentation for large-scale analysis of heterogeneous clinical brain MRI datasets** \
-    B. Billot, M. Colin, Y. Cheng, S.E. Arnold, S. Das, J.E. Iglesias \
-    PNAS (2023) \
-    [ [article](https://www.pnas.org/doi/full/10.1073/pnas.2216399120#bibliography) | [arxiv](https://arxiv.org/abs/2203.01969) ]
+             **Robust machine learning segmentation for large-scale analysis of heterogeneous clinical brain MRI datasets** \
+             B. Billot, M. Colin, Y. Cheng, S.E. Arnold, S. Das, J.E. Iglesias \
+             PNAS (2023) \
+             [ [article](https://www.pnas.org/doi/full/10.1073/pnas.2216399120) | [arxiv](https://arxiv.org/abs/2203.01969) ]
 
 - **`predict`**: Predict with the assembled inference model
   ```
@@ -354,6 +354,9 @@ Output Segmentation
 - **SynthSeg: Segmentation of brain MRI scans of any contrast and resolution without retraining** \
 B. Billot, D.N. Greve, O. Puonti, A. Thielscher, K. Van Leemput, B. Fischl, A.V. Dalca, J.E. Iglesias \
 Medical Image Analysis (2023) \
-[ [article](https://www.sciencedirect.com/science/article/pii/S1361841523000506) | [arxiv](https://arxiv.org/abs/2107.09559)
-]
+[ [article](https://www.sciencedirect.com/science/article/pii/S1361841523000506) | [arxiv](https://arxiv.org/abs/2107.09559) ]
+- **Robust machine learning segmentation for large-scale analysis of heterogeneous clinical brain MRI datasets** \
+B. Billot, M. Colin, Y. Cheng, S.E. Arnold, S. Das, J.E. Iglesias \
+PNAS (2023) \
+[ [article](https://www.pnas.org/doi/full/10.1073/pnas.2216399120) | [arxiv](https://arxiv.org/abs/2203.01969) ]
 - **Voxynth**: https://github.com/dalcalab/voxynth/
