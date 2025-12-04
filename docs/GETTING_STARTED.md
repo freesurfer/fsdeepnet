@@ -89,8 +89,8 @@ test:
 
   - #### **Create dataset list:** Use the helper script
   ```bash
-   fspython scripts/freeseg_create_data_list.py \
-     -d data/ \
+   fspython scripts/freeseg_split_dataset.py \
+     -d datafolder/ \
      -o dataset_list.yaml
   ```
 
@@ -219,7 +219,7 @@ fspython scripts/freeseg_evaluate.py \
 1. **Read Documentation:**
    - [API Documentation](API.md) - Detailed API reference
    - [Configuration Guide](CONFIGURATION.md) - Configuration details
-   - [Training Guide](TRAINING.md) - Training best practices
+   - [Training Guide](TRAINING.md) - Training options
    - [Architecture Documentation](ARCHITECTURE.md) - System architecture
 
 2. **Explore Examples:**

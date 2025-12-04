@@ -10,7 +10,7 @@ This guide explains how to configure FreeSeg for training.
 - [Preprocessing Configuration](#preprocessing-configuration)
 - [Training Configuration](#training-configuration)
 - [Augmentation Configuration](#augmentation-configuration)
-- [Command-Line Arguments](#command-line-arguments)
+- [Training Script Command-Line Arguments](#training-script-command-line-arguments)
 
 ---
 

@@ -17,7 +17,7 @@ This document describes the architecture and design of FreeSeg.
 
 ## System Overview
 
-FreeSeg is a PyTorch-based deep learning framework for medical image segmentation, specifically designed for FreeSurfer-adjacent models. The system is modular and extensible, supporting various architectures, augmentations, and training strategies.
+FreeSeg is a PyTorch-based deep learning framework, specifically designed for FreeSurfer-adjacent models. The system is modular and extensible, supporting various architectures, augmentations, and training strategies.
 
 ### Key Components
 
@@ -177,20 +177,25 @@ Example U-Net with `ndim=3`, `nb_levels=5`, `nb_features=24`, `nb_conv_per_level
 
 Augmentations are applied in the order they are specified in the configuration file.
 
-- **AugmentBase** (`freeseg.augmentation.augmentbase`)
-  - **Spatial Deformation**: Affine + non-linear spatial transformations
-  - **Cropping**: Center/random/centroid cropping
-  - **Flipping**: Left-right flipping (with label swapping)
-  - **Bias Field Corruption**: MRI bias field corruption
-  - **Intensity Augmentation**: Noise, gamma correction, normalization
-  - **Resolution Mimic**: Resolution mimicking
-  - **Label Remapping**: Label remapping
-  - **Sample Conditional GMM**: Conditional intensity image generation using Gaussian Mixture Models
-- **AugmentVoxynth** (`freeseg.augmentation.augmentvoxynth`)
-  - Derived class `AugmentVoxynth` → `AugmentBase`
-  - Augmentations implemented using Voxynth library (https://github.com/dalcalab/voxynth/)
-    - **Bias Field Corruption**: MRI bias field corruption
-    - **Intensity Augmentation**: Noise, gamma correction, normalization
+- **`freeseg.augmentation.augmentbase`**
+  - **`AugmentBase`**: base augmentation wrapper class
+  - **Individual augmentation classes**
+    - **`SpatialDeformation`**: Affine + non-linear spatial transformations
+    - **Cropping classes**: choose from one of the follow
+      - **`CenterCrop`**
+      - **`RandomCrop`**
+      - **`CentroidCrop`**
+    - **`Flip`**: Left-right flipping (with label swapping)
+    - **`BiasFieldCorruption`**: MRI bias field corruption
+    - **`IntensityAugmentation`**: Noise, gamma correction, normalization
+    - **`MimicResolution`**: Resolution mimicking
+    - **`RemapLabels`**: Label remapping
+    - **`SampleConditionalGMM`**: Conditional intensity image generation using Gaussian Mixture Models
+- **`freeseg.augmentation.augmentvoxynth`**
+  - **`AugmentVoxynth`**: derived augementation wrapper class `AugmentVoxynth` → `AugmentBase`
+  - **Individaul augmentation classes** (implemented using Voxynth library https://github.com/dalcalab/voxynth/)
+    - **`BiasFieldCorruption`**: MRI bias field corruption
+    - **`IntensityAugmentation`**: Noise, gamma correction, normalization
 
 ---
 
@@ -215,7 +220,7 @@ Augmentations are applied in the order they are specified in the configuration f
 **Training Class** (`freeseg.training.Training`)
 
 - **Model Management**: Model initialization, checkpointing
-- **Optimization**: Optimizer setup, learning rate scheduling
+- **Optimization**: Optimizer setup
 - **Loss Computation**: Dice loss, weighted L2 loss
 - **Metrics**: Dice scores, loss tracking
 - **Evaluation**: Validation during training
@@ -286,12 +291,6 @@ Output Segmentation
                     + left-right flipped image prediction (optional, '--flip')
                     + parcellation model (optional)
   ```
-  **Notes:** The parcellation model is converted from the SynthSeg+ Tensorflow model. \
-             **Robust machine learning segmentation for large-scale analysis of heterogeneous clinical brain MRI datasets** \
-             B. Billot, M. Colin, Y. Cheng, S.E. Arnold, S. Das, J.E. Iglesias \
-             PNAS (2023) \
-             [ [article](https://www.pnas.org/doi/full/10.1073/pnas.2216399120) | [arxiv](https://arxiv.org/abs/2203.01969) ]
-
 - **`predict`**: Predict with the assembled inference model
   ```
   |-- Preprocess
@@ -309,6 +308,12 @@ Output Segmentation
   |   |-- Combine segmentation and parcellation (optional, '--parc parc.pth')
   |-- Output segmentations and posteriors
   ```
+
+  **Notes:** The parcellation model is converted from the SynthSeg+ Tensorflow model. \
+             **Robust machine learning segmentation for large-scale analysis of heterogeneous clinical brain MRI datasets** \
+             B. Billot, M. Colin, Y. Cheng, S.E. Arnold, S. Das, J.E. Iglesias \
+             PNAS (2023) \
+             [ [article](https://www.pnas.org/doi/full/10.1073/pnas.2216399120) | [arxiv](https://arxiv.org/abs/2203.01969) ]
 
 ---
 

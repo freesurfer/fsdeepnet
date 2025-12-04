@@ -12,7 +12,7 @@ from freeseg.training import Training
 from freeseg.config import Config
 
 """
-Usage: test_preprocessing.py 
+Usage: test_segmentationdataset.py 
        --config <config.yaml>
        [--augment]
        [--deterministic]

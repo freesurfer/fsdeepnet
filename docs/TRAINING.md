@@ -7,7 +7,7 @@ This guide provides detailed information about training models with FreeSeg.
 - [Training Workflow](#training-workflow)
 - [Two-Stage Training](#two-stage-training)
 - [Monitoring Training](#monitoring-training)
-- [Training Output)(#training-output)
+- [Training Output](#training-output)
 - [Resuming Training](#resuming-training)
 - [Example Training Commands](#example-training-commands)
 
@@ -55,8 +55,8 @@ Create or edit `config.yaml` (see [CONFIGURATION.md](CONFIGURATION.md) for detai
 ```bash
 fspython scripts/freeseg_train.py \
   --config configs/config.yaml \
-  --train_output_folder output/training \
-  --dataset_list_file data/dataset_list.yaml
+  --dataset_list_file data/dataset_list.yaml \  
+  --train_output_folder output/training
 ```
 
 ---
@@ -67,7 +67,7 @@ FreeSeg supports a two-stage training approach for better model initialization.
 
 ### Stage 1: Weighted L2 Pre-training
 
-**Purpose:** Pre-train the model with weighted L2 norm loss function to provide better initialization for Dice loss training
+**Purpose:** Pre-train the model with weighted L2 norm loss function to provide initialization for Dice loss training
 
 **Parameters:**
 ```yaml
@@ -199,7 +199,7 @@ Checkpoint.print(checkpoint, detail=True)
 fspython scripts/freeseg_train.py \
   --config configs/config.yaml \
   --dataset_list_file data/dataset_list.yaml \
-  --train_output_folder output/training \
+  --train_output_folder output/training
 ```
 
 ### Training with Evaluation
