@@ -64,6 +64,9 @@ class Checkpoint:
         # print checkpoint dict information
         if (level == 0):
             print("checkpoint information:")
+            # 'keys' can be either str or list
+            if (isinstance(keys, str)):
+                keys = [keys]
             report_keys = keys if (keys is not None) else dictionary.keys()
         else:
             report_keys = dictionary.keys()
