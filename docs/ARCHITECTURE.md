@@ -321,9 +321,9 @@ Output Segmentation
 
 ### Adding New Models
 
-1. Create model class in `freeseg/models/`
-   This can be a wrapper class providing the interface between Freeseg and the network implementation.
-2. Implement required methods:
+- Create model class in `freeseg/models/`
+  This can be a wrapper class providing the interface between Freeseg and the network implementation.
+- Implement required methods:
    **`__init__()`**: takes `model_arch_dict` as input. Required `model_arch_dict` keywords: `num_channels`, `nb_labels`, `nb_levels`, `ndims`.
    ```
        def __init__(self, model_arch_dict):
@@ -340,7 +340,7 @@ Output Segmentation
    **`_setdefault_arch_dict(self)`**: set network defaults in `self._model_arch_dict`
    **`_update_arch_dict(self, model_arch_dict)`**: update network parameters `self._model_arch_dict` with user input
    **`forward()`**: torch.nn.Module forward method
-3. Implement required property:
+- Implement required property:
    ```
        @property
        def arch_dict(self):
@@ -349,22 +349,22 @@ Output Segmentation
 
 ### Adding New Augmentations
 
-1. Create augmentation wrapper class in `freeseg/augmentation/`
-2. (optional) Inherit from base augmentation wrapper class freeseg.augmentation.augmentbase.AugmentBase
-3. Implement individual augmentation class (inherit from `torch.nn.Module`)
-4. Add to valid augmentations list
+- Create augmentation wrapper class in `freeseg/augmentation/`
+- (optional) Inherit from base augmentation wrapper class freeseg.augmentation.augmentbase.AugmentBase
+- Implement individual augmentation class (inherit from `torch.nn.Module`)
+- Add to valid augmentations list
 
 ### Adding New Metrics
 
-1. Create metric class in `freeseg/metrics.py`
-2. Inherit from `torch.nn.Module`
-3. Implement `__init__` and `forward` methods
+- Create metric class in `freeseg/metrics.py`
+- Inherit from `torch.nn.Module`
+- Implement `__init__` and `forward` methods
 
 ### Adding New Datasets
 
-1. Create dataset class in `freeseg/datasets/`
-2. Inherit from `torch.utils.data.Dataset`
-3. Implement `__getitem__` and `__len__`
+- Create dataset class in `freeseg/datasets/`
+- Inherit from `torch.utils.data.Dataset`
+- Implement `__getitem__` and `__len__`
 
 ---
 
