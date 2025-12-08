@@ -84,6 +84,9 @@ class ConvBlock(nn.Module):
 
 
 class UNet(nn.Module):
+    # keywords `num_channels` and `nb_labels` must be present in model_arch_dict
+    # by default, they are from dataset configurables `expected_num_channels` and len(segmentation_labels).
+    # use model configurables `in_channels` and `out_channels` to override the defaults.
     def __init__(self, model_arch_dict):
 
         self._model_arch_dict = {}

@@ -12,14 +12,14 @@ model:
   name: freeseg.models.unet.UNet
   nb_levels: 5
   nb_features: 24  # first level convolution features
-  final_features: 69
+  out_channels: 69 $ number of network output features
   feat_mult: 2
   nb_conv_per_level: 2
   norm: batch  # or instance
   track_running_stats: False
   activation: elu
   ndims: 3
-  num_channels: 3  # number of input features
+  in_channels: 3  # number of network input features
   conv_size: 3
   pool_size: 2
   use_residuals: False

@@ -671,11 +671,14 @@ class Training:
             config["dataset"].update(train_dataset_dict)
 
         #### update model architecture dict
+        # keywords `num_channels` and `nb_labels` must be present in model_arch_dict
+        # by default, they are from dataset configurables `expected_num_channels` and len(segmentation_labels).
+        # use model configurables `in_channels` and `out_channels` to override the defaults.
         model_arch_dict = config["model"]
-        model_arch_dict["num_channels"] = config["model"].get("num_channels", None)
+        model_arch_dict["num_channels"] = config["model"].get("in_channels", None)
         if (model_arch_dict["num_channels"] is None):
             model_arch_dict["num_channels"] = config["dataset"]["expected_num_channels"]
-        model_arch_dict["nb_labels"] = config["model"].get("final_features", None)
+        model_arch_dict["nb_labels"] = config["model"].get("out_channels", None)
         if (model_arch_dict["nb_labels"] is None):
             model_arch_dict["nb_labels"] = config["dataset"]["num_labels"]
         model_arch_dict["add_priors"] = train_dataset_dict.get("priors", False)
