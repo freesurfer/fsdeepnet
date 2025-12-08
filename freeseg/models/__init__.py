@@ -37,10 +37,11 @@ def model_summary(model, input_size, logger=logging, device=None, debug=False):
                     datasize_list = list(datasize)
                     param_sizes.append(f"{nm:s}:{str(datasize_list):s}")
 
+            # layer output nn.Module forward() can be a tuple, determine output shape using its first element
             forward_hook_summary.append({
                 "name": m_key,
                 "input_shape":  list(input[0].size()),
-                "output_shape": list(output.size()),
+                "output_shape": list(output[0].size()),
                 "nb_params":    sum(p.numel() for p in module.parameters()),
                 "param_sizes":  ", ".join(param_sizes)
             })
@@ -60,7 +61,7 @@ def model_summary(model, input_size, logger=logging, device=None, debug=False):
                 forward_hooks.append(module.register_forward_hook(forward_hook))                
                 if (debug):
                     class_name = str(module.__class__).split(".")[-1].split("'")[0]
-                    logging.info(f"\t{name:25s} {str(module):80s} class_name={class_name}")
+                    logging.info(f"   {name:<50s} {str(module):<100s} class_name={class_name}")
             else:
                 for idx, chld in enumerate(module.named_children()):
                     register_hook(chld, name)
@@ -71,10 +72,10 @@ def model_summary(model, input_size, logger=logging, device=None, debug=False):
 
     if (debug):
         logger.info("<<< REGISTER FORWARD HOOKS >>>")
-        logger.info("------------------------------------------------------------------------------------------------------------------------------------------")
+        logger.info("-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------")
     register_hook(model)
     if (debug):
-        logger.info("------------------------------------------------------------------------------------------------------------------------------------------")    
+        logger.info("-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------")    
 
     if (device is None):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")    
@@ -106,14 +107,14 @@ def model_summary(model, input_size, logger=logging, device=None, debug=False):
 
     # forward hook summary
     logger.info("<<< FORWARD HOOK SUMMARY >>>")
-    logger.info("-----------------------------------------------------------------------------------------------------------------------------------------")
-    line_new = "{:<35}  {:>25}  {:>25}  {:>10}  {:>15}".format("Layer (type)", "Input Shape", "Output Shape", "Param #", "Param Size")
+    logger.info("-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------")
+    line_new = "{:<65}  {:>25}  {:>25}  {:>10}  {:>15}".format("Layer (type)", "Input Shape", "Output Shape", "Param #", "Param Size")
     logger.info(line_new)
-    logger.info("=========================================================================================================================================")
+    logger.info("=============================================================================================================================================================================")
     total_params = 0
     for forward_hook in forward_hook_summary:
         layer = forward_hook["name"]
-        line_new = "{:<35}  {:>25}  {:>25}  {:>10}  {:<15}".format(
+        line_new = "{:<65}  {:>25}  {:>25}  {:>10}  {:<15}".format(
             layer,
             str(forward_hook["input_shape"]),
             str(forward_hook["output_shape"]),
@@ -122,9 +123,9 @@ def model_summary(model, input_size, logger=logging, device=None, debug=False):
         )
         total_params += forward_hook["nb_params"]
         logger.info(line_new)
-    logger.info("=========================================================================================================================================")
+    logger.info("=============================================================================================================================================================================")
     logger.info(f"Total params: {total_params:,}")
-    logger.info("-----------------------------------------------------------------------------------------------------------------------------------------")
+    logger.info("-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------")
 
 
 def model_parameters(model, logger=logging):
