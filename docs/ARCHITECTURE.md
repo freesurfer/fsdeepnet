@@ -321,9 +321,9 @@ Output Segmentation
 
 ### Adding New Models
 
-- Create model class in `freeseg/models/`
+- Create model class in `freeseg/models/` \
   This can be a wrapper class providing the interface between Freeseg and the network implementation.
-- Implement required methods:
+- Implement required methods
   - **`__init__()`**: takes `model_arch_dict` as input. Required `model_arch_dict` keywords: `num_channels`, `nb_labels`, `nb_levels`, `ndims`.
     ```
        def __init__(self, model_arch_dict):
@@ -338,14 +338,31 @@ Output Segmentation
 
     ```
   - **`_setdefault_arch_dict(self)`**: set network defaults in `self._model_arch_dict`
+    ```
+        def _setdefault_arch_dict(self):
+            self._model_arch_dict["num_channels"] = 1   # number of network input channels
+            self._model_arch_dict["nb_labels"] = 33     # number of network output features
+            self._model_arch_dict["nb_levels"] = 5      # number of enc/dec levels
+            self._model_arch_dict["ndims"] = 3          # number of spatial dims.
+
+            ...
+	    
+    ```
   - **`_update_arch_dict(self, model_arch_dict)`**: update network parameters `self._model_arch_dict` with user input
+    ```
+       def _update_arch_dict(self, model_arch_dict):
+	   # update self._model_arch_dict
+           for k in (model_arch_dict.keys()):
+               self._model_arch_dict[k] = model_arch_dict[k]
+    ```
   - **`forward()`**: torch.nn.Module forward method
-- Implement required property:
-  ```
-      @property
-      def arch_dict(self):
-          return self._model_arch_dict   
-  ```
+- Implement required property
+  - **`arch_dict`**: getter method for `self._model_arch_dict`
+    ```
+       @property
+       def arch_dict(self):
+           return self._model_arch_dict   
+    ```
 
 ### Adding New Augmentations
 
