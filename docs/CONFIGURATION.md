@@ -153,6 +153,14 @@ model:
   activation: elu                  # activation function ("elu" or "relu")
 ```
 
+**Notes:**
+- Required configurables: `name`, `ndims`, and `nb_levels`.
+- Optional configurables: `in_channels` and `out_channels`.
+  Keywords `num_channels` and `nb_labels` must be present in `model_arch_dict` used to initiate a network object.
+  By default, they are derived from dataset configurables `expected_num_channels` and `len(segmentation_labels)`.
+  Use the optional model configurables `in_channels` and `out_channels` to override the defaults.
+- Other model configurables can be users' choices as long as they are consistent with the keywords in `model_arch_dict` used to initiate a network object. 
+
 ---
 
 ## Preprocessing Configuration

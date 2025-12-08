@@ -322,7 +322,30 @@ Output Segmentation
 ### Adding New Models
 
 1. Create model class in `freeseg/models/`
-2. Implement `__init__` and `forward` methods
+   This can be a wrapper class providing the interface between Freeseg and the network implementation.
+2. Implement required methods:
+   **`__init__()`**: takes `model_arch_dict` as input. Required `model_arch_dict` keywords: `num_channels`, `nb_labels`, `nb_levels`, `ndims`.
+   ```
+       def __init__(self, model_arch_dict):
+           self._model_arch_dict = {}
+        
+           # set network defaults
+           self._setdefault_arch_dict()
+           # update network parameters with user input
+           self._update_arch_dict(model_arch_dict)
+	   
+	   ...
+
+   ```
+   **`_setdefault_arch_dict(self)`**: set network defaults in `self._model_arch_dict`
+   **`_update_arch_dict(self, model_arch_dict)`**: update network parameters `self._model_arch_dict` with user input
+   **`forward()`**: torch.nn.Module forward method
+3. Implement required property:
+   ```
+       @property
+       def arch_dict(self):
+           return self._model_arch_dict   
+   ```
 
 ### Adding New Augmentations
 
