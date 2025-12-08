@@ -86,7 +86,11 @@ class ConvBlock(nn.Module):
 class UNet(nn.Module):
     def __init__(self, model_arch_dict):
 
+        self._model_arch_dict = {}
+
+        # set network defaults
         self._setdefault_arch_dict()
+        # update network parameters with user input
         self._update_arch_dict(model_arch_dict)
 
         num_channels = self._model_arch_dict["num_channels"]
@@ -319,8 +323,8 @@ class UNet(nn.Module):
         return [x, x1]
 
 
+    # set network defaults
     def _setdefault_arch_dict(self):
-        self._model_arch_dict = {}
         self._model_arch_dict["__unetver__"] = __unetver__
         self._model_arch_dict["num_channels"] = 1
         self._model_arch_dict["ndims"] = 3
@@ -343,6 +347,7 @@ class UNet(nn.Module):
         self._model_arch_dict["skip_connect"] = "norm"
 
 
+    # update network parameters with user input
     def _update_arch_dict(self, model_arch_dict):
         num_channels = model_arch_dict.get("num_channels", None)
         if (num_channels is None):
@@ -385,16 +390,6 @@ class UNet(nn.Module):
         if (self._model_arch_dict["norm"] is None):
             self._model_arch_dict["skip_connect"] = "encoder"
 
-            
-    def print_arch(self, logger=None):
-        if (logger is None):
-            logger = logging
-
-        logger.info(f"{self._model_arch_dict.get('name')}:")    
-        for k in self._model_arch_dict.keys():
-            logger.info(f"    {k}: {self._model_arch_dict[k]}")
-        logger.info("")        
-        
 
     @property
     def arch_dict(self):

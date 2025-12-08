@@ -37,7 +37,7 @@ def model_summary(model, input_size, logger=logging, device=None, debug=False):
                     datasize_list = list(datasize)
                     param_sizes.append(f"{nm:s}:{str(datasize_list):s}")
 
-            # layer output nn.Module forward() can be a tuple, determine output shape using its first element
+            # layer output from nn.Module forward() can be a tuple, determine output shape using its first element
             forward_hook_summary.append({
                 "name": m_key,
                 "input_shape":  list(input[0].size()),
@@ -139,3 +139,13 @@ def model_parameters(model, logger=logging):
         logger.info(f"\t{name:30s}: {str(datasize_list):20s}, {param.numel():10,d}  trainable={trainable}")
     total_params = sum(param.numel() for param in model.parameters())
     logger.info(f"Total parameters: {total_params:,}")
+
+
+def model_arch(arch_dict, logger=logging):
+    if (logger is None):
+            logger = logging
+
+    logger.info(f"{arch_dict.get('name')}:")    
+    for k in arch_dict.keys():
+        logger.info(f"    {k}: {arch_dict[k]}")
+    logger.info("")

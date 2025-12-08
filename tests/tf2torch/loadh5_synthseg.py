@@ -5,6 +5,7 @@ import h5py
 import numpy as np
 import torch
 
+from freeseg import models
 from freeseg.config import Config
 from freeseg.checkpoint import Checkpoint
 from freeseg.training import Training
@@ -165,7 +166,7 @@ def main():
     config = Config.process(args, logger=logging, require_train_outfolder=False, require_dataset_list=False)
     config, _, _, model, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=True)
 
-    model.print_arch(logger=logging)
+    models.model_arch(model.arch_dict, logger=logging)
     
     train_dataset_dict = config["dataset"]
     label_lookup = train_dataset_dict.get("label_lookup", None)

@@ -116,7 +116,7 @@ def main():
     model = model_class(model_arch_dict).to(device)
 
     # print network summary                    
-    model.print_arch()
+    models.model_arch(model_arch_dict)
     models.model_print(model)
     models.model_summary(model, (n_channels, *args.input_shape[-args.ndims:]), device=device, debug=True)
     #models.model_parameters(model)

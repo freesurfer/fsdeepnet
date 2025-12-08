@@ -4,6 +4,7 @@ import sys
 import logging
 import argparse
 
+from freeseg import models
 from freeseg.training import Training
 from freeseg.config import Config
 from freeseg.utils import utility as utils
@@ -124,11 +125,10 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
 
     # print model_arch_dict
     model_arch_dict = model.arch_dict
-    model.print_arch(logger=mainlogger)
+    models.model_arch(model_arch_dict, logger=mainlogger)
 
     if (verbose):
         # print model summary and trainable parameters
-        from freeseg import models
         net_crop_size = train_dataset_dict["crop_size"]
         net_input_shape = (model_arch_dict["num_channels"], *net_crop_size)
         models.model_summary(model, net_input_shape, logger=mainlogger)
