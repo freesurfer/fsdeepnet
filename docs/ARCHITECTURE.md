@@ -333,8 +333,8 @@ Output Segmentation
            self._setdefault_arch_dict()
            # update network parameters with user input
            self._update_arch_dict(model_arch_dict)
-	   
-	   ...
+
+           ...
 
     ```
   - **`_setdefault_arch_dict(self)`**: set network defaults in `self._model_arch_dict`
@@ -351,7 +351,7 @@ Output Segmentation
   - **`_update_arch_dict(self, model_arch_dict)`**: update network parameters `self._model_arch_dict` with user input
     ```
        def _update_arch_dict(self, model_arch_dict):
-	   # update self._model_arch_dict
+           # update self._model_arch_dict
            for k in (model_arch_dict.keys()):
                self._model_arch_dict[k] = model_arch_dict[k]
     ```
