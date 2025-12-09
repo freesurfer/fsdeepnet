@@ -16,27 +16,61 @@ from freeseg.utils import utility as utils
 description = """
 Usage: freeseg_checkmodel.py 
        --config <config.yaml> | --checkpoint <checkpoint> [ [--info [--detail] [--report_type] [--nkeys <n>] [--keys <>] ]
-                                                            [--weight_outdir <weight_outdir>]
+                                                            [--weights <model_state_key>:weight_outdir>]
                                                             [--saveas <> 
-                                                              [--strip_optimizer_state]
-                                                              [--update label_lookup:<> segmentation_names:<> topology_classes:<> target_res:<> model_class:<> config:config] ] ]
+                                                              [--strip <dictkey1 dictkey2 ...>]
+                                                              [--rename <fromkey1:tokey1 fromkey2:tokey2 ...>]
+                                                              [--update label_lookup:<> segmentation_names:<> topology_classes:<> target_res:<> model_class:<> config:config]
+                                                              [--prefix-model_layer <prefix>]
+                                                              [--replace-model_layer <from:to>] ] ]
        [--ndims <n>]
        [--input_shape <H W (D)>]
        [--cpu]
 
        1. Use '--config <>' to create the network, or 
               '--checkpoint <> to load a pre-trained network.
-       2. Use '--weight_outdir <>' to save trainable parameters in <checkpoint>.
+       2. Use '--weights <model_state_key>:weight_outdir>' to save trainable parameters in <checkpoint>.
           The option is ignored if it is not run with '--checkpoint <>'.
        3. Options to update pre-trained model: 
-          a) '--strip_optimizer_state': strip optimizer states
+          a) '--strip <dictkey1 dictkey2 ...>': strip <dictkey> from checkpoint
+             <dictkey> needs to match dict keywords in checkpoint
           b) '--update label_lookup:<> segmentation_names:<> topology_classes:<> target_res:<> model_class:<> config:config'
              update pre-trained model with given key:value pairs
              if key:value=='config:config', both train_dataset_dict and model_arch_dict are updated using the config.yaml
+          c) '--prefix-model_layer <prefix>'
+             it is assumed the model state is saved under keyword 'model_state_dict'
+             <prefix> = the prefix to be added to each model state layer name
+          d) '--replace-model_layer <from:to>'
+             it is assumed the model state is saved under keyword 'model_state_dict'
+             replace <from> with <to> for each model state layer name
+          e) '--rename <fromkey1:tokey1 fromkey2:tokey2 ...>'
+             rename the checkpoint top level dictionary keywords
 
-Example:
-       fspython freeseg_checkmodel.py --checkpoint 7233351_dice_300.pth --strip_optimizer_state --saveas new2.7233351_dice_300.pth 
-       --update topology_classes:/usr/local/freesurfer/8.0.0/models/synthseg_topological_classes_2.0.npy segmentation_names:/autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/segmentation_names_lut_2.0.npy
+Example 1: retrieve checkpoint top level information
+       fspython freeseg_checkmodel.py --checkpoint orig.pth --info
+
+Example 2: retrieve information of 30 layers of model_state_dict
+       fspython freeseg_checkmodel.py --checkpoint orig.pth --info --detail --keys model_state_dict --nkey 30
+
+Example 3: rename 'model_state' to 'model_state_dict'
+       fspython freeseg_checkmodel.py --checkpoint orig.pth --rename model_state:model_state_dict --saveas new.pth
+
+Example 4: strip 'optimizer_state'
+       fspython freeseg_checkmodel.py --checkpoint orig.pth --strip optimizer_state --saveas new.pth
+
+Example 5: prefix model state layer
+       fspython freeseg_checkmodel.py --checkpoint orig.pth --prefix-model_layer unet3d. --saveas new.pth
+
+Example 6: replace model state layer
+       fspython freeseg_checkmodel.py --checkpoint orig.pth --replace-model_layer unet3d:unet --saveas new.pth
+
+Example 7: update checkpoint
+       fspython freeseg_checkmodel.py --checkpoint orig.pth
+         --update topology_classes:topological_classes.npy segmentation_names:segmentation_names.npy
+         --saveas new.pth
+
+Example 8: update checkpoint 'train_dataset_dict' and 'model_arch_dict' using information from config.yaml
+       fspython freeseg_checkmodel.py --checkpoint orig.pth --update config:config --saveas new.pth
 """
 
 # Configure logging settings
@@ -51,16 +85,22 @@ logging.basicConfig(
 def main():
     args = argument_parse(description)
 
-    update = True if (args.strip_optimizer_state or args.update is not None) else False
     info = True if (args.info) else False
+    update = False
+    if (args.rename is not None or \
+        args.strip is not None or \
+        args.update is not None or \
+        args.prefix_model_layer is not None or \
+        args.replace_model_layer is not None):
+      update = True
 
     # check command line options
     if (args.config is None and args.checkpoint is None):
         logging.error("Use '--config <>' to create the network, or '--checkpoint <>' to load a pre-trained network")
         sys.exit(1)
-    if (args.info or args.strip_optimizer_state or args.update is not None or args.weight_outdir is not None):
+    if (info or update):
         assert (args.checkpoint is not None), f"Use '--checkpoint <>' to load a pre-trained network"
-    if (args.update is not None and args.update == "config"):
+    if (args.update is not None and "config:config" in args.update):
         assert (args.config is not None), f"Specify '--config <>' for '--update {args.update}'"
     if (update):
         assert (args.saveas is not None), f"Specify path to save new checkpoint as '--saveas <>'"
@@ -86,18 +126,39 @@ def main():
         checkpoint.load(args.checkpoint, device=device)
 
         if (checkpoint.model_arch_dict is None):
+            print("WARN: Model architecture information not available")
             info = True
+
+    # '--weights <model_state_key>:weight_outdir'
+    if (args.weights is not None):
+        if (args.checkpoint is None):
+            print(f"WARN: 'No checkpoint specified, --weights {args.weights} ignored.")
+        else:
+            model_state_key, weight_outdir = args.weights.split(':')
+            # retrieve model state using the given key 'model_state_key'. the key can be different in different checkpoint.
+            model_state = checkpoint.dict.get(model_state_key, None)
+            if (model_state is None):
+                print(f"[ERROR] dict key '{model_state_key}' doesn't exist")
+                sys.exit(1)
+        
+            # output model trainable parameters in given checkpoint
+            import numpy as np
+            if (not os.path.exists(weight_outdir)):
+                os.makedirs(weight_outdir)
+            logging.info(f"weight/bias can be found in directory {weight_outdir}")
+            for k, v in model_state.items():
+                path_npy = f"{weight_outdir}/{k}.npy"
+                np.save(path_npy, v.cpu().numpy())
 
     # '--info' or input checkpoint has no model_arch_dict information
     if (info):
-        if (checkpoint.model_arch_dict is None):
-            print("WARN: Model architecture information not available")
         Checkpoint.print(checkpoint.dict, detail=args.detail, nkeys=args.nkeys, keys=args.keys, report_type=args.report_type)
-        sys.exit(0)
 
     # update checkpoint
     if (update):
-        update_checkpoint(args.update, config, checkpoint, args.saveas, args.strip_optimizer_state)
+        update_checkpoint(checkpoint, args.saveas, config, args.update, args.strip, args.rename, args.prefix_model_layer, args.replace_model_layer)
+
+    if (info or update or checkpoint.model_arch_dict is None):
         sys.exit(0)
 
     # create the network from config or re-construct it from pre-trained model
@@ -115,25 +176,12 @@ def main():
     model_class = utils.get_class(the_model_name, "freeseg.models.unet")
     model = model_class(model_arch_dict).to(device)
 
-    # print network summary                    
+    # print network summary
     models.model_arch(model_arch_dict)
     models.model_print(model)
     models.model_summary(model, (n_channels, *args.input_shape[-args.ndims:]), device=device, debug=True)
     #models.model_parameters(model)
     #models.model_summary_torchinfo(model, (1, 1, *args.input_shape[-args.ndims:]))
-
-    if (args.weight_outdir is not None):
-        model.load_state_dict(checkpoint.model_state_dict)
-        
-        # output model trainable parameters in given checkpoint
-        import numpy as np
-        if (not os.path.exists(args.weight_outdir)):
-            os.makedirs(args.weight_outdir)
-        logging.info(f"weight/bias can be found in directory {args.weight_outdir}")
-        for name, param in model.named_parameters():
-            if param.requires_grad:
-                path_npy = f"{args.weight_outdir}/{name}.npy"
-                np.save(path_npy, param.data.cpu().numpy())
         
 
 def argument_parse(description):
@@ -148,8 +196,11 @@ def argument_parse(description):
     parser.add_argument("--report_type", action='store_true', help="Report types for instances other than 'dict', 'torch.Tensor', and 'numpy.ndarray', only works with '--detail'")
     parser.add_argument("--nkeys", type=int, default=30, help="Limit the number of dict keys to report, only works with '--detail'")
     parser.add_argument("--keys", nargs="+", type=str, help="List of dict keys to report, only works with '--detail'")
-    parser.add_argument("--weight_outdir", type=str, help="Directory to save trainable parameters in given checkpoint")
-    parser.add_argument("--strip_optimizer_state", action='store_true', help="Strip optimizer state from pre-trained checkpoint")
+    parser.add_argument("--weights", type=str, help="Save trainable parameters in given checkpoint, <model_state_key:weight_outdir>")
+    parser.add_argument("--strip", nargs="+", type=str, help="Strip dict keys from checkpoint")
+    parser.add_argument("--rename", nargs="+", type=str, help="Rename checkpoint top level dictionary keywords, <fromkey1:tokey1 fromkey2:tokey2 ...>")
+    parser.add_argument("--prefix-model_layer", type=str, help="Prepend 'prefix' to each model state layer name")
+    parser.add_argument("--replace-model_layer", type=str, help="Replace model state layer names, <from:to>")
     parser.add_argument("--update", nargs="+", type=str, help="Update pre-trained checkpoint dict, choices are 'label_lookup:<>', 'segmentation_names:<>', 'topology_classes:<>', 'model_class:<>', and 'config:config'")
     parser.add_argument("--saveas", type=str, help="Path to save new checkpoint as")
     parser.add_argument("--ndims", type=int, default=3, help="Number of image dimensions, 2D or 3D")
@@ -166,10 +217,27 @@ def argument_parse(description):
     return args
 
 
-def update_checkpoint(toupdates, config, checkpoint, saveas, strip_optimizer_state=False):
-    dict_update = dict()
+def update_checkpoint(checkpoint, saveas, config, toupdates, stripkeys, renamekeys, layerprefix, layerreplace):
+    # '--strip <dictkeys>'
+    if (stripkeys is not None):
+        checkpoint.strip(stripkeys)
 
-    # update checkpoint dict
+    # '--rename <fromkey1:tokey1 fromkey2:tokey2 ...>'
+    if (renamekeys is not None):
+        checkpoint.rename(renamekeys)
+
+    # '--prefix-model_layer <prefix>'
+    if (layerprefix is not None):
+        checkpoint.prefix_model_layer(layerprefix)
+
+    # '--replace-model_layer <from:to>'
+    if (layerreplace is not None):
+        checkpoint.replace_model_layer(layerreplace)
+
+    # '--update label_lookup:<> segmentation_names:<> topology_classes:<> target_res:<> model_class:<> config:config'
+    if (toupdates is None):
+        toupdates = {}  # empty dict
+    dict_update = dict()    
     for toupdate in (toupdates):
         (key, value) = toupdate.split(":")
         logging.info(f"update {key}:{value}")
@@ -177,15 +245,14 @@ def update_checkpoint(toupdates, config, checkpoint, saveas, strip_optimizer_sta
         if (key == "label_lookup"):
             import surfa as sf
             label_lookup = sf.load_label_lookup(value)
-            #dict_update.update({"label_lookup" : label_lookup})
             dict_update.update({"label_lookup" : value})
         #    
         elif (key == "segmentation_names"):
-            checkpoint.train_dataset_dict["segmentation_names"] = value  #np.load(value)
+            checkpoint.train_dataset_dict["segmentation_names"] = value
             dict_update.update({"train_dataset_dict" : checkpoint.train_dataset_dict})
         #
         elif (key == "topology_classes"):
-            checkpoint.train_dataset_dict["topology_classes"] = value  #np.load(value)
+            checkpoint.train_dataset_dict["topology_classes"] = value
             dict_update.update({"train_dataset_dict" : checkpoint.train_dataset_dict})
         #
         elif (key == "target_res"):
@@ -201,11 +268,6 @@ def update_checkpoint(toupdates, config, checkpoint, saveas, strip_optimizer_sta
             dict_update.update({"model_arch_dict" : config["model"],
                                 "train_dataset_dict" : config["dataset"]})
         #
-
-    # '--strip_optimizer_state'
-    if (strip_optimizer_state):
-        logging.info("strip optimizer state")
-        dict_update.update({"optimizer_state_dict": None})
 
     logging.info(f"save updated checkpoint as {saveas}")
     checkpoint.save(saveas, dict_update)

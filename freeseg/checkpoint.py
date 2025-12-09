@@ -52,9 +52,62 @@ class Checkpoint:
 
     def save(self, checkpoint, dict):
         """ Update checkpoint dict, save to file """
-        
+
         self._dict.update(dict)
         torch.save(self._dict, checkpoint)
+
+
+    def strip(self, keys):
+        """ Strip keys from self._dict """
+        keys = [keys] if (isinstance(keys, str)) else keys
+        for k in (keys):
+            print(f"strip dict key {k}")
+            del(self._dict[k])
+
+
+    def rename(self, replacements):
+        replacements = [replacements] if (isinstance(replacements, str)) else replacements
+        new_dict = dict()
+        for replacement in (replacements):
+            (from_k, to_k) = replacement.split(":")
+            print(f"rename dict key {from_k} => {to_k}")
+            new_dict[to_k] = self.dict[from_k]
+            del(self.dict[from_k])
+
+        if (new_dict):  # new_dict is not empty
+            self._dict.update(new_dict)
+
+
+    def prefix_model_layer(self, prefix):
+        model_state_key = "model_state_dict"
+        new_model_state = dict()
+        old_keys = []
+        for k, v in self.model_state_dict.items():
+            new_k = f"{prefix}{k}"
+            print(f"prefix '{model_state_key}' layer {k} => {new_k}'")
+            new_model_state[new_k] = v
+            old_keys.append(k)
+
+        for k in (old_keys):
+            del(self.model_state_dict[k])
+        self._dict['model_state_dict'].update(new_model_state)
+
+
+    def replace_model_layer(self, replacement):
+        (from_k, to_k) = replacement.split(":")
+        
+        model_state_key = "model_state_dict"
+        new_model_state = dict()
+        old_keys = []
+        for k, v in self.model_state_dict.items():
+            new_k = k.replace(from_k, to_k)
+            print(f"replace '{model_state_key}' layer {k} => {new_k}'")
+            new_model_state[new_k] = v
+            old_keys.append(k)
+
+        for k in (old_keys):
+            del(self.model_state_dict[k])
+        self._dict['model_state_dict'].update(new_model_state)
 
 
     @staticmethod
@@ -109,7 +162,7 @@ class Checkpoint:
     @property
     def dict(self):
         return self._dict
-        
+
 
     @property
     def epoch(self):
