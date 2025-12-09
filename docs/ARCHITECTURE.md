@@ -324,7 +324,7 @@ Output Segmentation
 - Create model class in `freeseg/models/` \
   This can be a wrapper class providing the interface between Freeseg and the network implementation.
 - Implement required methods
-  - **`__init__()`**: takes `model_arch_dict` as input. Required `model_arch_dict` keywords: `num_channels`, `nb_labels`, `nb_levels`, `ndims`.
+  - **`__init__(self, model_arch_dict)`**: takes `model_arch_dict` as input. Required `model_arch_dict` keywords: `num_channels`, `nb_labels`, `nb_levels`, `ndims`.
     ```
        def __init__(self, model_arch_dict):
            self._model_arch_dict = {}
@@ -355,7 +355,8 @@ Output Segmentation
            for k in (model_arch_dict.keys()):
                self._model_arch_dict[k] = model_arch_dict[k]
     ```
-  - **`forward()`**: torch.nn.Module forward method
+  - **`forward(self, x, priors=None)`**: torch.nn.Module forward method
+    **Note**: The function needs to return a list to train with freeseg.training.Training class.
 - Implement required property
   - **`arch_dict`**: getter method for `self._model_arch_dict`
     ```
