@@ -18,7 +18,7 @@ class Config:
         ### load config.yaml
         config = Config.load(args.config)
 
-        ### update config with commandline user options
+        ### update config with commandline user options and default config.dataloader parameters
         config = Config.update(config, args)
 
         ### argument checks
@@ -66,7 +66,6 @@ class Config:
         logger.info("PID: " + str(os.getpid()))
         logger.info("")
 
-
         ### save updated config and dataset_list_file
         config_saveas, dataset_list_saveas = None, None
         if (output_folder is not None):
@@ -82,18 +81,7 @@ class Config:
         ### IN THE REST OF THE FUNCTION,
         ### CONFIG WILL BE RE-ARRANGED AND UPDATED TO BE USED IN TRAINING SETUP
         ### UPDATE config.dataloader
-        num_workers = config["dataloader"].get("num_workers", 0)
-        pin_memory = config["dataloader"].get("pin_memory", False)
-        persistent_workers = config["dataloader"].get("persistent_workers", False)
-        prefetch_factor = config["dataloader"].get("prefetch_factor", 2)
-        if (num_workers == 0):
-            prefetch_factor = None
-            persistent_workers = False
-        config["dataloader"].update({"batch_size": config["training"]["batch_size"],
-                                     "num_workers": num_workers,
-                                     "pin_memory": pin_memory,
-                                     "persistent_workers": persistent_workers,
-                                     "prefetch_factor": prefetch_factor})
+        config["dataloader"].update({"batch_size": config["training"]["batch_size"]})
 
         ### UPDATE config.dataset
         generation_labels  = config["dataset"].get("generation_labels", None)
@@ -206,7 +194,7 @@ class Config:
 
 
     @staticmethod
-    # update the input config with commandline user options
+    # update the input config with commandline user options and default config.dataloader parameters
     # NOTES: need to first check if the argument is available because
     #        update(), process() is shared between freeseg_train.py,
     #        test_dataloader.py, test_segmentationdataset.py that have different argument set
@@ -272,6 +260,19 @@ class Config:
             config["dataloader"]["persistent_workers"] = args.persistent_workers
         if ('res_diff_thresh' in args and args.res_diff_thresh is not None):
             config["dataset"]["res_diff_thresh"] = args.res_diff_thresh
+
+        # update config.dataloader
+        num_workers = config["dataloader"].get("num_workers", 0)
+        pin_memory = config["dataloader"].get("pin_memory", False)
+        persistent_workers = config["dataloader"].get("persistent_workers", False)
+        prefetch_factor = config["dataloader"].get("prefetch_factor", 2)
+        if (num_workers == 0):
+            prefetch_factor = None
+            persistent_workers = False
+        config["dataloader"].update({"num_workers": num_workers,
+                                     "pin_memory": pin_memory,
+                                     "persistent_workers": persistent_workers,
+                                     "prefetch_factor": prefetch_factor})
 
         return config
 
