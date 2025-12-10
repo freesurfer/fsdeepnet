@@ -321,10 +321,9 @@ Output Segmentation
 
 ### Adding New Models
 
-- Create model class in `freeseg/models/` \
-  This can be a wrapper class providing the interface between Freeseg and the network implementation.
+- Create model class in `freeseg/models/`: can be either a complete implementation or a wrapper class providing the interface between Freeseg and the network implementation.
 - Implement required methods
-  - **`__init__(self, model_arch_dict)`**: takes `model_arch_dict` as input. Required `model_arch_dict` keywords: `num_channels`, `nb_labels`, `nb_levels`, `ndims`.
+  - **`__init__(self, model_arch_dict)`**: takes dict `model_arch_dict` as input. Required `model_arch_dict` keywords: `num_channels`, `nb_labels`, `nb_levels`, `ndims`.
     ```
        def __init__(self, model_arch_dict):
            self._model_arch_dict = {}
@@ -355,7 +354,7 @@ Output Segmentation
            for k in (model_arch_dict.keys()):
                self._model_arch_dict[k] = model_arch_dict[k]
     ```
-  - **`forward(self, x, priors=None)`**: torch.nn.Module forward method
+  - **`forward(self, x, **kwargs)`**: torch.nn.Module forward method \
     **Note**: The function needs to return a list to train with freeseg.training.Training class.
 - Implement required property
   - **`arch_dict`**: getter method for `self._model_arch_dict`
@@ -368,9 +367,72 @@ Output Segmentation
 ### Adding New Augmentations
 
 - Create augmentation wrapper class in `freeseg/augmentation/`
-- (optional) Inherit from base augmentation wrapper class freeseg.augmentation.augmentbase.AugmentBase
-- Implement individual augmentation class (inherit from `torch.nn.Module`)
-- Add to valid augmentations list
+  - Inherit from `freeseg.augmentation.augmentbase.AugmentBase` \
+    Implement **`def __init__(self, hp, transforms, crop_size, num_channels=1, **kwargs)`**
+    ```
+    from freeseg.augmentation.augmentbase import AugmentBase
+
+    # augmentation wrapper class derived from AugmentBase
+    class AugmentWrapper(AugmentBase):
+        def __init__(self, hp, transforms, crop_size, device, num_channels=1, **kwargs):
+
+            super().__init__(hp, transforms, crop_size, device, num_channels=1, **kwargs)
+	
+            # initialize required instance variables
+            # 1. valid_augmentations: augmentations supported in the class, used to validate augmentations requested
+            #    extend base class augmentations, remove duplicates
+            valid_augmentations = [ "augment1", "augment2", ... ]
+            self.valid_augmentations.extend(valid_augmentations)
+            # remove duplicates
+            self.valid_augmentations = list(set(self.valid_augmentations))
+
+            # 2. output_dir: output directory used in freeseg.augmentation.apply_augmentations() to save augmented volumes for debugging
+	    # this variable is inherit from base class, set self.output_dir if not inherited from base class
+            # self.output_dir = output_dir
+	
+            # 3. transforms: save the augmentations to be applied
+            self.transforms = transforms
+
+            # 4. individual augmentation instances: initiate augmentation instances that the wrapper class supports
+            self.augment1 = Augment1(hp=hp.get('Augment1'), device=device, **kwargs)
+            self.augment2 = Augment2(hp=hp.get('Augment2'), device=device, **kwargs)
+
+            ...
+
+    ```
+    **Note**:
+    - Keep augmentation instances in lower cases. They need to match items in list `valid_augmentations`.
+    - The dict `hp` passed to each augmentation class is from the corresponding augmentation hyperparameter section in the config.yaml.
+    - The wrapper class will be created in `freeseg.training.Training.setup()`. Add any missing arguments to the constructor call.
+    - It is optional to inherit from `freeseg.augmentation.augmentbase.AugmentBase`. But the wrapper class has a dependency on `freeseg.augmentation.augmentbase.AugmentBase.RES_DIFF_THRESH`.
+    - The augmentations are applied through `freeseg.augmentation.apply_augmentations()` call from a `torch.utils.data.Dataset` instance.
+- Implement individual augmentation class: The augmentation classes inherit `torch.nn.Module`.
+  - **example**:
+  ```
+  class Augment1(torch.nn.Module):
+      # constructor
+      def __init__(self, hp=None, device=None, **kwargs):
+          super().__init__()
+
+          # set up the hyperparameters
+          ...
+
+
+      # implemenation
+      def forward(self, input, **kwargs):
+          # argument input is a dict {'image':image, 'label':label, 'geom':geom}
+
+          # ... implementation ...
+	  
+	  # return preprocessed volumes as dict
+	  output = {
+              'image': augmented_image,
+              'label': augmented_label,
+              'geom':  new_geom,
+                   }
+	  return output
+   ```
+
 
 ### Adding New Metrics
 
