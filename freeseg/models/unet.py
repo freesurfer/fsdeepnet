@@ -268,7 +268,7 @@ class UNet(nn.Module):
         else:
             raise ValueError(f"Unknown final_pred_activation: {self.final_pred_activation}")            
 
-    def forward(self, x, priors=None):
+    def forward(self, x, priors=None, **kwargs):
         skip_connections = []
 
         # Encoder (Contracting path)

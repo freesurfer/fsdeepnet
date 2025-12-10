@@ -326,7 +326,7 @@ class Training:
             optimizer.zero_grad()
 
             # Make predictions for this batch
-            (outputs, penultimate) = self._model(images, priors)
+            (outputs, penultimate) = self._model(images, priors=priors)
 
             # Compute the loss and its gradients
             if (metric_type == 'wl2'):

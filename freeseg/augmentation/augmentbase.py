@@ -7,7 +7,9 @@ from freeseg import voxynth
 from freeseg.utils import utility as utils
 from freeseg.filter import Filter
 
+# augmentation wrapper class
 class AugmentBase:
+    # required class variable
     RES_DIFF_THRESH = 0.05  # 5%
     
     def __init__(self, hp,
@@ -23,7 +25,8 @@ class AugmentBase:
                  output_dir=None,                 
                  device=None,
                  sampling_hp=True,
-                 verbose=False):
+                 verbose=False,
+                 **kwargs):
         valid_augmentations_base = ["flip",
                                     "spatialdeformation",
                                     "randomcrop", "randomcentercrop", "centercrop", "centroidcrop",
@@ -36,17 +39,22 @@ class AugmentBase:
                                     "mimicresolution",
                                     "remaplabels",
                                    ]
+        
+        # initialize required instance variables
+        # 1. valid_augmentations: augmentations supported in the class, used to validate augmentations requested
         self.valid_augmentations = valid_augmentations_base.copy()
 
-        self.output_dir = output_dir   # used in apply_augmentations()
+        # 2. output_dir: output directory used in freeseg.augmentation.apply_augmentations() to save augmented volumes for debugging
+        self.output_dir = output_dir
         if (device is None):
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if (verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.AugmentBase' constructor")
 
+        # 3. transforms: save the augmentations to be applied
         self.transforms = transforms
         
-        # set up augmentations
+        # 4. individual augmentation instances: initiate augmentation instances that the wrapper class supports
         self.flip = Flip(left_right_corresponding, hp=hp.get('flip'), device=device, sampling_hp=sampling_hp, verbose=verbose)
         self.spatialdeformation = SpatialDeformation(hp=hp.get('spatialdeformation'), device=device, sampling_hp=sampling_hp, verbose=verbose)
         self.randomcrop = RandomCrop(crop_size, bbox_labels=bbox_labels, hp=hp.get('randomcrop'), device=device, mode='random', sampling_hp=sampling_hp, verbose=verbose)
@@ -77,7 +85,7 @@ class Flip(torch.nn.Module):
         self.verbose = verbose
 
     # ??? todo: flip priors ???        
-    def forward(self, input, debugsaveprefix=None):
+    def forward(self, input, **kwargs):
         """Applies a random left-right flip to image and label volumes."""
         """Swaps left-right labels on label volume."""
 
@@ -161,7 +169,7 @@ class SpatialDeformation(torch.nn.Module):
         self.sampling = sampling_hp
         self.verbose = verbose
 
-    def forward(self, input, debugsaveprefix=None):
+    def forward(self, input, debugsaveprefix=None, **kwargs):
         """Applies a random spatial transformation to image and label volumes."""
 
         if (self.verbose):
@@ -248,7 +256,7 @@ class RandomCrop(torch.nn.Module):
         self.bbox_labels = bbox_labels
         self.verbose = verbose
 
-    def forward(self, input, debugsaveprefix=None):
+    def forward(self, input, **kwargs):
         """
         Randomly crop input tensors to a given shape. 
         The input tensors are non-batched, expected to have shape [C, H, W(, D)].
@@ -440,7 +448,7 @@ class CentroidCrop(torch.nn.Module):
         self.sampling = sampling_hp                    
         self.verbose = verbose
 
-    def forward(self, input, debugsaveprefix=None):
+    def forward(self, input, **kwargs):
         """Applies a crop centered around a specified point or the image center.
 
         Args:
@@ -544,7 +552,7 @@ class CenterCrop(torch.nn.Module):
         self.sampling = sampling_hp
         self.verbose = verbose
 
-    def forward(self, input, debugsaveprefix=None):
+    def forward(self, input, **kwargs):
         """Applies a crop centered around a specified point or the image center.
 
         Args:
@@ -654,7 +662,7 @@ class IntensityAugmentation(torch.nn.Module):
             self.clip_values = self.clip_values if len(self.clip_values) == 2 else [0, self.clip_values[0]]
 
 
-    def forward(self, input, debugsaveprefix=None):
+    def forward(self, input, **kwargs):
         """
         Augment the intensities of the input tensor. All channels are augmented separately.
 
@@ -756,7 +764,7 @@ class BiasFieldCorruption(torch.nn.Module):
         self.sampling = sampling_hp
         self.verbose = verbose
 
-    def forward(self, input, debugsaveprefix=None):
+    def forward(self, input, **kwargs):
         """
         Apply a smooth random bias field to the input tensor by applying the following steps:
 
@@ -835,14 +843,14 @@ class SampleConditionalGMM(torch.nn.Module):
 
         hp = {} if (hp is None) else hp            
         self.generation_labels  = generation_labels
-        self.generation_classes = generation_classes,
+        self.generation_classes = generation_classes
         self.num_channels = num_channels  # dataset expected_num_channels
         self.prior_distribution = hp.get("prior_distribution", "uniform")  # 'normal'
         self.prior_mean = hp.get("prior_mean", [25, 225])
         self.prior_std = hp.get("prior_std", [5, 25])
         self.verbose = verbose
 
-    def forward(self, input, debugsaveprefix=None):
+    def forward(self, input, **kwargs):
         """
         Generate a synthetic image (num_channels) by sampling a Gaussian Mixture Model conditioned on a label map given as input.
         Each channel is sampled independently.
@@ -937,7 +945,7 @@ class RescaleVolume(torch.nn.Module):
         self.verbose = verbose
 
 
-    def forward(self, input, debugsaveprefix=None):
+    def forward(self, input, **kwargs):
         """
         Applies intensity rescaling to the image volume. All channels are scaled separately.
         """
@@ -1008,7 +1016,7 @@ class GaussianBlur(torch.nn.Module):
         self.verbose = verbose
 
 
-    def forward(self, input, sigma, debugsaveprefix=None):
+    def forward(self, input, sigma, **kwargs):
         """
         Applies gaussian smoothing to the image volume.
 
@@ -1089,7 +1097,7 @@ class ResampleVolume(torch.nn.Module):
         self.resample_thresh = resample_thresh if (resample_thresh is not None) else AugmentBase.RES_DIFF_THRESH 
 
 
-    def forward(self, input, debugsaveprefix=None):
+    def forward(self, input, **kwargs):
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.ResampleVolume'")
 
@@ -1212,7 +1220,7 @@ class MimicResolution(torch.nn.Module):
             self.max_res_aniso = np.array(self.max_res_aniso)
 
 
-    def forward(self, input, debugsaveprefix=None):
+    def forward(self, input, **kwargs):
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentbase.MimicResolution'")
 
@@ -1369,7 +1377,7 @@ class RemapLabels(torch.nn.Module):
             self.mapping.update({src:dest})
         
 
-    def forward(self, input, debugsaveprefix=None):
+    def forward(self, input, **kwargs):
         """
         Map source labels to dest labels
         """    

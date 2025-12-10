@@ -7,6 +7,7 @@ import torch
 from freeseg import voxynth
 from freeseg.augmentation.augmentbase import AugmentBase
 
+# augmentation wrapper class derived from AugmentBase
 class AugmentVoxynth(AugmentBase):
     def __init__(self, hp,
                  transforms,
@@ -21,7 +22,8 @@ class AugmentVoxynth(AugmentBase):
                  output_dir=None,                 
                  device=None,
                  sampling_hp=True,
-                 verbose=False):
+                 verbose=False,
+                 **kwargs):
         super().__init__(hp, transforms, crop_size,
                          num_channels=num_channels,
                          left_right_corresponding=left_right_corresponding,
@@ -33,11 +35,16 @@ class AugmentVoxynth(AugmentBase):
                          output_dir=output_dir,                 
                          device=device,
                          sampling_hp=sampling_hp,
-                         verbose=verbose)
+                         verbose=verbose,
+                         **kwargs)
 
         valid_augmentations = ["biasfieldcorruption",
                                "intensityaugmentation",
                                "biasfieldcorruptionandintensityaugmentation",]
+
+        # initialize required instance variables
+        # 1. valid_augmentations: augmentations supported in the class, used to validate augmentations requested
+        #    extend base class augmentations, remove duplicates
         self.valid_augmentations.extend(valid_augmentations)
         # remove duplicates
         self.valid_augmentations = list(set(self.valid_augmentations))
@@ -47,9 +54,10 @@ class AugmentVoxynth(AugmentBase):
         if (verbose):
             logging.debug(f"'freeseg.augmentation.augmentvoxynth.AugmentVoxynth' constructor")        
 
+        # 2. transforms: save the augmentations to be applied
         self.transforms = transforms
 
-        # set up augmentations requested
+        # 3. individual augmentation instances: initiate augmentation instances that the wrapper class supports
         self.biasfieldcorruption = BiasFieldCorruption(hp=hp.get('biasfieldcorruption'), device=device, sampling_hp=sampling_hp, verbose=verbose)
         self.intensityaugmentation = IntensityAugmentation(hp=hp.get('intensityaugmentation'), device=device, sampling_hp=sampling_hp, verbose=verbose)
         self.biasfieldcorruptionandintensityaugmentation = BiasFieldCorruptionAndIntensityAugmentation(hp=hp.get('biasfieldcorruptionandintensityaugmentation'), device=device, sampling_hp=sampling_hp, verbose=verbose)
@@ -96,7 +104,7 @@ class BiasFieldCorruption(torch.nn.Module):
             
 
         
-    def forward(self, input, debugsaveprefix=None):
+    def forward(self, input, **kwargs):
         """Applies bias field augmentation to the image volume."""
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentvoxynth.BiasFieldCorruption'")
@@ -142,7 +150,7 @@ class IntensityAugmentation(torch.nn.Module):
         self.sampling = sampling_hp
         self.verbose = verbose
             
-    def forward(self, input, debugsaveprefix=None):
+    def forward(self, input, **kwargs):
         """Applies blurring and resampling to the image volume."""
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentvoxynth.IntensityAugmentation'")
@@ -220,7 +228,7 @@ class BiasFieldCorruptionAndIntensityAugmentation(torch.nn.Module):
             logging.debug(f"'augmentvoxynth.BiasFieldCorruptionAndIntensityAugmentation' calculated bias_field_smoothing_range: {self.bias_field_smoothing_range}, bias_field_generation_method: {self.bias_field_generation_method}")
                     
         
-    def forward(self, input, debugsaveprefix=None):
+    def forward(self, input, **kwargs):
         """Applies blurring and resampling to the image volume."""
         if (self.verbose):
             logging.debug(f"'freeseg.augmentation.augmentvoxynth.BiasFieldCorruptionAndIntensityAugmentation'")
