@@ -439,6 +439,14 @@ Output Segmentation
 - Create metric class in `freeseg/metrics.py`
 - Inherit from `torch.nn.Module`
 - Implement `__init__` and `forward` methods
+  ```
+    class MyLossFunc(torch.nn.Module):
+        def __init__(self, **kwargs):
+            super().__init__()
+
+        def forward(self, y_pred, y_true, **kwargs):
+	    # ... implementation ...
+  ```
 
 ### Adding New Datasets
 
