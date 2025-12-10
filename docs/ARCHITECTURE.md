@@ -387,7 +387,7 @@ Output Segmentation
             self.valid_augmentations = list(set(self.valid_augmentations))
 
             # 2. output_dir: output directory used in freeseg.augmentation.apply_augmentations() to save augmented volumes for debugging
-	    # this variable is inherit from base class, set self.output_dir if not inherited from base class
+            # this variable is inherit from base class, set self.output_dir if not inherited from base class
             # self.output_dir = output_dir
 	
             # 3. transforms: save the augmentations to be applied
@@ -424,14 +424,14 @@ Output Segmentation
 
           # ... implementation ...
 	  
-	  # return preprocessed volumes as dict
-	  output = {
+          # return preprocessed volumes as dict
+          output = {
               'image': augmented_image,
               'label': augmented_label,
               'geom':  new_geom,
                    }
-	  return output
-   ```
+          return output
+  ```
 
 
 ### Adding New Metrics
