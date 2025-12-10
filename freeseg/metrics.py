@@ -28,6 +28,7 @@ class Dice(nn.Module):
         smooth: float = 1e-6,
         return_loss: bool = True,
         dice_squared_form: bool = False,
+        **kwargs
     ):
         super(Dice, self).__init__()
         self.num_classes = num_classes
@@ -69,7 +70,7 @@ class Dice(nn.Module):
         return 1 - self._dice_score(outputs, targets)
 
     def forward(
-        self, outputs: torch.Tensor, targets: torch.Tensor
+        self, outputs: torch.Tensor, targets: torch.Tensor, **kwargs
     ) -> Union[torch.Tensor, List[float]]:
         """
         Calculates the Dice score or loss.
@@ -105,12 +106,12 @@ class DiceScore(Dice):
 
 
 class WeightedL2Loss(nn.Module):
-    def __init__(self, gt_target_value=15, epsilon=1e-4):
+    def __init__(self, gt_target_value=15, epsilon=1e-4, **kwargs):
         super(WeightedL2Loss, self).__init__()
         self.gt_target_value = gt_target_value
         self.epsilon = epsilon
 
-    def forward(self, y_pred, y_true):
+    def forward(self, y_pred, y_true, **kwargs):
         """
         # this is original implementation.
         # y_pred is the posterior, y_true is one hot encoded ground truth. 
