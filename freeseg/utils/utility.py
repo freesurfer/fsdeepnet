@@ -285,7 +285,8 @@ def config_logger(logfile=None, mode='a', level=logging.DEBUG, format="%(asctime
     """
     if (logfile is not None):
         logdir = os.path.dirname(logfile)
-        os.makedirs(logdir, exist_ok=True)
+        if (logdir):
+            os.makedirs(logdir, exist_ok=True)
     logging.basicConfig(filename=logfile, filemode=mode, level=level, format=format)
 
     if (logfile is None):
