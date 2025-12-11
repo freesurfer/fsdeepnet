@@ -173,7 +173,7 @@ def main():
     assert the_model_name is not None, "Model class is not available."
     n_channels = model_arch_dict.get("num_channels", 1)
         
-    model_class = utils.get_class(the_model_name, "freeseg.models.unet")
+    model_class = utils.get_class(the_model_name)
     model = model_class(model_arch_dict).to(device)
 
     # print network summary

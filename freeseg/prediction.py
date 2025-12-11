@@ -120,7 +120,7 @@ class Prediction:
         the_model_name = checkpoint.model_arch_dict.get("name", None)
         assert the_model_name is not None, "Model name is not available."
 
-        model_class = utils.get_class(the_model_name, "freeseg.models.unet")
+        model_class = utils.get_class(the_model_name)
         segmentation_model = model_class(checkpoint.model_arch_dict).to(self._device)
 
         self._nb_levels = checkpoint.model_arch_dict["nb_levels"]
@@ -198,7 +198,7 @@ class Prediction:
         the_model_name = checkpoint.model_arch_dict.get("name", None)
         assert the_model_name is not None, "Model name is not available."
 
-        model_class = utils.get_class(the_model_name, "freeseg.models.unet")
+        model_class = utils.get_class(the_model_name)
         parcellation_model = model_class(checkpoint.model_arch_dict).to(self._device)
 
         ###

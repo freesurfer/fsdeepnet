@@ -566,7 +566,7 @@ class Training:
             dataset_dict = Config.load_dataset_list(dset_config["dataset_list_file"])
 
             dataset_classname = dset_config.get("dataset_classname", "freeseg.datasets.segmentationdataset.SegmentationDataset")
-            py_dataset_cls = utils.get_class(dataset_classname, "freeseg.datasets.segmentationdataset")
+            py_dataset_cls = utils.get_class(dataset_classname)
 
             dset_cohort = Config.retrieve_dataset_cohorts(dataset_dict, cohort)
             dataset = None
@@ -598,7 +598,7 @@ class Training:
                     if (key not in cfg_preprocess):
                         cfg_preprocess[key] = config["preprocessing"].get(key)
 
-            py_augment_cls = utils.get_class(augment_classname, "freeseg.augmentation.augmentbase")
+            py_augment_cls = utils.get_class(augment_classname)
             augment_obj = py_augment_cls(Config.list2dict(cfg_preprocess["augmentations"]),
                                          transforms,
                                          config["preprocessing"]['crop_size'],
@@ -690,12 +690,12 @@ class Training:
             the_model_name = model_arch_dict.get("name", None)
             assert the_model_name is not None, "Model name is not available."
 
-            model_class = utils.get_class(the_model_name, "freeseg.models.unet")
+            model_class = utils.get_class(the_model_name)
             model = model_class(model_arch_dict).to(config["device"])
                 
             ### retrieve optimizer class
             optimizer=config["training"].get("optimizer", "torch.optim.Adam")
-            optimizer_cls = utils.get_class(optimizer, "torch.optim")
+            optimizer_cls = utils.get_class(optimizer)
         
         ### set_deterministic_training if requested
         deterministic = config["training"].get("deterministic", False)
