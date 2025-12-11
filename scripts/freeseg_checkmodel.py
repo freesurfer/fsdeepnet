@@ -96,7 +96,7 @@ def main():
 
     # check command line options
     if (args.config is None and args.checkpoint is None):
-        logging.error("Use '--config <>' to create the network, or '--checkpoint <>' to load a pre-trained network")
+        logging.error("[ERROR] Use '--config <>' to create the network, or '--checkpoint <>' to load a pre-trained network")
         sys.exit(1)
     if (info or update):
         assert (args.checkpoint is not None), f"Use '--checkpoint <>' to load a pre-trained network"
@@ -119,26 +119,26 @@ def main():
     checkpoint = None
     if (args.checkpoint is not None):
         if not os.path.isfile(args.checkpoint):
-            logging.error('ERROR: file does not exist: %s' % args.checkpoint)
+            logging.error('[ERROR] file does not exist: %s' % args.checkpoint)
             sys.exit(1)
 
         checkpoint = Checkpoint()
         checkpoint.load(args.checkpoint, device=device)
 
         if (checkpoint.model_arch_dict is None):
-            print("WARN: Model architecture information not available")
+            logging.warning("[WARN] Model architecture information not available")
             info = True
 
     # '--weights <model_state_key>:weight_outdir'
     if (args.weights is not None):
         if (args.checkpoint is None):
-            print(f"WARN: 'No checkpoint specified, --weights {args.weights} ignored.")
+            logging.warning(f"[WARN] 'No checkpoint specified, --weights {args.weights} ignored.")
         else:
             model_state_key, weight_outdir = args.weights.split(':')
             # retrieve model state using the given key 'model_state_key'. the key can be different in different checkpoint.
             model_state = checkpoint.dict.get(model_state_key, None)
             if (model_state is None):
-                print(f"[ERROR] dict key '{model_state_key}' doesn't exist")
+                logging.error(f"[ERROR] dict key '{model_state_key}' doesn't exist")
                 sys.exit(1)
         
             # output model trainable parameters in given checkpoint

@@ -1,3 +1,4 @@
+import logging
 import torch
 
 class Checkpoint:
@@ -61,7 +62,7 @@ class Checkpoint:
         """ Strip keys from self._dict """
         keys = [keys] if (isinstance(keys, str)) else keys
         for k in (keys):
-            print(f"strip dict key {k}")
+            logging.info(f"strip dict key {k}")
             del(self._dict[k])
 
 
@@ -70,7 +71,7 @@ class Checkpoint:
         new_dict = dict()
         for replacement in (replacements):
             (from_k, to_k) = replacement.split(":")
-            print(f"rename dict key {from_k} => {to_k}")
+            logging.info(f"rename dict key {from_k} => {to_k}")
             new_dict[to_k] = self.dict[from_k]
             del(self.dict[from_k])
 
@@ -84,7 +85,7 @@ class Checkpoint:
         old_keys = []
         for k, v in self.model_state_dict.items():
             new_k = f"{prefix}{k}"
-            print(f"prefix '{model_state_key}' layer {k} => {new_k}'")
+            logging.info(f"prefix '{model_state_key}' layer {k} => {new_k}'")
             new_model_state[new_k] = v
             old_keys.append(k)
 
@@ -101,7 +102,7 @@ class Checkpoint:
         old_keys = []
         for k, v in self.model_state_dict.items():
             new_k = k.replace(from_k, to_k)
-            print(f"replace '{model_state_key}' layer {k} => {new_k}'")
+            logging.info(f"replace '{model_state_key}' layer {k} => {new_k}'")
             new_model_state[new_k] = v
             old_keys.append(k)
 
@@ -116,7 +117,7 @@ class Checkpoint:
         
         # print checkpoint dict information
         if (level == 0):
-            print("checkpoint information:")
+            logging.info("checkpoint information:")
             # 'keys' can be either str or list
             if (isinstance(keys, str)):
                 keys = [keys]
@@ -127,35 +128,35 @@ class Checkpoint:
         indentation = "  " * indent
         indentation2 = "  " * (indent+2) if (level == 0) else indentation
         if (not detail and level != 0):
-            print(f"{indentation} {dictionary.keys()}")
+            logging.info(f"{indentation} {dictionary.keys()}")
         else:
             num_keys = len(dictionary.keys())
             for (idx, k) in enumerate(report_keys):
                 if (level == 0):  # print all the dict keys for the root level
-                    print(f"{indentation} <<{k}>>")
+                    logging.info(f"{indentation} <<{k}>>")
 
                 v = dictionary[k]
                 if (isinstance(v, dict)):
                     if (level > 0):  # print keys only if the next level is a dict
-                        print(f"{indentation} <<{k}>>")
+                        logging.info(f"{indentation} <<{k}>>")
                     Checkpoint.print(v, level+1, detail, indent+2, nkeys, report_type=report_type)
                 elif (isinstance(v, torch.Tensor)):
-                    print(f"{indentation2} {k} : (torch.Tensor) {v.dtype} {list(v.shape)}")
+                    logging.info(f"{indentation2} {k} : (torch.Tensor) {v.dtype} {list(v.shape)}")
                 elif (isinstance(v, numpy.ndarray)):
-                    print(f"{indentation2} {k} : (numpy.ndarray) {v.dtype} {list(v.shape)}")
+                    logging.info(f"{indentation2} {k} : (numpy.ndarray) {v.dtype} {list(v.shape)}")
                 elif (v is None or \
                       isinstance(v, int)   or isinstance(v, numpy.int32)   or isinstance(v, numpy.int64)   or \
                       isinstance(v, float) or isinstance(v, numpy.float32) or isinstance(v, numpy.float64) or \
                       isinstance(v, str) or isinstance(v, list) or isinstance(v, tuple)):
                     type_v = f"({type(v)})" if (report_type) else ""
-                    print(f"{indentation2} {v} {type_v}") if (level == 0) else print(f"{indentation2} {k} : {v} {type_v}")
+                    logging.info(f"{indentation2} {v} {type_v}") if (level == 0) else logging.info(f"{indentation2} {k} : {v} {type_v}")
                     
                 else:
-                    print(f"{indentation2} {type(v)}") if (level == 0) else print(f"{indentation2} {k} : {type(v)}")
+                    logging.info(f"{indentation2} {type(v)}") if (level == 0) else logging.info(f"{indentation2} {k} : {type(v)}")
 
                 # set limits to how many keys to report
                 if (level != 0 and idx == nkeys-1 and idx != num_keys-1):
-                    print(f"{indentation2} ... {num_keys-idx-1} more ...")
+                    logging.info(f"{indentation2} ... {num_keys-idx-1} more ...")
                     break;
 
 
