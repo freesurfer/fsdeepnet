@@ -10,9 +10,7 @@ class Dice(nn.Module):
     Calculates the Dice score or loss for binary or multi-class segmentation.
 
     Args:
-        num_classes (int): Number of segmentation classes (including background).
-        weights (list or None, optional): Class weights for handling imbalance.
-                                           Defaults to None.
+        num_classes (int or None, optional): Number of segmentation classes (including background)
         dice_type (str, optional): Type of Dice calculation ('soft' or 'hard').
                                     Defaults to "soft".
         smooth (float, optional): Smoothing factor to prevent division by zero.
@@ -23,7 +21,7 @@ class Dice(nn.Module):
 
     def __init__(
         self,
-        num_classes: int,
+        num_classes: int = None,
         dice_type: str = "soft",
         smooth: float = 1e-6,
         return_loss: bool = True,
@@ -43,6 +41,10 @@ class Dice(nn.Module):
             raise ValueError(
                 f"Invalid `dice_type`: {dice_type}. " f"Choose from: {valid_dice_types}"
             )
+        if (dice_type.lower() == "hard"):
+            assert (num_classes is not None), "Must provide number of segmentation classes (including background)"
+
+        
     
     def _dice_score(self, outputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         """Calculates the Dice score between outputs and targets for each class."""

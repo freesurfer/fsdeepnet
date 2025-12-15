@@ -12,7 +12,7 @@ model:
   name: freeseg.models.unet.UNet
   nb_levels: 5
   nb_features: 24  # first level convolution features
-  out_channels: 69 $ number of network output features
+  out_channels: 69 # number of network output features
   feat_mult: 2
   nb_conv_per_level: 2
   norm: batch  # or instance
@@ -41,15 +41,23 @@ training:
   deterministic: False
   report_moving_avg: True
   wl2_epochs: 10
-  wl2_gt_target_value: 5
   dice_epochs: 300
-  dice_squared_form: True
   steps_per_epoch: 1000
   learning_rate: 0.0001
   pre_train_learning_rate: 0.0001
   optimizer: torch.optim.Adam
-  wl2_metrics: freeseg.metrics.WeightedL2Loss
-  model_metrics: freeseg.metrics.DiceLoss
+  wl2_metrics:
+    class_name: freeseg.metrics.WeightedL2Loss
+    gt_target_value: 5    
+  model_metrics:
+    class_name: freeseg.metrics.DiceLoss
+    dice_type: soft
+    dice_squared_form: True    
+  model_metrics_accuracy:
+    class_name: freeseg.metrics.DiceScore
+    num_classes: 69  # number of parcellation labels
+    dice_type: hard
+    dice_squared_form: True
   write_tensorboard_summary: False  # whether to output tensorboard logs
   perform_evaluation: False         # whether to perform evaluation after each epoch
   best_model_metric: dice           # metric to pick best model when perform_evaluation=True  

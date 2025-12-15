@@ -34,6 +34,7 @@ class Training:
                  train_output_folder,
                  train_loader,  # torch.utils.data.DataLoader              
                  model,
+                 accuracy_fn=None,
                  model_arch_dict=None,
                  train_dataset_dict=None,
                  ctab=None,     # ascii color table
@@ -97,12 +98,8 @@ class Training:
             # Create TensorBoard writer
             from torch.utils.tensorboard import SummaryWriter
             self._summary_writer = SummaryWriter(train_output_folder)
-            
-        self._dice_metric_hard = DiceScore(
-            num_classes=self._num_labels,
-            dice_type="hard",
-            # return_loss=False,
-        )
+
+        self._dice_metric_hard = accuracy_fn
 
         # surfa.core.labels.LabelLookup
         self._label_lookup = train_dataset_dict.pop("label_lookup", None)
@@ -342,10 +339,11 @@ class Training:
             train_loss += loss.item()
 
             # --- Metrics Calculation ---
-            # Calculate hard Dice
-            batch_hard_dice = self._dice_metric_hard(outputs, onehot_labels)
-            train_dices[:, :, step] = batch_hard_dice.detach().cpu().numpy()
-            train_dice_avg += np.mean(train_dices[:, :, step])
+            if (self._dice_metric_hard is not None):
+                # Calculate hard Dice
+                batch_hard_dice = self._dice_metric_hard(outputs, onehot_labels)
+                train_dices[:, :, step] = batch_hard_dice.detach().cpu().numpy()
+                train_dice_avg += np.mean(train_dices[:, :, step])
 
             # report simple moving loss and dice average or loss/dice for each step
             batch_indices = ", ".join(str(item).zfill(4) for item in dataset_indices.tolist())
@@ -489,9 +487,11 @@ class Training:
                 validation_loss += loss.item()
 
                 # --- Metrics Calculation ---
-                # Calculate hard Dice
-                batch_hard_dice = self._dice_metric_hard(outputs, onehot_labels)
-                validation_dices[:, :, batch_idx] = batch_hard_dice.detach().cpu().numpy()
+                if (self._dice_metric_hard is not None):
+                    # Calculate hard Dice
+                    batch_hard_dice = self._dice_metric_hard(outputs, onehot_labels)
+                    validation_dices[:, :, batch_idx] = batch_hard_dice.detach().cpu().numpy()
+
                 logging.info(f"  validation {batch_idx+1:4d}/{len(self._validation_loader):<4d} val loss: {loss.item():.4f}, val dice avg: {np.mean(validation_dices[:, :, batch_idx]):.4f}")
 
                 # begin of tensorboard summary writer

@@ -136,11 +136,18 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
     if (checkpoint is not None):
         mainlogger.info(f"Resuming training from checkpoint: {checkpoint}")
     
+    model_metrics_accuracy = config["training"].get("model_metrics_accuracy", None)
+    dice_hard_fn = None
+    if (model_metrics_accuracy is not None):
+        cls_model_metrics_accuracy = utils.get_class(model_metrics_accuracy.pop("class_name", "freeseg.metrics.DiceDice"))
+        dice_hard_fn = cls_model_metrics_accuracy(**model_metrics_accuracy)  # '**' operator unpacks dictionary key/value pairs to keyword arguments
+
     # create the Training object
-    trainer_cls = utils.get_class(config["training"].get("trainer_class", "freeseg.training.Training"))
+    trainer_cls = utils.get_class(config["training"].get("trainer_class", "freeseg.training.Training"))        
     trainer = trainer_cls(train_output_folder,
                           train_loader,
                           model,
+                          accuracy_fn=dice_hard_fn,
                           model_arch_dict=model_arch_dict,
                           train_dataset_dict=train_dataset_dict,
                           ctab=ctab,
@@ -156,11 +163,12 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
 
     # train wl2 epochs
     wl2_epochs = config["training"].get("wl2_epochs", 0)
-    if (wl2_epochs > 0):
-        wl2_metrics = utils.get_class(config["training"].get("wl2_metrics", "freeseg.metrics.WeightedL2Loss"))
+    wl2_metrics = config["training"].get("wl2_metrics", None)
+    if (wl2_epochs > 0 and wl2_metrics is not None):
+        cls_wl2_metrics = utils.get_class(wl2_metrics.pop("class_name", "freeseg.metrics.WeightedL2Loss"))
         if (checkpoint is None):
-            mainlogger.info(f"training {wl2_epochs} wl2 epochs: {trainer_cls}, {optimizer_cls}, {wl2_metrics}, lr:{config['training']['pre_train_learning_rate']} ...")
-        wl2_loss_fn = wl2_metrics(gt_target_value=config["training"].get("wl2_gt_target_value", 15))
+            mainlogger.info(f"training {wl2_epochs} wl2 epochs: {trainer_cls}, {optimizer_cls}, {cls_wl2_metrics}, lr:{config['training']['pre_train_learning_rate']} ...")
+        wl2_loss_fn = cls_wl2_metrics(**wl2_metrics)  # '**' operator unpacks dictionary key/value pairs to keyword arguments
         trainer.train_model(lr=config["training"]["pre_train_learning_rate"],
                             epochs=wl2_epochs,
                             steps_per_epoch=config["training"]["steps_per_epoch"],
@@ -170,13 +178,11 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
 
     # train dice epochs
     dice_epochs = config["training"].get("dice_epochs", 0)
-    if (dice_epochs > 0):
-        model_metrics = utils.get_class(config["training"].get("model_metrics", "freeseg.metrics.DiceLoss"))
-        mainlogger.info(f"training {dice_epochs} dice epochs: {trainer_cls}, {optimizer_cls}, {model_metrics}, lr:{config['training']['learning_rate']} ...")
-        dice_loss_fn = model_metrics(
-            num_classes=config["dataset"]["num_labels"],
-            dice_type="soft",
-            dice_squared_form=config["training"].get("dice_squared_form", False))
+    model_metrics = config["training"].get("model_metrics", None)
+    if (dice_epochs > 0 and model_metrics is not None):
+        cls_model_metrics = utils.get_class(model_metrics.pop("class_name", "freeseg.metrics.DiceLoss"))
+        mainlogger.info(f"training {dice_epochs} dice epochs: {trainer_cls}, {optimizer_cls}, {cls_model_metrics}, lr:{config['training']['learning_rate']} ...")
+        dice_loss_fn = cls_model_metrics(**model_metrics)  # '**' operator unpacks dictionary key/value pairs to keyword arguments
         trainer.train_model(lr=config["training"]["learning_rate"],
                             epochs=dice_epochs,
                             steps_per_epoch=config["training"]["steps_per_epoch"],
