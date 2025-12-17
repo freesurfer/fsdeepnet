@@ -147,7 +147,7 @@ class Checkpoint:
                 elif (v is None or \
                       isinstance(v, int)   or isinstance(v, numpy.int32)   or isinstance(v, numpy.int64)   or \
                       isinstance(v, float) or isinstance(v, numpy.float32) or isinstance(v, numpy.float64) or \
-                      isinstance(v, str) or isinstance(v, list) or isinstance(v, tuple)):
+                      isinstance(v, str) or isinstance(v, list) or isinstance(v, tuple) or isinstance(v, set)):
                     type_v = f"({type(v)})" if (report_type) else ""
                     logging.info(f"{indentation2} {v} {type_v}") if (level == 0) else logging.info(f"{indentation2} {k} : {v} {type_v}")
                     

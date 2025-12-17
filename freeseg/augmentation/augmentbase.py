@@ -12,20 +12,21 @@ class AugmentBase:
     # required class variable
     RES_DIFF_THRESH = 0.05  # 5%
     
-    def __init__(self, hp,
+    def __init__(self,
+                 hp,
                  transforms,
-                 crop_size,
-                 num_channels=1,
+                 crop_size=None,
+                 augmentation_dir=None,
+                 device=None,
+                 target_res=None,                 
+                 num_channels=1,                 
+                 sampling_hp=True,
+                 verbose=False,
                  left_right_corresponding=None,
                  bbox_labels=None,
                  generation_labels=None,
                  generation_classes=None,
                  segmentation_labels=None,
-                 target_res=None,
-                 output_dir=None,                 
-                 device=None,
-                 sampling_hp=True,
-                 verbose=False,
                  **kwargs):
         valid_augmentations_base = ["flip",
                                     "spatialdeformation",
@@ -45,7 +46,7 @@ class AugmentBase:
         self.valid_augmentations = valid_augmentations_base.copy()
 
         # 2. output_dir: output directory used in freeseg.augmentation.apply_augmentations() to save augmented volumes for debugging
-        self.output_dir = output_dir
+        self.output_dir = augmentation_dir
         if (device is None):
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if (verbose):
@@ -53,7 +54,7 @@ class AugmentBase:
 
         # 3. transforms: save the augmentations to be applied
         self.transforms = transforms
-        
+
         # 4. individual augmentation instances: initiate augmentation instances that the wrapper class supports
         self.flip = Flip(left_right_corresponding, hp=hp.get('flip'), device=device, sampling_hp=sampling_hp, verbose=verbose)
         self.spatialdeformation = SpatialDeformation(hp=hp.get('spatialdeformation'), device=device, sampling_hp=sampling_hp, verbose=verbose)

@@ -140,7 +140,8 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
     dice_hard_fn = None
     if (model_metrics_accuracy is not None):
         cls_model_metrics_accuracy = utils.get_class(model_metrics_accuracy.pop("class_name", "freeseg.metrics.DiceDice"))
-        dice_hard_fn = cls_model_metrics_accuracy(**model_metrics_accuracy)  # '**' operator unpacks dictionary key/value pairs to keyword arguments
+        # '**' operator unpacks rest of dictionary key/value pairs to keyword arguments
+        dice_hard_fn = cls_model_metrics_accuracy(**model_metrics_accuracy)
 
     # create the Training object
     trainer_cls = utils.get_class(config["training"].get("trainer_class", "freeseg.training.Training"))        
@@ -168,7 +169,8 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
         cls_wl2_metrics = utils.get_class(wl2_metrics.pop("class_name", "freeseg.metrics.WeightedL2Loss"))
         if (checkpoint is None):
             mainlogger.info(f"training {wl2_epochs} wl2 epochs: {trainer_cls}, {optimizer_cls}, {cls_wl2_metrics}, lr:{config['training']['pre_train_learning_rate']} ...")
-        wl2_loss_fn = cls_wl2_metrics(**wl2_metrics)  # '**' operator unpacks dictionary key/value pairs to keyword arguments
+        # '**' operator unpacks rest of dictionary key/value pairs to keyword arguments
+        wl2_loss_fn = cls_wl2_metrics(**wl2_metrics)
         trainer.train_model(lr=config["training"]["pre_train_learning_rate"],
                             epochs=wl2_epochs,
                             steps_per_epoch=config["training"]["steps_per_epoch"],
@@ -182,7 +184,8 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
     if (dice_epochs > 0 and model_metrics is not None):
         cls_model_metrics = utils.get_class(model_metrics.pop("class_name", "freeseg.metrics.DiceLoss"))
         mainlogger.info(f"training {dice_epochs} dice epochs: {trainer_cls}, {optimizer_cls}, {cls_model_metrics}, lr:{config['training']['learning_rate']} ...")
-        dice_loss_fn = cls_model_metrics(**model_metrics)  # '**' operator unpacks dictionary key/value pairs to keyword arguments
+        # '**' operator unpacks dictionary key/value pairs to keyword arguments        
+        dice_loss_fn = cls_model_metrics(**model_metrics)
         trainer.train_model(lr=config["training"]["learning_rate"],
                             epochs=dice_epochs,
                             steps_per_epoch=config["training"]["steps_per_epoch"],

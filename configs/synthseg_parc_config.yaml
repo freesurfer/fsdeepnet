@@ -30,9 +30,10 @@ model:
   skip_connect: encoder    # norm or encoder
 
 preprocessing:
-  #augmentation_class: freeseg.augmentation.augmentbase.AugmentBase   # or freeseg.augmentation.augmentvoxynth.AugmentVoxynth
-  #sampling_hyperparameters: True
+  #augmentation_wrapper: freeseg.augmentation.augmentbase.AugmentBase   # or freeseg.augmentation.augmentvoxynth.AugmentVoxynth
+  #sampling_hp: True
   #verbose: False
+  #augmentation_dir: /path/to-save-augmented-data
   crop_size: [160, 160, 160]
 
 training:

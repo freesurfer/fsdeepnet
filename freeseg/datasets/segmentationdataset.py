@@ -7,7 +7,7 @@ from freeseg import augmentation
 from freeseg.utils import utility as utils
 
 class SegmentationDataset(torch.utils.data.Dataset):
-    def __init__(self, dset_profile, augment_obj, dataset_dict, device=None, keep_trainset_in_memory=False, preload=False, augdir=None):
+    def __init__(self, dataset_profile, augment_obj, dataset_dict, device=None, keep_trainset_in_memory=False, preload=False, augdir=None, diff_res=True, **kwargs):
         """
         SegmentationDataset Constructor
 
@@ -15,15 +15,19 @@ class SegmentationDataset(torch.utils.data.Dataset):
           Input dataset dict containing input image volumes and label maps
         """
 
-        self.dset_profile = dset_profile
+        # save dataset profile
+        self.dataset_profile = dataset_profile
+
+        # retrieve dataset attributes
         self.num_entries = len(dataset_dict)
-        self.num_channels = dset_profile["expected_num_channels"]
-        self.ndims = dset_profile["ndims"]
-        self.num_classes = dset_profile["num_labels"]
-        self.label_mapping = dset_profile["label_mapping"]
+        self.num_channels = self.dataset_profile["expected_num_channels"]
+        self.ndims = self.dataset_profile["ndims"]
+        self.num_classes = self.dataset_profile["num_labels"]
+        self.label_mapping = self.dataset_profile["label_mapping"]
 
         assert (self.ndims == 3 or self.ndims == 2), "Model supports 3D or 2D"
-                
+
+        self.diff_res = diff_res
         self.device = device
         if (self.device is None):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -61,7 +65,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
             augmentation.check_augmentations(self.data_augment)
 
         # update augmentation.AugmentBase.RES_DIFF_THRESH
-        res_diff_thresh = self.dset_profile.get("res_diff_thresh", None)
+        res_diff_thresh = self.dataset_profile.get("res_diff_thresh", None)
         if (res_diff_thresh is not None):
             augmentation.AugmentBase.RES_DIFF_THRESH = res_diff_thresh
 
@@ -69,13 +73,13 @@ class SegmentationDataset(torch.utils.data.Dataset):
         label0, label_tensor0, _ = utils.load_framedimage(self.label_files[0], orientation="RAS", device=self.device, ndims=self.ndims)
         self.target_res = label0.geom.voxsize[:self.ndims]
         self.label_lookup = label0.labels
-        self.dset_profile.update({"num_samples": self.num_entries,
+        self.dataset_profile.update({"num_samples": self.num_entries,
                                   "input_shape": list(label_tensor0.shape[1:]),
                                   "target_res": self.target_res,
                                   "res_diff_thresh": augmentation.AugmentBase.RES_DIFF_THRESH,
                                   "num_channels": self.num_channels,
-                                  "image": self.hasimage(),
-                                  "priors": self.haspriors(),
+                                  "hasimage": self.hasimage(),
+                                  "haspriors": self.haspriors(),
                                   "label_lookup": self.label_lookup})          
         logging.info("")
         logging.info("Dataset Information:")
@@ -87,7 +91,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
         logging.info(f"  Number of channels: {self.num_channels}")
         if (preload):
             generation_labels, res_diffs = self.preload()
-            self.dset_profile.update({"reported_generation_labels": generation_labels})
+            self.dataset_profile.update({"reported_generation_labels": generation_labels})
             if (res_diffs > 0):
                 logger.error(f"{res_diffs} images/labels resolution not in expected range {self.target_res}+-{augmentation.AugmentBase.RES_DIFF_THRESH*100}%")
                 sys.exit(1)
@@ -121,9 +125,10 @@ class SegmentationDataset(torch.utils.data.Dataset):
             if (self.hasimage()):
                 image, image_tensor, _ = utils.load_framedimage(image_path, orientation="RAS", device=self.device, ndims=self.ndims)
                 assert (label_tensor.shape == image_tensor.shape), \
-                    f"image and label need to be in the same shape. label {label_path} has shape {label_tensor.shape}, image {image_path} has shape {image_tensor.shape}"                
-                assert (np.all(label.geom.voxsize == image.geom.voxsize)), \
-                    f"image and label need to have the same resolution. label {label_path} is {label.geom.voxsize}mm, image {image_path} is {image.geom.voxsize}mm"
+                    f"image and label need to be in the same shape. label {label_path} has shape {label_tensor.shape}, image {image_path} has shape {image_tensor.shape}"
+                if (self.diff_res):
+                    assert (np.all(label.geom.voxsize == image.geom.voxsize)), \
+                        f"image and label need to have the same resolution. label {label_path} is {label.geom.voxsize}mm, image {image_path} is {image.geom.voxsize}mm"
             # load priors if they are provided
             if (self.haspriors()):
                 priors_path = self.priors_files[index]        
@@ -212,8 +217,9 @@ class SegmentationDataset(torch.utils.data.Dataset):
                 image, image_tensor, _ = utils.load_framedimage(f_image, orientation="RAS", device=self.device, ndims=self.ndims)
                 assert (label_tensor.shape == image_tensor.shape), \
                     f"image and label need to be in the same shape. label {f_label} has shape {label_tensor.shape}, image {f_image} has shape {image_tensor.shape}"
-                assert (np.all(label.geom.voxsize == image.geom.voxsize)), \
-                    f"image and label need to have the same resolution. label {f_label} is {label.geom.voxsize}mm, image {f_image} is {image.geom.voxsize}mm"
+                if (self.diff_res):
+                    assert (np.all(label.geom.voxsize == image.geom.voxsize)), \
+                        f"image and label need to have the same resolution. label {f_label} is {label.geom.voxsize}mm, image {f_image} is {image.geom.voxsize}mm"
                 input_shape = image_tensor.shape # use image shape if it is available
 
             ### load priors
@@ -257,4 +263,67 @@ class SegmentationDataset(torch.utils.data.Dataset):
 
     @property
     def profile(self):
-        return self.dset_profile
+        return self.dataset_profile
+
+
+    @staticmethod
+    def process_dataset_attr(dataset_profile, traindir):
+        # process and update dataset profile
+        generation_labels  = dataset_profile.get("generation_labels", None)
+        generation_classes = dataset_profile.get("generation_classes", None)
+        segmentation_labels = dataset_profile.get("segmentation_labels", None)
+        segmentation_names = dataset_profile.get("segmentation_names", None)
+        topology_classes = dataset_profile.get("topology_classes", None)
+        parcellation_labels = dataset_profile.get("parcellation_labels", None)
+        parcellation_names = dataset_profile.get("parcellation_names", None)        
+        # generation_labels/generation_classes/segmentation_labels/segmentation_names/topology_classes/parcellation_labels/parcellation_names
+        # can be either a str or a list
+        if (isinstance(generation_labels, str)):
+            generation_labels = np.load(generation_labels)
+        if (isinstance(generation_classes, str)):
+            generation_classes = np.load(generation_classes)
+        if (isinstance(segmentation_labels, str)):
+            segmentation_labels = np.load(segmentation_labels)
+        if (isinstance(segmentation_names, str)):
+            segmentation_names = np.load(segmentation_names)
+        if (isinstance(topology_classes, str)):
+            topology_classes = np.load(topology_classes)
+        if (isinstance(parcellation_labels, str)):
+            parcellation_labels = np.load(parcellation_labels)
+        if (isinstance(parcellation_names, str)):
+            parcellation_names = np.load(parcellation_names)            
+        # save generation_labels, generation_classes, segmentation_labels
+        if (traindir is not None):
+            if (segmentation_labels is not None):
+                f_npy = os.path.join(traindir, "segmentation_labels.npy")
+                np.save(f_npy, np.array(segmentation_labels).astype(int))
+            if (segmentation_names is not None):
+                f_npy = os.path.join(traindir, "segmentation_names.npy")
+                np.save(f_npy, np.array(segmentation_names))
+            if (generation_labels is not None):
+                f_npy = os.path.join(traindir, "generation_labels.npy")
+                np.save(f_npy, np.array(generation_labels).astype(int))
+            if (generation_classes is not None):
+                f_npy = os.path.join(traindir, "generation_classes.npy")
+                np.save(f_npy, np.array(generation_classes).astype(int))
+            if (topology_classes is not None):
+                f_npy = os.path.join(traindir, "topology_classes.npy")
+                np.save(f_npy, np.array(topology_classes).astype(int))
+
+        num_labels = None
+        if (segmentation_labels is not None):
+            num_labels = len(np.unique(segmentation_labels))
+        label_mapping = {label:i for i, label in enumerate(np.unique(segmentation_labels))}
+        inverse_label_mapping = {v: k for k, v in label_mapping.items()}
+        dataset_profile.update({  "generation_labels"  : generation_labels if (generation_labels is not None) else segmentation_labels,
+                                  "generation_classes" : generation_classes, 
+                                  "segmentation_labels": segmentation_labels,
+                                  "segmentation_names" : segmentation_names,
+                                  "topology_classes"   : topology_classes,
+                                  "parcellation_labels": parcellation_labels,
+                                  "parcellation_names" : parcellation_names,
+                                  "label_mapping": label_mapping,
+                                  "inverse_label_mapping": inverse_label_mapping,
+                                  "num_labels": num_labels,
+                               })
+        return dataset_profile

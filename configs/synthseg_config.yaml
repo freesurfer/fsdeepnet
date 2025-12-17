@@ -1,5 +1,5 @@
 dataset:
-  dataset_classname: freeseg.datasets.segmentationdataset.SegmentationDataset
+  class_name: freeseg.datasets.segmentationdataset.SegmentationDataset
   generation_labels: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_charm_choroid_lesions_csf.npy
   generation_classes: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_classes_charm_choroid_lesions_gm_csf.npy
   segmentation_labels: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/segmentation_charm_choroid_lesions_csf.npy
@@ -34,8 +34,8 @@ model:
   skip_connect: encoder    # norm or encoder
 
 preprocessing:
-  augmentation_class: freeseg.augmentation.augmentbase.AugmentBase   # or freeseg.augmentation.augmentvoxynth.AugmentVoxynth
-  sampling_hyperparameters: True
+  augmentation_wrapper: freeseg.augmentation.augmentbase.AugmentBase   # or freeseg.augmentation.augmentvoxynth.AugmentVoxynth
+  sampling_hp: True
   verbose: False
   crop_size: [160, 160, 160]
   #augmentation_dir: /path/to-save-augmented-data
@@ -95,16 +95,16 @@ training:
   optimizer: torch.optim.Adam
   wl2_metrics:
     class_name: freeseg.metrics.WeightedL2Loss
-    gt_target_value: 5    
+    gt_target_value: 5
   model_metrics:
     class_name: freeseg.metrics.DiceLoss
     dice_type: soft
-    dice_squared_form: True    
+    dice_squared_form: True
   model_metrics_accuracy:
     class_name: freeseg.metrics.DiceScore
     num_classes: 33  # number of segmentation labels
     dice_type: hard
-    dice_squared_form: True    
+    dice_squared_form: True
   write_tensorboard_summary: False  # whether to output tensorboard logs
   perform_evaluation: False         # whether to perform evaluation after each epoch
   best_model_metric: dice           # metric to pick best model when perform_evaluation=True  

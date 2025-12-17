@@ -553,7 +553,8 @@ class Training:
 
         # create a torch.utils.data.Dataset object
         def load_dataset(
-                dset_config,
+                py_dataset_cls,
+                dataset_profile,
                 dataaugment,
                 device=None,
                 keep_trainset_in_memory=False,
@@ -563,76 +564,83 @@ class Training:
             if (device is None):
                 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-            dataset_dict = Config.load_dataset_list(dset_config["dataset_list_file"])
-
-            dataset_classname = dset_config.get("dataset_classname", "freeseg.datasets.segmentationdataset.SegmentationDataset")
-            py_dataset_cls = utils.get_class(dataset_classname)
+            dataset_dict = Config.load_dataset_list(dataset_profile["dataset_list_file"])
 
             dset_cohort = Config.retrieve_dataset_cohorts(dataset_dict, cohort)
             dataset = None
             if (dset_cohort):
                 dataset = py_dataset_cls(
-                    dset_config,
+                    dataset_profile,
                     dataaugment,
                     dataset_dict=dset_cohort,            
                     device=device,
                     keep_trainset_in_memory=keep_trainset_in_memory,
                     preload=preload,
-                    augdir=augdir)
+                    augdir=augdir,
+                    diff_res=dataset_profile.get("diff_res", True))
 
             return dataset
 
 
         # create augmentation object
-        def create_augment_object(augment_classname, transforms, config, cohort='train', device=None):
-            if (device is None):
-                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
-            # create data augment object
-            assert (augment_classname is not None), "Must provide an data augmentation class"
-            cfg_preprocess = config["preprocessing"]
+        def create_augment_object(transforms, config, cohort='train', device=None):
+            cfg_dataset = config["dataset"].copy()
+            cfg_dataset.pop("class_name", None)  # remove 'class_name'
+
             if (cohort == "validation"):
-                cfg_preprocess = config["evaluation"]
-                transfer_keys = ["crop_size", "verbose", "augmentation_dir"]
+                cfg_preprocess = config["evaluation"].copy()
+                transfer_keys = ["augmentation_wrapper", "crop_size", "verbose", "augmentation_dir"]
                 for key in transfer_keys:
                     if (key not in cfg_preprocess):
                         cfg_preprocess[key] = config["preprocessing"].get(key)
+            else:  # cohort='train'
+                cfg_preprocess = config["preprocessing"].copy()                
 
+            # retrieve and remove 'augmentation_wrapper'
+            augment_classname = cfg_preprocess.pop("augmentation_wrapper", "freeseg.augmentation.augmentbase.AugmentBase")
+            if ("Augment2" in augment_classname):
+                logging.info("'augment2.Augment2' is specified in config.")
+                logging.info("Change 'augment2.Augment2' to 'augmentbase.AugmentBase' since augmentations in augment2.Augment2 are now implemented in augmentbase.AugmentBase")
+                augment_classname = "freeseg.augmentation.augmentbase.AugmentBase"
+            assert (augment_classname is not None), "Must provide an data augmentation class"
+            
+            if (device is None):
+                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+            # create data augment object                    
             py_augment_cls = utils.get_class(augment_classname)
-            augment_obj = py_augment_cls(Config.list2dict(cfg_preprocess["augmentations"]),
+            augment_obj = py_augment_cls(Config.list2dict(cfg_preprocess.pop("augmentations")),    # retrieve and remove 'augmentations'
                                          transforms,
-                                         config["preprocessing"]['crop_size'],
-                                         num_channels=config["dataset"]["expected_num_channels"],  # needed in sampleConditionalGMM
-                                         left_right_corresponding=config["dataset"].get("left_right_corresponding", None),
-                                         generation_labels=config["dataset"].get("generation_labels"),
-                                         generation_classes=config["dataset"].get("generation_classes"),
-                                         segmentation_labels=config["dataset"].get("segmentation_labels"),
-                                         target_res=config["dataset"].get("target_res"),
-                                         output_dir=config["preprocessing"].get("augmentation_dir", None),
                                          device=device,
-                                         sampling_hp=cfg_preprocess.get('sampling_hyperparameters', True),
-                                         verbose=cfg_preprocess.get('verbose', False))
+                                         **cfg_preprocess,  # '**' operator unpacks 'preprocessing' key/value pairs to keyword arguments
+                                         **cfg_dataset)     # '**' operator unpacks 'dataset' key/value pairs to keyword arguments
 
             return augment_obj
 
 
+        ### retrieve dataset class
+        dataset_classname = config["dataset"].get("class_name", "freeseg.datasets.segmentationdataset.SegmentationDataset")
+        py_dataset_cls = utils.get_class(dataset_classname)                    
+
+        ### retrieve dataset class static method process_dataset_attr(), process and update dataset attributes
+        process_dataset_attr = getattr(py_dataset_cls, "process_dataset_attr", None)
+        if (process_dataset_attr is None):
+            logging.warning(f"Method 'process_dataset_attr' not found in {py_dataset_cls}. Skipped dataset attributes processing. The training will fail if there are dependency on processed attributes.")
+        else:
+            config["dataset"] = process_dataset_attr(config["dataset"], config["output_folder"])
+
         ### create training Dataset
         train_dataset = None
         if (create_train_dataset):
-            augmentation_class = config["preprocessing"].get("augmentation_class", "freeseg.augmentation.augmentbase.AugmentBase")
-            if ("Augment2" in augmentation_class):
-                logging.info("'augment2.Augment2' is specified in config.")
-                logging.info("Change 'augment2.Augment2' to 'augmentbase.AugmentBase' since augmentations in augment2.Augment2 are now implemented in augmentbase.AugmentBase")
-                augmentation_class = "freeseg.augmentation.augmentbase.AugmentBase"
-
             train_augmentations = utils.remove_duplicates(Config.get_augmentations(config["preprocessing"].get("augmentations")))
-            train_augment_obj = create_augment_object(augmentation_class, train_augmentations, config, cohort="train", device=config["preprocessing_device"])
-            train_dataset = load_dataset(config["dataset"], train_augment_obj,
+            train_augment_obj = create_augment_object(train_augmentations, config, cohort="train", device=config["preprocessing_device"])
+            train_dataset = load_dataset(py_dataset_cls, config["dataset"], train_augment_obj,
                                          device=config["preprocessing_device"],
                                          keep_trainset_in_memory=config["keep_trainset_in_memory"],
                                          cohort=config["train_cohort"], preload=preload_dataset, augdir=config["preprocessing"].get("augmentation_dir", None))
-            ### UPDATE config
+            # UPDATE config
             config.update({"train_augmentations": train_augmentations})
+            # ??? update config["dataset"].update(train_dataset.profile) ???
 
         ### create training DataLoader
         train_loader = None        
@@ -648,10 +656,10 @@ class Training:
             # enforce "centercrop"/"rescalevolume" for evaluation_augmentations
             val_augmentations = ["centercrop", "rescalevolume"]
             config["evaluation"]["augmentations"] = val_augmentations
-            val_augment_obj = create_augment_object(augmentation_class, val_augmentations, config, cohort="validation", device=config["preprocessing_device"])
+            val_augment_obj = create_augment_object(val_augmentations, config, cohort="validation", device=config["preprocessing_device"])
             # to keep validation_dataset in memory,
             # validation_dataset.preload() needs to be called
-            validation_dataset = load_dataset(config["dataset"], val_augment_obj,
+            validation_dataset = load_dataset(py_dataset_cls, config["dataset"], val_augment_obj,
                                               device=config["preprocessing_device"],
                                               cohort=config["validation_cohort"])
             if (validation_dataset is None):
@@ -678,11 +686,14 @@ class Training:
         model_arch_dict["num_channels"] = config["model"].get("in_channels", None)
         if (model_arch_dict["num_channels"] is None):
             model_arch_dict["num_channels"] = config["dataset"]["expected_num_channels"]
+        assert(model_arch_dict["num_channels"] is not None), "Need to specify model 'in_channels'"
         model_arch_dict["nb_labels"] = config["model"].get("out_channels", None)
         if (model_arch_dict["nb_labels"] is None):
             model_arch_dict["nb_labels"] = config["dataset"]["num_labels"]
+        assert(model_arch_dict["nb_labels"] is not None), "Need to specify model 'out_channels'"
         model_arch_dict["add_priors"] = train_dataset_dict.get("priors", False)
         model_arch_dict["weight_init"] = config["model"].get("weight_init", None)
+
 
         #### create the model to train
         model, optimizer_cls = None, None
@@ -702,6 +713,6 @@ class Training:
         if (deterministic):
             # ??? todo: for multi-process dataloader, use worker_init_fn() and generator to preserve reproducibility
             #           see https://pytorch.org/docs/stable/notes/randomness.html
-            set_deterministic_training()
+            utils.set_deterministic_training()
 
         return config, train_loader, validation_loader, model, optimizer_cls, train_dataset

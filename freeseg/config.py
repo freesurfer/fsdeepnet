@@ -84,65 +84,9 @@ class Config:
         config["dataloader"].update({"batch_size": config["training"]["batch_size"]})
 
         ### UPDATE config.dataset
-        generation_labels  = config["dataset"].get("generation_labels", None)
-        generation_classes = config["dataset"].get("generation_classes", None)
-        segmentation_labels = config["dataset"].get("segmentation_labels", None)
-        segmentation_names = config["dataset"].get("segmentation_names", None)
-        topology_classes = config["dataset"].get("topology_classes", None)
-        parcellation_labels = config["dataset"].get("parcellation_labels", None)
-        parcellation_names = config["dataset"].get("parcellation_names", None)        
-        # generation_labels/generation_classes/segmentation_labels/segmentation_names/topology_classes/parcellation_labels/parcellation_names
-        # can be either a str or a list
-        if (generation_labels is not None and isinstance(generation_labels, str)):
-            generation_labels = np.load(generation_labels)
-        if (generation_classes is not None and isinstance(generation_classes, str)):
-            generation_classes = np.load(generation_classes)
-        if (segmentation_labels is not None and isinstance(segmentation_labels, str)):
-            segmentation_labels = np.load(segmentation_labels)
-        if (segmentation_names is not None and isinstance(segmentation_names, str)):
-            segmentation_names = np.load(segmentation_names)
-        if (topology_classes is not None and isinstance(topology_classes, str)):
-            topology_classes = np.load(topology_classes)
-        if (parcellation_labels is not None and isinstance(parcellation_labels, str)):
-            parcellation_labels = np.load(parcellation_labels)
-        if (parcellation_names is not None and isinstance(parcellation_names, str)):
-            parcellation_names = np.load(parcellation_names)            
-        # save generation_labels, generation_classes, segmentation_labels
-        if (output_folder is not None):
-            f_npy = os.path.join(output_folder, "segmentation_labels.npy")
-            np.save(f_npy, np.array(segmentation_labels).astype(int))
-            if (segmentation_names is not None):
-                f_npy = os.path.join(output_folder, "segmentation_names.npy")
-                np.save(f_npy, np.array(segmentation_names))
-            if (generation_labels is not None):
-                f_npy = os.path.join(output_folder, "generation_labels.npy")
-                np.save(f_npy, np.array(generation_labels).astype(int))
-            if (generation_classes is not None):
-                f_npy = os.path.join(output_folder, "generation_classes.npy")
-                np.save(f_npy, np.array(generation_classes).astype(int))
-            if (topology_classes is not None):
-                f_npy = os.path.join(output_folder, "topology_classes.npy")
-                np.save(f_npy, np.array(topology_classes).astype(int))
-
-        num_labels = None
-        if (segmentation_labels is not None):
-            num_labels = len(np.unique(segmentation_labels))
-        label_mapping = {label:i for i, label in enumerate(np.unique(segmentation_labels))}
-        inverse_label_mapping = {v: k for k, v in label_mapping.items()}
-        config["dataset"].update({"ndims": config["model"]["ndims"],
-                                  "batch_size": config["training"]["batch_size"],
-                                  "generation_labels"  : generation_labels if (generation_labels is not None) else segmentation_labels,
-                                  "generation_classes" : generation_classes, 
-                                  "segmentation_labels": segmentation_labels,
-                                  "segmentation_names" : segmentation_names,
-                                  "topology_classes"   : topology_classes,
-                                  "parcellation_labels": parcellation_labels,
-                                  "parcellation_names" : parcellation_names,
-                                  #"left_right_corresponding": config["dataset"].get("left_right_corresponding", None),
-                                  "label_mapping": label_mapping,
-                                  "inverse_label_mapping": inverse_label_mapping,
-                                  "num_labels": num_labels,
-                                  "crop_size": crop_size,
+        config["dataset"].update({ "ndims": config["model"]["ndims"],
+                                   "batch_size": config["training"]["batch_size"],
+                                  #"crop_size": crop_size,                                   
                                  })
     
         ### set training, preprocessing devices
@@ -299,7 +243,6 @@ class Config:
         logger.info(f"steps_per_epoch: {cfg['training']['steps_per_epoch']}")
         logger.info(f"report_moving_avg: {cfg['training'].get('report_moving_avg', False)}")
         logger.info(f"batch_size: {cfg['training']['batch_size']}")
-        logger.info(f"crop_size: {cfg['preprocessing']['crop_size']}")
 
         logger.info(f"keep_trainset_in_memory: {cfg['keep_trainset_in_memory']}")
         logger.info(f"deterministic: {cfg['preprocessing'].get('deterministic', False)}")
@@ -308,9 +251,10 @@ class Config:
         if (perform_evaluation):
             logger.info(f"best_model_metric: {cfg['training'].get('best_model_metric')}")
         logger.info("Preprocessing Device: {}".format(cfg['preprocessing_device']) + (f' (GPU index: {cfg["gpu_index"]})' if (cfg.get('gpu_index') is not None) else ''))
-        logger.info(f"Preprocessing augmentation_class: {cfg['preprocessing']['augmentation_class']}")
+        logger.info(f"Preprocessing augmentation_wrapper: {cfg['preprocessing']['augmentation_wrapper']}")
         logger.info(f"Preprocessing augmentations: {cfg['train_augmentations']}")
-        logger.info(f"Preprocessing sampling_hyperparameters: {cfg['preprocessing'].get('sampling_hyperparameters', True)}")
+        logger.info(f"Preprocessing crop_size: {cfg['preprocessing']['crop_size']}")
+        logger.info(f"Preprocessing sampling_hp: {cfg['preprocessing'].get('sampling_hp', True)}")
         logger.info(f"Preprocessing num_workers: {cfg['dataloader']['num_workers']}")
         logger.info(f"Preprocessing persistent_workers: {cfg['dataloader']['persistent_workers']}")
         logger.info(f"Preprocessing pin_memory: {cfg['dataloader']['pin_memory']}")
