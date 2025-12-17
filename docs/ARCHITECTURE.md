@@ -83,7 +83,7 @@ freeseg/utils/
 ```
 
 #### Voxynth Modules
-**Note**: Modified from Voxynth implementation https://github.com/dalcalab/voxynth/
+**Notes**: Modified from Voxynth implementation https://github.com/dalcalab/voxynth/
 
 ```
 freeseg/voxynth/
@@ -309,19 +309,20 @@ Output Segmentation
   |-- Output segmentations and posteriors
   ```
 
-  **Notes:** The parcellation model is converted from the SynthSeg+ Tensorflow model. \
-             **Robust machine learning segmentation for large-scale analysis of heterogeneous clinical brain MRI datasets** \
-             B. Billot, M. Colin, Y. Cheng, S.E. Arnold, S. Das, J.E. Iglesias \
-             PNAS (2023) \
-             [ [article](https://www.pnas.org/doi/full/10.1073/pnas.2216399120) | [arxiv](https://arxiv.org/abs/2203.01969) ]
+  **Notes:**
+  - The parcellation model is converted from the SynthSeg+ Tensorflow model.
+  - **Robust machine learning segmentation for large-scale analysis of heterogeneous clinical brain MRI datasets** \
+    B. Billot, M. Colin, Y. Cheng, S.E. Arnold, S. Das, J.E. Iglesias \
+    PNAS (2023) \
+    [ [article](https://www.pnas.org/doi/full/10.1073/pnas.2216399120) | [arxiv](https://arxiv.org/abs/2203.01969) ]
 
 ---
 
-## Extension Points
+## Extension and Integration
 
 ### Adding New Models
 
-- Create model class in `freeseg/models/`: can be either a complete implementation or a wrapper class providing the interface between Freeseg and the network implementation.
+- Create model class: can be either a complete implementation or a wrapper class providing the interface between Freeseg and the network implementation.
 - Implement required methods
   - **`__init__(self, model_arch_dict)`**: takes dict `model_arch_dict` as input. Required `model_arch_dict` keywords: `num_channels`, `nb_labels`, `nb_levels`, `ndims`.
     ```
@@ -336,7 +337,13 @@ Output Segmentation
            ...
 
     ```
-  - **`_setdefault_arch_dict(self)`**: set network defaults in `self._model_arch_dict`
+    **Notes**:
+    - keywords `num_channels`, `nb_labels`, `nb_levels`, and `ndims must be present in dict `model_arch_dict`.
+    - `ndims` and `nb_levels` are required model configurables.
+    - `num_channels` and `nb_labels` are derived from dataset configurables `expected_num_channels` and `len(segmentation_labels)` by defaults. \
+      Use the optional model configurables `in_channels` and `out_channels` to override the defaults. 
+    - Other `model_arch_dict` keyword are from model configurables with the same names of users' choices.
+  - **`_setdefault_arch_dict(self)`**: set network defaults in `self._model_arch_dict`to ensure the default values are recorded in checkpoints.
     ```
         def _setdefault_arch_dict(self):
             self._model_arch_dict["num_channels"] = 1   # number of network input channels
@@ -355,9 +362,9 @@ Output Segmentation
                self._model_arch_dict[k] = model_arch_dict[k]
     ```
   - **`forward(self, x, **kwargs)`**: torch.nn.Module forward method \
-    **Note**: The function needs to return a list to train with freeseg.training.Training class.
+    **Notes**: The function needs to return a list to train with freeseg.training.Training class.
 - Implement required property
-  - **`arch_dict`**: getter method for `self._model_arch_dict`
+  - **`arch_dict`**: getter method for instance variable `self._model_arch_dict`
     ```
        @property
        def arch_dict(self):
@@ -366,17 +373,18 @@ Output Segmentation
 
 ### Adding New Augmentations
 
-- Create augmentation wrapper class in `freeseg/augmentation/`
-  - Inherit from `freeseg.augmentation.augmentbase.AugmentBase` \
-    Implement **`def __init__(self, hp, transforms, crop_size, num_channels=1, **kwargs)`**
+- Create augmentation wrapper class
+  - (Optional) Inherit from `freeseg.augmentation.augmentbase.AugmentBase`
+  - Implement **`def __init__(self, hp, transforms, crop_size=None, augmentation_dir=None, device=None, **kwargs)`**
     ```
     from freeseg.augmentation.augmentbase import AugmentBase
 
     # augmentation wrapper class derived from AugmentBase
     class AugmentWrapper(AugmentBase):
-        def __init__(self, hp, transforms, crop_size, device, num_channels=1, **kwargs):
+        # constructor
+        def __init__(self, hp, transforms, crop_size=None, augmentation_dir=None, device=None, **kwargs):
 
-            super().__init__(hp, transforms, crop_size, device, num_channels=1, **kwargs)
+            super().__init__(hp, transforms, device=devive, **kwargs)
 	
             # initialize required instance variables
             # 1. valid_augmentations: augmentations supported in the class, used to validate augmentations requested
@@ -388,26 +396,31 @@ Output Segmentation
 
             # 2. output_dir: output directory used in freeseg.augmentation.apply_augmentations() to save augmented volumes for debugging
             # this variable is inherit from base class, set self.output_dir if not inherited from base class
-            # self.output_dir = output_dir
+            # self.output_dir = augmentation_dir
 	
             # 3. transforms: save the augmentations to be applied
             self.transforms = transforms
 
             # 4. individual augmentation instances: initiate augmentation instances that the wrapper class supports
+	    #    keep the instance names in lower cases. they need to match items in list `valid_augmentations`.
             self.augment1 = Augment1(hp=hp.get('Augment1'), device=device, **kwargs)
             self.augment2 = Augment2(hp=hp.get('Augment2'), device=device, **kwargs)
 
             ...
 
     ```
-    **Note**:
+  - **Notes**:
+    - The wrapper class instance will be created in `freeseg.training.Training.setup()`.
+    - It is optional to inherit from `freeseg.augmentation.augmentbase.AugmentBase`.    
+    - The constructor arguments:
+      - required position arguments: `hp` and `transforms`
+      - required keyword arguments:  `crop_size`, `augmentation_dir`,  and `device`
+      - optional keyword arguments:  can be added as needed. The key/value pairs will be from both `dataset` and `preprocessing` configurables with same names.    
     - Keep augmentation instances in lower cases. They need to match items in list `valid_augmentations`.
     - The dict `hp` passed to each augmentation class is from the corresponding augmentation hyperparameter section in the config.yaml.
-    - The wrapper class will be created in `freeseg.training.Training.setup()`. Add any missing arguments to the constructor call.
-    - It is optional to inherit from `freeseg.augmentation.augmentbase.AugmentBase`. But the wrapper class has a dependency on `freeseg.augmentation.augmentbase.AugmentBase.RES_DIFF_THRESH`.
-    - The augmentations are applied through `freeseg.augmentation.apply_augmentations()` call from a `torch.utils.data.Dataset` instance.
+    - The augmentations are applied through `freeseg.augmentation.apply_augmentations()` call from a `torch.utils.data.Dataset` instance in the order that they are specified in config.yaml.
 - Implement individual augmentation class: The augmentation classes inherit `torch.nn.Module`.
-  - **example**:
+  **example**:
   ```
   class Augment1(torch.nn.Module):
       # constructor
@@ -436,23 +449,57 @@ Output Segmentation
 
 ### Adding New Metrics
 
-- Create metric class in `freeseg/metrics.py`
+- Create metric class
 - Inherit from `torch.nn.Module`
 - Implement `__init__` and `forward` methods
   ```
-    class MyLossFunc(torch.nn.Module):
+    class MyMetrics(torch.nn.Module):
         def __init__(self, **kwargs):
             super().__init__()
 
         def forward(self, y_pred, y_true, **kwargs):
-	    # ... implementation ...
+            # ... implementation ...
   ```
+  **Notes**:
+  - The constructor keyword arguments can be added as needed. The key/value pairs are from the configurables with same keywords placed under `wl2_metrics`, `model_metrics`, or `model_metrics_accuracy`.
+  - See [Configuration Guide](CONFIGURATION.md) and `configs/` for examples.
 
-### Adding New Datasets
 
-- Create dataset class in `freeseg/datasets/`
+### Adding New Datasets (WIP)
+
+- Create dataset class
 - Inherit from `torch.utils.data.Dataset`
-- Implement `__getitem__` and `__len__`
+  ```
+      class MyDataset(torch.utils.data.Dataset):
+          def __init__(self, augment_obj, **kwargs):
+
+              ...
+
+  ```
+- Implement required methods:
+  - **`process_dataset_attr(dataset_profile, traindir)`**: static method to process and update dataset configurables
+    ```
+    @staticmethod
+    def process_dataset_attr(dataset_profile, traindir):
+        ...
+	
+        return updated_dataset_profile
+    ```
+  - **`__len__(self)`**: return the number of training dataset entries
+  - **`__getitem__(self, index)`**: load and preprocess training dataset of given index
+    - **example**
+    ```
+    ```
+    - **Note**: Augmentations are applied in this method.
+- Implement required property
+  - **profile**: getter method for self.dataset_profile
+    ```
+        @property
+        def profile(self):
+            return self.dataset_profile
+    ```
+
+### Adding New Trainer Classes
 
 ---
 

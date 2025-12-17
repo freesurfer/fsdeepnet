@@ -106,7 +106,7 @@ Edit `my_config.yaml`:
 
 ```yaml
 dataset:
-  dataset_classname: freeseg.datasets.segmentationdataset.SegmentationDataset
+  class_name: freeseg.datasets.segmentationdataset.SegmentationDataset
   segmentation_labels: [0, 2, 3, 4, 17, 41]  # Your label values
   expected_num_channels: 1
   dataset_list_file: /path/to/dataset_list.yaml

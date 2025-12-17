@@ -496,7 +496,7 @@ Weighted L2 loss for pre-training.
 The configuration file (`config.yaml`) contains the following sections:
 
 #### `dataset`
-- `dataset_classname`: Dataset class name
+- `class_name`: Dataset class name
 - `segmentation_labels`: List of segmentation labels
 - `segmentation_names`: Label names (optional)
 - `expected_num_channels`: Expected number of input channels
@@ -522,7 +522,7 @@ The configuration file (`config.yaml`) contains the following sections:
 - `weight_init`: Weight initialization method
 
 #### `preprocessing`
-- `augmentation_class`: Augmentation class name
+- `augmentation_wrapper`: Augmentation class name
 - `crop_size`: Crop size [W, H(, D)]
 - `augmentations`: List of augmentation specifications
 

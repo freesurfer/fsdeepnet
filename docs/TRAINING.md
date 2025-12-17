@@ -249,5 +249,5 @@ fspython scripts/freeseg_train.py \
 
 ---
 
-See [API.md](API.md) for detailed API documentation and [CONFIGURATION.md](CONFIGURATION.md) for configuration details.
+See [API Documentation](API.md) and [Configuration Guide](CONFIGURATION.md) for API and configuration details.
 

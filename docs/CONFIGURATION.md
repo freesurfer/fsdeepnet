@@ -53,11 +53,8 @@ See `configs/config.yaml` and `configs/synthseg_config.yaml` for complete exampl
 ```yaml
 dataset:
   # torch.utils.data.Dataset class
-  dataset_classname: freeseg.datasets.segmentationdataset.SegmentationDataset
+  class_name: freeseg.datasets.segmentationdataset.SegmentationDataset
   
-  # label ids in the final segmentation 
-  segmentation_labels: [0, 2, 3, 4, 17, 41, 42, 43, 53]
-
   # number of channels of the input data
   expected_num_channels: 1
 
@@ -69,6 +66,9 @@ dataset:
 
 ```yaml
 dataset:
+  # label ids in the final segmentation 
+  segmentation_labels: [0, 2, 3, 4, 17, 41, 42, 43, 53]
+
   # label names corresponding to segmentation_labels
   segmentation_names: /path/segmentation_names.npy, or a list
   
@@ -98,6 +98,9 @@ dataset:
   # the target resolution is obtained from the training data
   res_diff_thresh: 0.05
 ```
+**Note**:
+- Specify any configurables that need to be recorded in the checkpoint `train_dataset_dict`.
+- The configurables are processed in the static method `process_dataset_attr()` of the `torch.utils.data.Dataset` class specified in dataset `class_name`, ex. 'freeseg.datasets.segmentationdataset.SegmentationDataset.process_dataset_attr()'.
 
 ### Dataset List File
 
@@ -155,9 +158,9 @@ model:
 
 **Notes:**
 - Required configurables: `name`, `ndims`, and `nb_levels`.
-- Optional configurables: `in_channels` and `out_channels`.
-  Keywords `num_channels` and `nb_labels` must be present in `model_arch_dict` used to initiate a network object.
-  By default, they are derived from dataset configurables `expected_num_channels` and `len(segmentation_labels)`.
+- Optional configurables: `in_channels` and `out_channels`. \
+  Keywords `num_channels` and `nb_labels` must be present in `model_arch_dict` used to initiate a network object. \
+  By default, they are derived from dataset configurables `expected_num_channels` and `len(segmentation_labels)`. \
   Use the optional model configurables `in_channels` and `out_channels` to override the defaults.
 - Other model configurables can be users' choices as long as they are consistent with the keywords in `model_arch_dict` used to initiate a network object. 
 
@@ -171,11 +174,17 @@ model:
 preprocessing:
   # augmentation wrapper class
   # alternative: freeseg.augmentation.augmentvoxynth.AugmentVoxynth
-  augmentation_class: freeseg.augmentation.augmentbase.AugmentBase
+  augmentation_wrapper: freeseg.augmentation.augmentbase.AugmentBase
   
   # constrained by the U-Net architecture
   # must be divisible by `2^(nb_levels)`
   crop_size: [W, H(, D)]
+
+  # augmentation output directory
+  # augmentation_dir: /path/to/augmented_data
+
+  # other augmentation wrapper class constructor keyword arguments
+  ...
 ```
 
 ### Augmentation Configuration
@@ -347,32 +356,41 @@ training:
   wl2_epochs: 5  
   wl2_gt_target_value: 15
   pre_train_learning_rate: 0.0001
-  wl2_metrics: freeseg.metrics.WeightedL2Loss
+  wl2_metrics:
+    class_name: freeseg.metrics.WeightedL2Loss
+    gt_target_value: 15
 ```
 
 - **Purpose**: Pre-train model with weighted L2 norm loss function to provide initialization for Dice loss training
 - **Parameters**:
   - `wl2_epochs`: Number of pre-training epochs
-  - `wl2_gt_target_value`: Target value for ground truth labels of the layer before `final_pred_activation`: gt_target_value when gt = 1, -gt_target_value when gt = 0.
   - `pre_train_learning_rate`: Learning rate for pre-training
-  - `wl2_metrics`: Loss function class
+  - `wl2_metrics`:
+    - `class_name`: Loss function class arguments to initiate wl2 loss instance
+    - `gt_target_value`: Target value for ground truth labels of the layer before `final_pred_activation`: gt_target_value when gt = 1, -gt_target_value when gt = 0.
+    - Add any keyword arguments need to be passed to loss function constructor.
 
 #### Stage 2: Dice Loss Training
 
 ```yaml
 training:
   dice_epochs: 100
-  dice_squared_form: False
   learning_rate: 0.0001
-  model_metrics: freeseg.metrics.DiceLoss
+  model_metrics:
+    class_name: freeseg.metrics.DiceLoss
+    dice_type: soft
+    dice_squared_form: False  
 ```
 
 - **Purpose**: Fine-tune model using soft Dice loss function
 - **Parameters**:
   - `dice_epochs`: Number of training epochs
-  - `dice_squared_form`: Whether to use squared Dice form
   - `learning_rate`: Learning rate for training
-  - `model_metrics`: Loss function class
+  - `model_metrics`:
+    - `class_name`: Loss function class arguments to initiate soft dice loss instance
+    - `dice_type`:  Type of dice calculation, soft or hard
+    - `dice_squared_form`: Whether to use squared Dice form
+    - Add any keyword arguments need to be passed to loss function constructor.
 
 ### Perform Evaluation During Training
 
