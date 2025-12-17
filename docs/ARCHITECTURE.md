@@ -9,7 +9,7 @@ This document describes the architecture and design of FreeSeg.
 - [Augmentation Pipeline](#augmentation-pipeline)
 - [Training Pipeline](#training-pipeline)
 - [Inference Pipeline](#inference-pipeline)
-- [Extension Points](#extension-points)
+- [Extension And Integration](#extension-and-integration)
 - [Future Enhancements](#future-enhancements)
 - [References](#references)
 
@@ -318,7 +318,7 @@ Output Segmentation
 
 ---
 
-## Extension and Integration
+## Extension And Integration
 
 ### Adding New Models
 
@@ -402,7 +402,7 @@ Output Segmentation
             self.transforms = transforms
 
             # 4. individual augmentation instances: initiate augmentation instances that the wrapper class supports
-	    #    keep the instance names in lower cases. they need to match items in list `valid_augmentations`.
+            #    keep the instance names in lower cases. they need to match items in list `valid_augmentations`.
             self.augment1 = Augment1(hp=hp.get('Augment1'), device=device, **kwargs)
             self.augment2 = Augment2(hp=hp.get('Augment2'), device=device, **kwargs)
 
@@ -420,7 +420,7 @@ Output Segmentation
     - The dict `hp` passed to each augmentation class is from the corresponding augmentation hyperparameter section in the config.yaml.
     - The augmentations are applied through `freeseg.augmentation.apply_augmentations()` call from a `torch.utils.data.Dataset` instance in the order that they are specified in config.yaml.
 - Implement individual augmentation class: The augmentation classes inherit `torch.nn.Module`.
-  **example**:
+  - **example**:
   ```
   class Augment1(torch.nn.Module):
       # constructor
@@ -465,13 +465,13 @@ Output Segmentation
   - See [Configuration Guide](CONFIGURATION.md) and `configs/` for examples.
 
 
-### Adding New Datasets (WIP)
+### Adding New Datasets
 
 - Create dataset class
 - Inherit from `torch.utils.data.Dataset`
   ```
       class MyDataset(torch.utils.data.Dataset):
-          def __init__(self, augment_obj, **kwargs):
+          def __init__(self, augment_obj, device=None, **kwargs):
 
               ...
 
@@ -479,22 +479,29 @@ Output Segmentation
 - Implement required methods:
   - **`process_dataset_attr(dataset_profile, traindir)`**: static method to process and update dataset configurables
     ```
-    @staticmethod
-    def process_dataset_attr(dataset_profile, traindir):
-        ...
+        @staticmethod
+        def process_dataset_attr(dataset_profile, traindir):
+            ...
 	
-        return updated_dataset_profile
+            return updated_dataset_profile
     ```
   - **`__len__(self)`**: return the number of training dataset entries
   - **`__getitem__(self, index)`**: load and preprocess training dataset of given index
     - **example**
     ```
+        def __getitem__(self, index):
+            # load data
+	    ...
+
+            # apply data augmentation
+	    ...
     ```
-    - **Note**: Augmentations are applied in this method.
+    - **Note**: Augmentations are applied in this method calling `freeseg.augmentation.apply_augmentations()`.
 - Implement required property
   - **profile**: getter method for self.dataset_profile
     ```
         @property
+	# getter method for processed dataset profile
         def profile(self):
             return self.dataset_profile
     ```
