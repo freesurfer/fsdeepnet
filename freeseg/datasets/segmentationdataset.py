@@ -5,9 +5,23 @@ import torch
 
 from freeseg import augmentation
 from freeseg.utils import utility as utils
+from freeseg.config import Config
 
 class SegmentationDataset(torch.utils.data.Dataset):
-    def __init__(self, dataset_profile, augment_obj, dataset_dict, device=None, keep_trainset_in_memory=False, preload=False, augdir=None, diff_res=True, **kwargs):
+    def __init__(self,
+                 augment_obj,
+                 device=None,
+                 cohort=[],
+                 dataset_list_file=None,             
+                 expected_num_channels=1,
+                 ndims=3,
+                 num_labels=None,
+                 label_mapping=None,
+                 diff_res=True,
+                 keep_trainset_in_memory=False,
+                 preload=False,
+                 augdir=None,
+                 **kwargs):
         """
         SegmentationDataset Constructor
 
@@ -15,15 +29,18 @@ class SegmentationDataset(torch.utils.data.Dataset):
           Input dataset dict containing input image volumes and label maps
         """
 
-        # save dataset profile
-        self.dataset_profile = dataset_profile
+        # create an empty dictionary for processed dataset profile
+        self.dataset_profile = {}
+
+        dataset_list = Config.load_dataset_list(dataset_list_file)
+        dataset_dict = Config.retrieve_dataset_cohorts(dataset_list, cohort)
 
         # retrieve dataset attributes
         self.num_entries = len(dataset_dict)
-        self.num_channels = self.dataset_profile["expected_num_channels"]
-        self.ndims = self.dataset_profile["ndims"]
-        self.num_classes = self.dataset_profile["num_labels"]
-        self.label_mapping = self.dataset_profile["label_mapping"]
+        self.num_channels = expected_num_channels
+        self.ndims = ndims
+        self.num_classes = num_labels
+        self.label_mapping = label_mapping
 
         assert (self.ndims == 3 or self.ndims == 2), "Model supports 3D or 2D"
 
@@ -77,7 +94,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
                                   "input_shape": list(label_tensor0.shape[1:]),
                                   "target_res": self.target_res,
                                   "res_diff_thresh": augmentation.AugmentBase.RES_DIFF_THRESH,
-                                  "num_channels": self.num_channels,
+                                  #"num_channels": self.num_channels,
                                   "hasimage": self.hasimage(),
                                   "haspriors": self.haspriors(),
                                   "label_lookup": self.label_lookup})          
@@ -262,6 +279,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
 
 
     @property
+    # getter method for processed dataset profile
     def profile(self):
         return self.dataset_profile
 

@@ -564,20 +564,14 @@ class Training:
             if (device is None):
                 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-            dataset_dict = Config.load_dataset_list(dataset_profile["dataset_list_file"])
-
-            dset_cohort = Config.retrieve_dataset_cohorts(dataset_dict, cohort)
-            dataset = None
-            if (dset_cohort):
-                dataset = py_dataset_cls(
-                    dataset_profile,
+            dataset = py_dataset_cls(
                     dataaugment,
-                    dataset_dict=dset_cohort,            
-                    device=device,
+                    device=device,                    
+                    cohort=cohort,
                     keep_trainset_in_memory=keep_trainset_in_memory,
                     preload=preload,
                     augdir=augdir,
-                    diff_res=dataset_profile.get("diff_res", True))
+                    **dataset_profile)
 
             return dataset
 
@@ -640,7 +634,8 @@ class Training:
                                          cohort=config["train_cohort"], preload=preload_dataset, augdir=config["preprocessing"].get("augmentation_dir", None))
             # UPDATE config
             config.update({"train_augmentations": train_augmentations})
-            # ??? update config["dataset"].update(train_dataset.profile) ???
+            # update config["dataset"]
+            config["dataset"].update(train_dataset.profile)
 
         ### create training DataLoader
         train_loader = None        
