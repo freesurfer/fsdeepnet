@@ -100,6 +100,8 @@ class Training:
             self._summary_writer = SummaryWriter(train_output_folder)
 
         self._dice_metric_hard = accuracy_fn
+        if (self._validation_loader is not None and self._best_model_metric == "dice"):
+            assert (self._dice_metric_hard is not None), "Need 'model_metrics_accuracy' to pick best 'dice' model"
 
         # surfa.core.labels.LabelLookup
         self._label_lookup = train_dataset_dict.pop("label_lookup", None)
@@ -186,28 +188,30 @@ class Training:
                                                                metric_type=metric_type)
             
             train_loss /= steps_per_epoch
-            train_dice_avg = np.mean(train_dices)
+            train_dice_avg = 0.0            
+            if (self._dice_metric_hard is not None):
+                train_dice_avg = np.mean(train_dices)
         
-            # output training dices batch_size x (n_labels x steps_per_epoch)
-            f_dice_scores = os.path.join(self._dice_dir, f"train_{metric_type}_{epoch+1:03d}.npy")
-            np.save(f_dice_scores, train_dices)
-            # Save in text format as (steps_per_epoch x n_labels)
-            if (self._batch_size == 1):
-                """
-                Known Issue: np.savetxt() is designed for saving 1D and 2D arrays to text files.
-                             It does not directly support saving 3D arrays.
-                             Attempting to use savetxt() on a 3D array will result in a ValueError
-                """
-                f_dice_dat = os.path.join(self._dice_dir, f"d.train_{metric_type}_{epoch+1:03d}.dat")            
-                np.savetxt(f_dice_dat, np.transpose(np.squeeze(train_dices)))
+                # output training dices batch_size x (n_labels x steps_per_epoch)
+                f_dice_scores = os.path.join(self._dice_dir, f"train_{metric_type}_{epoch+1:03d}.npy")
+                np.save(f_dice_scores, train_dices)
+                # Save in text format as (steps_per_epoch x n_labels)
+                if (self._batch_size == 1):
+                    """
+                    Known Issue: np.savetxt() is designed for saving 1D and 2D arrays to text files.
+                                 It does not directly support saving 3D arrays.
+                                 Attempting to use savetxt() on a 3D array will result in a ValueError
+                    """
+                    f_dice_dat = os.path.join(self._dice_dir, f"d.train_{metric_type}_{epoch+1:03d}.dat")            
+                    np.savetxt(f_dice_dat, np.transpose(np.squeeze(train_dices)))
     
             if (self._validation_loader is None):
-                loss_dice_avg[epoch-start_epoch] = np.array((train_loss, train_dice_avg))                
-                logging.info(
-                    f"Epoch [{epoch+1:>3d}/{end_epoch:<3d}], "
-                    f"Train Loss: {train_loss:.4f}, "
-                    f"Train Dice Avg: {train_dice_avg:.4f}"
-                )
+                loss_dice_avg[epoch-start_epoch] = np.array((train_loss, train_dice_avg))
+                if (self._dice_metric_hard is not None):
+                    info = f"Epoch [{epoch+1:>3d}/{end_epoch:<3d}], Train Loss: {train_loss:.4f}, Train Dice Avg: {train_dice_avg:.4f}"
+                else:
+                    info = f"Epoch [{epoch+1:>3d}/{end_epoch:<3d}], Train Loss: {train_loss:.4f}"
+                logging.info(info)
 
                 # model dict
                 checkpoint_dict = {
@@ -216,7 +220,7 @@ class Training:
                     "model_state_dict": self._model.state_dict(),
                     "optimizer_state_dict": optimizer.state_dict(),
                     "loss": train_loss,
-                    "dice": train_dice_avg,
+                    "dice": train_dice_avg if (self._dice_metric_hard is not None) else None,
                 }
                 # Save checkpoints every steps_per_epoch steps
                 checkpoint_path = os.path.join(
@@ -229,24 +233,24 @@ class Training:
                 # perform validation
                 (validation_loss, validation_dices) = self._validate(optimizer, loss_fn, epoch, metric_type=metric_type)
                 validation_loss /= len(self._validation_loader)
-                validation_dice_avg = np.mean(validation_dices)
+                validation_dice_avg = 0.0
+                if (self._dice_metric_hard is not None):
+                    validation_dice_avg = np.mean(validation_dices)
         
-                # output validation dices (n_labels x len(self._validation_loader))
-                f_dice_scores = os.path.join(self._dice_dir, f"validation_{metric_type}_{epoch+1:03d}.npy")
-                np.save(f_dice_scores, validation_dices)
-                if (self._batch_size == 1):
-                    # Save in text format as nsubjects x nlabels
-                    f_dice_dat = os.path.join(self._dice_dir, f"d.validation_{metric_type}_{epoch+1:03d}.dat")
-                    np.savetxt(f_dice_dat, np.transpose(np.squeeze(validation_dices)))
+                    # output validation dices (n_labels x len(self._validation_loader))
+                    f_dice_scores = os.path.join(self._dice_dir, f"validation_{metric_type}_{epoch+1:03d}.npy")
+                    np.save(f_dice_scores, validation_dices)
+                    if (self._validation_loader.batch_size == 1):
+                        # Save in text format as nsubjects x nlabels
+                        f_dice_dat = os.path.join(self._dice_dir, f"d.validation_{metric_type}_{epoch+1:03d}.dat")
+                        np.savetxt(f_dice_dat, np.transpose(np.squeeze(validation_dices)))
 
-                loss_dice_avg[epoch-start_epoch] = np.array((train_loss, train_dice_avg, validation_loss, validation_dice_avg))                
-                logging.info(
-                    f"Epoch [{epoch+1:>3d}/{end_epoch:<3d}], "
-                    f"Train Loss: {train_loss:.4f}, "
-                    f"Train Dice Avg: {train_dice_avg:.4f}, "
-                    f"Val Loss: {validation_loss:.4f}, "
-                    f"Val Dice Avg: {validation_dice_avg:.4f}"
-                )
+                loss_dice_avg[epoch-start_epoch] = np.array((train_loss, train_dice_avg, validation_loss, validation_dice_avg))
+                if (self._dice_metric_hard is not None):
+                    info = f"Epoch [{epoch+1:>3d}/{end_epoch:<3d}], Train Loss: {train_loss:.4f}, Train Dice Avg: {train_dice_avg:.4f}, Val Loss: {validation_loss:.4f}, Val Dice Avg: {validation_dice_avg:.4f}"
+                else:
+                    info = f"Epoch [{epoch+1:>3d}/{end_epoch:<3d}], Train Loss: {train_loss:.4f}, Val Loss: {validation_loss:.4f}"
+                logging.info(info)
 
                 # model dict
                 checkpoint_dict = {
@@ -255,7 +259,7 @@ class Training:
                     "model_state_dict": self._model.state_dict(),
                     "optimizer_state_dict": optimizer.state_dict(),
                     "loss": validation_loss,
-                    "dice": validation_dice_avg,
+                    "dice": validation_dice_avg if (self._dice_metric_hard is not None) else None,
                 }
                 # Save checkpoints every steps_per_epoch steps
                 checkpoint_path = os.path.join(
@@ -288,7 +292,7 @@ class Training:
         # End of training loop
         
         f_loss_dice_avg_dat = os.path.join(self._checkpoint_dir, f"train_validation_avg_{metric_type}_epoch{start_epoch+1}-{end_epoch}.dat")
-        # Save in text format as nepoch x 2
+        # Save in text format as nepoch x ncols: 'train_loss train_dice_avg validation_loss validation_dice_avg'
         np.savetxt(f_loss_dice_avg_dat, loss_dice_avg)
 
             
@@ -310,8 +314,10 @@ class Training:
         """
 
         train_loss = 0.0
-        train_dice_avg = 0.0
-        train_dices = np.zeros((self._batch_size, self._num_labels, steps_per_epoch))
+        train_dice_hard = 0.0
+        train_dices = None
+        if (self._dice_metric_hard is not None):
+            train_dices = np.zeros((self._batch_size, self._num_labels, steps_per_epoch))
 
         self._model.train()        
         for step in range(steps_per_epoch):
@@ -343,14 +349,22 @@ class Training:
                 # Calculate hard Dice
                 batch_hard_dice = self._dice_metric_hard(outputs, onehot_labels)
                 train_dices[:, :, step] = batch_hard_dice.detach().cpu().numpy()
-                train_dice_avg += np.mean(train_dices[:, :, step])
+                train_dices_avg = np.mean(train_dices[:, :, step])
+                train_dice_hard += train_dices_avg
 
             # report simple moving loss and dice average or loss/dice for each step
             batch_indices = ", ".join(str(item).zfill(4) for item in dataset_indices.tolist())
             if (self._report_moving_avg):
-                logging.info(f"  {step+1:>4d}/{steps_per_epoch:<4d} ({batch_indices}) loss: {train_loss/(step+1):.4f}, dice avg: {train_dice_avg/(step+1):.4f}")
+                if (self._dice_metric_hard is not None):
+                    info = f"  {step+1:>4d}/{steps_per_epoch:<4d} ({batch_indices}) loss: {train_loss/(step+1):.4f}, dice avg: {train_dice_hard/(step+1):.4f}"
+                else:
+                    info = f"  {step+1:>4d}/{steps_per_epoch:<4d} ({batch_indices}) loss: {train_loss/(step+1):.4f}"
             else:
-                logging.info(f"  {step+1:>4d}/{steps_per_epoch:<4d} ({batch_indices}) loss: {loss.item():.4f}, dice avg: {np.mean(train_dices[:, :, step]):.4f}")
+                if (self._dice_metric_hard is not None):
+                    info = f"  {step+1:>4d}/{steps_per_epoch:<4d} ({batch_indices}) loss: {loss.item():.4f}, dice avg: {train_dices_avg:.4f}"
+                else:
+                    info = f"  {step+1:>4d}/{steps_per_epoch:<4d} ({batch_indices}) loss: {loss.item():.4f}"
+            logging.info(info)
 
             # begin of debugging volumes output            
             if (self._debug and ((step == 0 and epoch > 0) or (epoch == self._end_epoch-1 and step == steps_per_epoch-1))):
@@ -382,12 +396,12 @@ class Training:
                         utils.save_framedimage(priors[n], out_priors)
 
                     # posteriors
-                    out_posteriors = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.posteriors_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.mgz")
+                    out_posteriors = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.posteriors_loss{loss.item():.4f}.mgz")
                     posteriors = outputs[n]  # non-batched tensor [C, H, W (,D)]
                     utils.save_framedimage(posteriors, out_posteriors, onehotencoded=True)
 
                     # prediction
-                    out_segmentation = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.prediction_loss{loss.item():.4f}_dice{np.mean(train_dices[:, :, step]):.4f}.mgz")
+                    out_segmentation = os.path.join(self._debug_dir, f"{metric_type}_{epoch+1:03d}_{idx:03d}.prediction_loss{loss.item():.4f}.mgz")
                     predicted_segmentation = torch.argmax(outputs[n], dim=0)
                     segmentation = utils.remap_labels(predicted_segmentation, self._inverse_label_mapping)
                     utils.save_framedimage(segmentation.unsqueeze(0), out_segmentation, labels=self._label_lookup)
@@ -397,12 +411,12 @@ class Training:
             if (self._summary_writer is not None):
                 # Write to TensorBoard every batch
                 self._summary_writer.add_scalar("Train/Loss", loss.item(), epoch * steps_per_epoch + batch_idx)
-                self._summary_writer.add_scalar(
-                    "Train/Dice",
-                    np.mean(train_dices[:, :, step]),
-                    #torch.mean(torch.tensor(batch_hard_dice)),
-                    epoch * steps_per_epoch + batch_idx,
-                )
+                if (self._dice_metric_hard is not None):
+                    self._summary_writer.add_scalar(
+                        "Train/Dice",
+                        train_dices_avg,
+                        epoch * steps_per_epoch + batch_idx,
+                    )
 
                 # --- TensorBoard Visualization (Inside Training Loop) ---
                 if batch_idx % 10 == 0:  # Visualize every 10 batches (adjust as needed)
@@ -449,14 +463,16 @@ class Training:
         """
         
         validation_loss = 0.0
-        validation_dices = np.zeros((self._batch_size, self._num_labels, len(self._validation_loader)))
+        validation_dices = None
+        if (self._dice_metric_hard is not None):
+            validation_dices = np.zeros((self._validation_loader.batch_size, self._num_labels, len(self._validation_loader)))
 
         self._model.eval()
         with torch.no_grad():
             for batch_idx, (dataset_indices, images, onehot_labels, priors) in enumerate(self._validation_loader):
                 images, onehot_labels, priors = images.to(self._device), onehot_labels.to(self._device), priors.to(self._device)
 
-                (outputs, penultimate) = self._model(images, priors)
+                (outputs, penultimate) = self._model(images, priors=priors)
                 if (self._debug):
                     logging.debug(f"output validation debug volumes ...")
                     for n, idx in enumerate(dataset_indices):
@@ -487,12 +503,14 @@ class Training:
                 validation_loss += loss.item()
 
                 # --- Metrics Calculation ---
+                batch_indices = ", ".join(str(item).zfill(4) for item in dataset_indices.tolist())
                 if (self._dice_metric_hard is not None):
                     # Calculate hard Dice
                     batch_hard_dice = self._dice_metric_hard(outputs, onehot_labels)
                     validation_dices[:, :, batch_idx] = batch_hard_dice.detach().cpu().numpy()
-
-                logging.info(f"  validation {batch_idx+1:4d}/{len(self._validation_loader):<4d} val loss: {loss.item():.4f}, val dice avg: {np.mean(validation_dices[:, :, batch_idx]):.4f}")
+                    logging.info(f"  validation {batch_idx+1:4d}/{len(self._validation_loader):<4d} ({batch_indices}) val loss: {loss.item():.4f}, val dice avg: {np.mean(validation_dices[:, :, batch_idx]):.4f}")
+                else:
+                    logging.info(f"  validation {batch_idx+1:4d}/{len(self._validation_loader):<4d} ({batch_indices}) val loss: {loss.item():.4f}")
 
                 # begin of tensorboard summary writer
                 if (self._summary_writer is not None):
@@ -500,12 +518,12 @@ class Training:
                     self._summary_writer.add_scalar(
                         "Validation/Loss", validation_loss, epoch * len(self._validation_loader) + batch_idx
                     )
-                    self._summary_writer.add_scalar(
-                        "Validation/Dice",
-                        np.mean(validation_dices[:, :, batch_idx]),
-                        #torch.mean(torch.tensor(batch_hard_dice)),
-                        epoch * len(self._validation_loader) + batch_idx,
-                    )
+                    if (self._dice_metric_hard is not None):
+                        self._summary_writer.add_scalar(
+                            "Validation/Dice",
+                            np.mean(validation_dices[:, :, batch_idx]),
+                            epoch * len(self._validation_loader) + batch_idx,
+                        )
 
                     # --- TensorBoard Visualization (Inside Validation Loop) ---
                     if batch_idx % 3 == 0:  # Visualize every 3 batches (adjust as needed)
@@ -580,13 +598,14 @@ class Training:
         def create_augment_object(transforms, config, cohort='train', device=None):
             cfg_dataset = config["dataset"].copy()
             cfg_dataset.pop("class_name", None)  # remove 'class_name'
-
+            
             if (cohort == "validation"):
                 cfg_preprocess = config["evaluation"].copy()
                 transfer_keys = ["augmentation_wrapper", "crop_size", "verbose", "augmentation_dir"]
                 for key in transfer_keys:
                     if (key not in cfg_preprocess):
                         cfg_preprocess[key] = config["preprocessing"].get(key)
+                cfg_dataset["batch_size"] = cfg_preprocess.pop("batch_size", 1)
             else:  # cohort='train'
                 cfg_preprocess = config["preprocessing"].copy()                
 
@@ -640,7 +659,7 @@ class Training:
         ### create training DataLoader
         train_loader = None        
         if (create_train_dataset and create_loader):
-            train_loader = DataLoader(train_dataset, batch_size=config["dataloader"]["batch_size"], shuffle=True,
+            train_loader = DataLoader(train_dataset, batch_size=config["training"]["batch_size"], shuffle=True,
                                       pin_memory=config["dataloader"]["pin_memory"], num_workers=config["dataloader"]["num_workers"],
                                       persistent_workers=config["dataloader"]["persistent_workers"], prefetch_factor=config["dataloader"]["prefetch_factor"])
 
@@ -658,10 +677,10 @@ class Training:
                                               device=config["preprocessing_device"],
                                               cohort=config["validation_cohort"])
             if (validation_dataset is None):
-                logging.warn(f"No 'validation' set in {config['dataset']['dataset_list_file']} to perform evaluation")
+                logging.warning(f"No 'validation' set in {config['dataset']['dataset_list_file']} to perform evaluation")
                 config["training"]["perform_evaluation"] = False
             else:
-                validation_loader = DataLoader(validation_dataset, batch_size=config["training"]["batch_size"], shuffle=False)
+                validation_loader = DataLoader(validation_dataset, batch_size=config["evaluation"]["batch_size"], shuffle=False)
 
         ### output segmentation_labels.npy
         train_dataset_dict = config["dataset"]
