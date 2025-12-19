@@ -501,7 +501,7 @@ Output Segmentation
   - **profile**: getter method for self.dataset_profile
     ```
         @property
-	# getter method for processed dataset profile
+        # getter method for processed dataset profile
         def profile(self):
             return self.dataset_profile
     ```
