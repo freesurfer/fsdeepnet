@@ -1114,6 +1114,311 @@ output = conv_block(x)
 
 ---
 
+### `freeseg.models.model_print`
+
+Prints the string representation of a PyTorch model, showing its architecture hierarchy.
+
+#### Function Signature
+
+```python
+model_print(model, logger=logging)
+```
+
+**Parameters:**
+- `model` (torch.nn.Module): PyTorch model to print
+- `logger` (logging.Logger, optional): Logger instance for output. If `None` or not provided, uses the `logging` module. Default: `logging`
+
+**Returns:**
+- `None`: This function logs output but does not return a value
+
+**Behavior:**
+- Calls `logger.info(str(model))` to print the model's `__str__` representation
+- The output shows the model architecture in a hierarchical format, displaying all modules and submodules
+- Useful for quick inspection of model structure
+
+**Example:**
+```python
+from freeseg.models import UNet, model_print
+import logging
+
+model_config = {
+    "num_channels": 1,
+    "nb_labels": 50,
+    "ndims": 3,
+    "nb_levels": 4
+}
+model = UNet(model_config)
+model_print(model, logger=logging)
+# Logs the full model architecture hierarchy
+```
+
+---
+
+### `freeseg.models.model_summary_torchinfo`
+
+Generates a comprehensive model summary using the `torchinfo` library, including layer information, parameter counts, and memory usage estimates.
+
+#### Function Signature
+
+```python
+model_summary_torchinfo(model, input_size)
+```
+
+**Parameters:**
+- `model` (torch.nn.Module): PyTorch model to summarize
+- `input_size` (tuple): Input size tuple for the model. Format depends on dimensionality:
+  - **2D models**: `(batch_size, channels, height, width)`
+  - **3D models**: `(batch_size, channels, height, width, depth)`
+  - Example: `(1, 1, 160, 160, 160)` for a 3D single-channel input with batch size 1
+
+**Returns:**
+- `None`: This function prints output but does not return a value
+
+**Raises:**
+- `ImportError`: If the `torchinfo` package is not installed
+
+**Behavior:**
+- Wrapper around `torchinfo.summary()` for convenience
+- Generates a detailed summary including:
+  - Layer-by-layer architecture breakdown
+  - Input/output shapes for each layer
+  - Parameter counts per layer
+  - Total parameter count
+  - Memory usage estimates (forward pass, backward pass, total)
+  - Model size information
+
+**Dependencies:**
+- Requires `torchinfo` package: `pip install torchinfo`
+
+**Example:**
+```python
+from freeseg.models import UNet, model_summary_torchinfo
+
+model_config = {
+    "num_channels": 1,
+    "nb_labels": 50,
+    "ndims": 3,
+    "nb_levels": 4,
+    "nb_features": 24
+}
+model = UNet(model_config)
+model_summary_torchinfo(model, input_size=(1, 1, 160, 160, 160))
+# Prints detailed summary with layer info, parameters, and memory usage
+```
+
+---
+
+### `freeseg.models.model_summary`
+
+Generates a detailed model summary using forward hooks to capture input/output shapes, parameter information, and layer details during a dummy forward pass.
+
+#### Function Signature
+
+```python
+model_summary(model, input_size, logger=logging, device=None, debug=False)
+```
+
+**Parameters:**
+- `model` (torch.nn.Module): PyTorch model to summarize
+- `input_size` (tuple): Input size tuple **without batch dimension**. Format:
+  - **2D models**: `(channels, height, width)`
+  - **3D models**: `(channels, height, width, depth)`
+  - Example: `(1, 160, 160, 160)` for a 3D single-channel input
+  - **Note**: Batch dimension is automatically added as 1 for the dummy forward pass
+- `logger` (logging.Logger, optional): Logger instance for output. If `None` or not provided, uses the `logging` module. Default: `logging`
+- `device` (torch.device or str, optional): Device for dummy forward pass. If `None`, automatically selects CUDA if available, else CPU. Default: `None`
+- `debug` (bool): If `True`, logs detailed hook registration information. Default: `False`
+
+**Returns:**
+- `None`: This function logs output but does not return a value
+
+**Behavior:**
+1. Registers forward hooks on all leaf modules (modules without children) in the model
+2. Runs a dummy forward pass with a zeros tensor of the specified input size
+3. Collects information during the forward pass:
+   - Input shapes for each layer
+   - Output shapes for each layer
+   - Parameter counts per layer
+   - Parameter sizes (detailed breakdown by parameter name)
+4. Removes all hooks after collection
+5. Prints a formatted summary table with:
+   - Layer name and type
+   - Input shape
+   - Output shape
+   - Parameter count (formatted with commas)
+   - Parameter sizes (detailed breakdown)
+   - Total parameter count at the end
+
+**Summary Table Format:**
+The function prints a table with columns:
+- **Layer (type)**: Hierarchical name and class type
+- **Input Shape**: Input tensor shape for the layer
+- **Output Shape**: Output tensor shape from the layer
+- **Param #**: Number of parameters in the layer (formatted with commas)
+- **Param Size**: Detailed breakdown of parameter shapes (e.g., `weight:[3, 3, 3]`)
+
+**Notes:**
+- Recursively traverses the model to register hooks on all leaf modules
+- Builds hierarchical names for nested modules (e.g., `encoder.0.ConvBlock-1`)
+- The dummy forward pass uses `torch.zeros()` to avoid any computation overhead
+- All hooks are properly removed after the summary is generated
+
+**Example:**
+```python
+from freeseg.models import UNet, model_summary
+import torch
+
+model_config = {
+    "num_channels": 1,
+    "nb_labels": 50,
+    "ndims": 3,
+    "nb_levels": 4,
+    "nb_features": 24
+}
+model = UNet(model_config)
+model_summary(
+    model, 
+    input_size=(1, 160, 160, 160),
+    device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+    debug=False
+)
+# Prints detailed forward hook summary table
+```
+
+---
+
+### `freeseg.models.model_parameters`
+
+Prints all model parameters with their names, shapes, element counts, and trainability status.
+
+#### Function Signature
+
+```python
+model_parameters(model, logger=logging)
+```
+
+**Parameters:**
+- `model` (torch.nn.Module): PyTorch model to inspect
+- `logger` (logging.Logger, optional): Logger instance for output. If `None` or not provided, uses the `logging` module. Default: `logging`
+
+**Returns:**
+- `None`: This function logs output but does not return a value
+
+**Behavior:**
+- Iterates through all named parameters in the model using `model.named_parameters()`
+- For each parameter, logs:
+  - **Parameter name**: Hierarchical path (e.g., `encoder.0.convs.0.0.weight`)
+  - **Shape**: Parameter dimensions as a list (e.g., `[24, 1, 3, 3, 3]`)
+  - **Element count**: Total number of elements (formatted with commas)
+  - **Trainability**: Whether the parameter requires gradients (`trainable=True/False`)
+- Logs total parameter count across all parameters at the end
+
+**Output Format:**
+Each parameter is logged as:
+```
+    {name:30s}: {shape:20s}, {numel:10,d}  trainable={trainable}
+```
+
+**Use Cases:**
+- Understanding model structure and parameter organization
+- Debugging parameter-related issues (e.g., frozen parameters)
+- Verifying which parameters are trainable vs. frozen
+- Estimating model size and memory requirements
+- Inspecting weight initialization
+
+**Example:**
+```python
+from freeseg.models import UNet, model_parameters
+
+model_config = {
+    "num_channels": 1,
+    "nb_labels": 50,
+    "ndims": 3,
+    "nb_levels": 4
+}
+model = UNet(model_config)
+model_parameters(model)
+# Logs all parameters with shapes and trainability
+# Example output:
+#     encoder.0.convs.0.0.weight: [24, 1, 3, 3, 3],     648  trainable=True
+#     encoder.0.convs.0.0.bias: [24],                      24  trainable=True
+#     ...
+# Total parameters: 1,234,567
+```
+
+---
+
+### `freeseg.models.model_arch`
+
+Prints the model architecture dictionary in a formatted, readable way.
+
+#### Function Signature
+
+```python
+model_arch(arch_dict, logger=logging)
+```
+
+**Parameters:**
+- `arch_dict` (dict): Model architecture dictionary containing architecture parameters. Typically accessed via `model.arch_dict` property
+- `logger` (logging.Logger, optional): Logger instance for output. If `None` or not provided, uses the `logging` module. Default: `logging`
+
+**Returns:**
+- `None`: This function logs output but does not return a value
+
+**Behavior:**
+- Prints the model name (from `'name'` key if present) as a header
+- Logs all architecture parameters with their values in a formatted way
+- Each parameter is indented and displayed as `{key}: {value}`
+- Prints an empty line at the end for readability
+
+**Output Format:**
+```
+{model_name}:
+    num_channels: 1
+    nb_labels: 50
+    ndims: 3
+    nb_features: 24
+    nb_levels: 4
+    feat_mult: 2
+    ...
+```
+
+**Use Cases:**
+- Inspecting model configuration and architecture parameters
+- Verifying architecture settings after model initialization
+- Debugging configuration issues
+- Documentation and logging of model architecture
+- Comparing different model configurations
+
+**Example:**
+```python
+from freeseg.models import UNet, model_arch
+
+model_config = {
+    "num_channels": 1,
+    "nb_labels": 50,
+    "ndims": 3,
+    "nb_levels": 4,
+    "nb_features": 24,
+    "feat_mult": 2,
+    "norm": "batch"
+}
+model = UNet(model_config)
+model_arch(model.arch_dict)
+# Logs:
+# UNet:
+#     num_channels: 1
+#     nb_labels: 50
+#     ndims: 3
+#     nb_features: 24
+#     nb_levels: 4
+#     feat_mult: 2
+#     norm: batch
+#     ...
+```
+
+---
+
 ## Datasets
 
 ### `freeseg.datasets.segmentationdataset.SegmentationDataset`
@@ -1347,6 +1652,170 @@ Returns the processed dataset profile dictionary.
 ---
 
 ## Augmentation
+
+### `freeseg.augmentation.apply_augmentations`
+
+Applies a sequence of augmentations to image and label tensors in the order specified by the augmentation object.
+
+#### Function Signature
+
+```python
+apply_augmentations(
+    augment_obj,
+    image_tensor,
+    label_tensor,
+    original_image,
+    original_label,
+    priors_tensor=None,
+    orig_fpath=None,
+    index=None
+)
+```
+
+**Parameters:**
+- `augment_obj` (AugmentBase or AugmentVoxynth): Augmentation object containing the augmentation pipeline configuration. Must have:
+  - `transforms` attribute: List of augmentation names to apply in order
+  - `output_dir` attribute: Optional directory for saving debug volumes
+- `image_tensor` (torch.Tensor or None): Input image tensor with shape `[C, H, W(, D)]`. Can be `None` if only labels are being augmented
+- `label_tensor` (torch.Tensor): Input label tensor with shape `[C, H, W(, D)]`. Required
+- `original_image` (surfa.Volume): Original image volume (before reorientation/preprocessing). Used for saving debug volumes with correct geometry
+- `original_label` (surfa.Volume): Original label volume (before reorientation/preprocessing). Used for saving debug volumes with correct geometry
+- `priors_tensor` (torch.Tensor, optional): Optional prior probability tensor with shape `[C, H, W(, D)]`. Default: `None`
+- `orig_fpath` (str, optional): Original file path for naming debug output files. If `None` and `augment_obj.output_dir` is set, debug saving is skipped. Default: `None`
+- `index` (int, optional): Optional index for naming debug output files (e.g., for batch processing). If provided, files are prefixed with `"{index+1:04d}."`. Default: `None`
+
+**Returns:**
+- `tuple`: Tuple containing three tensors:
+  - `image_tensor` (torch.Tensor or None): Augmented image tensor with shape `[C, H, W(, D)]`, or `None` if input was `None` or removed by augmentations
+  - `label_tensor` (torch.Tensor): Augmented label tensor with shape `[C, H, W(, D)]`
+  - `priors_tensor` (torch.Tensor or None): Augmented prior tensor with shape `[C, H, W(, D)]`, or `None` if input was `None` or removed by augmentations
+
+**Behavior:**
+1. **Optional Debug Saving**: If `output_dir` and `orig_fpath` are provided, saves reoriented input volumes:
+   - Saves as `.mgz` files (with geometry) and `.npy` files (raw arrays)
+   - Files prefixed with volume name and optional index
+2. **Augmentation Pipeline**: Iterates through augmentations in `augment_obj.transforms` order:
+   - Each augmentation is called with a dictionary containing:
+     - `'image'`: image_tensor (or None)
+     - `'label'`: label_tensor
+     - `'prior'`: priors_tensor (or None)
+     - `'geom'`: geometry object (updated after spatial augmentations)
+   - Output from one augmentation becomes input to the next
+3. **Intermediate Debug Saving**: After each augmentation (if debug saving enabled):
+   - Saves augmented volumes with augmentation name and index in filename
+   - Both `.mgz` (with updated geometry) and `.npy` formats
+4. **Geometry Updates**: The geometry object is updated after each augmentation that modifies spatial properties (e.g., resampling, cropping)
+
+**Notes:**
+- If an augmentation is not found in `augment_obj`, a warning is logged and it is skipped
+- Debug volumes are saved with the format: `{prefix}_{augment_name}_{idx}_{type}.{ext}`
+- The function handles cases where augmentations may remove images (e.g., conditional GMM generation)
+- All augmentations are applied sequentially; order matters for the final result
+
+**Example:**
+```python
+from freeseg.augmentation import AugmentBase, apply_augmentations
+import torch
+
+# Create augmentation object
+augment_obj = AugmentBase(
+    hp={
+        "flip": {"flip_prob": 0.5},
+        "spatialdeformation": {"max_rotation": 15},
+        "intensityaugmentation": {"normalize": True}
+    },
+    transforms=["flip", "spatialdeformation", "intensityaugmentation"],
+    augmentation_dir="./debug_aug"
+)
+
+# Apply augmentations
+aug_image, aug_label, aug_prior = apply_augmentations(
+    augment_obj,
+    image_tensor=img_tensor,  # [C, H, W, D]
+    label_tensor=label_tensor,  # [C, H, W, D]
+    original_image=orig_img_vol,  # surfa.Volume
+    original_label=orig_label_vol,  # surfa.Volume
+    priors_tensor=priors_tensor,  # [C, H, W, D] or None
+    orig_fpath="/path/to/image.mgz",
+    index=0
+)
+# Returns augmented tensors with same shapes
+```
+
+---
+
+### `freeseg.augmentation.check_augmentations`
+
+Validates augmentation configuration and checks for conflicts between incompatible augmentations.
+
+#### Function Signature
+
+```python
+check_augmentations(augment_obj)
+```
+
+**Parameters:**
+- `augment_obj` (AugmentBase or AugmentVoxynth): Augmentation object to validate. Must have:
+  - `transforms` attribute: List of augmentation names to apply
+  - `valid_augmentations` attribute: List of supported augmentation names
+
+**Returns:**
+- `None`: This function raises exceptions on validation failure but does not return a value
+
+**Raises:**
+- `AssertionError`: If any augmentation in `transforms` is not in `valid_augmentations`
+- `ValueError`: If conflicting cropping augmentations are selected simultaneously:
+  - `'centroidcrop'` conflicts with: `'centercrop'`, `'randomcrop'`, `'randomcentercrop'`
+  - `'centercrop'` conflicts with: `'randomcrop'`, `'randomcentercrop'`
+  - `'randomcrop'` conflicts with: `'randomcentercrop'`
+
+**Behavior:**
+1. **Validation Check**: Verifies that all augmentations in `transforms` are present in `valid_augmentations` list
+2. **Conflict Detection**: Checks for mutually exclusive cropping augmentations:
+   - Only one cropping operation should be applied per sample
+   - Multiple cropping augmentations would result in unpredictable behavior
+   - The function detects all pairwise conflicts between cropping types
+
+**Notes:**
+- This function should be called before applying augmentations to catch configuration errors early
+- The conflict checking is specific to cropping augmentations, as they are mutually exclusive
+- Other augmentations can be combined freely (e.g., flip + spatial deformation + intensity augmentation)
+
+**Example:**
+```python
+from freeseg.augmentation import AugmentBase, check_augmentations
+
+# Valid configuration
+augment_obj = AugmentBase(
+    hp={},
+    transforms=["flip", "spatialdeformation", "intensityaugmentation"]
+)
+check_augmentations(augment_obj)  # Passes
+
+# Invalid: conflicting cropping augmentations
+augment_obj = AugmentBase(
+    hp={},
+    transforms=["centercrop", "randomcrop"]  # Conflict!
+)
+try:
+    check_augmentations(augment_obj)
+except ValueError as e:
+    print(f"Error: {e}")
+    # Error: Both 'centercrop' and 'randomcrop' are selected. Choose one.
+
+# Invalid: unknown augmentation
+augment_obj = AugmentBase(
+    hp={},
+    transforms=["unknown_augmentation"]  # Not in valid_augmentations
+)
+try:
+    check_augmentations(augment_obj)
+except AssertionError as e:
+    print(f"Error: {e}")
+    # Error: Unknown augmentation 'unknown_augmentation'. Supported augmentations [...]
+```
+
+---
 
 ### `freeseg.augmentation.augmentbase.AugmentBase`
 
