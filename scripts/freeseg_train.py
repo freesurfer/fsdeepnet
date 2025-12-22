@@ -111,60 +111,57 @@ def argument_parse():
 
 
 def train(config, train_loader, model, optimizer_cls, validation_loader=None):
-    ctab = config["ctab"]
-    checkpoint = config["checkpoint"]
-    gpu_index = config["gpu_index"]
-    device = config["device"]
-    preprocessing_device = config["preprocessing_device"]
-    debug = config["debug"]
-    verbose = config["verbose"]
-    train_dataset_dict = config["dataset"]
-    train_output_folder = config["training"]["train_output_folder"]
-    report_moving_avg = config["training"].get("report_moving_avg", False)
-
     # print model_arch_dict
     model_arch_dict = model.arch_dict
     models.model_arch(model_arch_dict, logger=mainlogger)
 
-    if (verbose):
+    if (config["verbose"]):
         # print model summary and trainable parameters
-        net_crop_size = train_dataset_dict["crop_size"]
+        net_crop_size = config["preprocessing"]["crop_size"]
         net_input_shape = (model_arch_dict["num_channels"], *net_crop_size)
         models.model_summary(model, net_input_shape, logger=mainlogger)
         models.model_parameters(model, logger=mainlogger)
-    
+
+    checkpoint = config["model_checkpoint"]
     if (checkpoint is not None):
         mainlogger.info(f"Resuming training from checkpoint: {checkpoint}")
-    
-    model_metrics_accuracy = config["training"].get("model_metrics_accuracy", None)
+
+    # retrieve model_metrics_accuracy
+    model_metrics_accuracy = config["training"].pop("model_metrics_accuracy", None)
     dice_hard_fn = None
     if (model_metrics_accuracy is not None):
         cls_model_metrics_accuracy = utils.get_class(model_metrics_accuracy.pop("class_name", "freeseg.metrics.DiceDice"))
         # '**' operator unpacks rest of dictionary key/value pairs to keyword arguments
         dice_hard_fn = cls_model_metrics_accuracy(**model_metrics_accuracy)
 
+    # retrieve wl2/dice epochs training information
+    wl2_epochs = config["training"].pop("wl2_epochs", 0)
+    wl2_metrics = config["training"].pop("wl2_metrics", None)
+    dice_epochs = config["training"].pop("dice_epochs", 0)
+    model_metrics = config["training"].pop("model_metrics", None)
+        
     # create the Training object
     trainer_cls = utils.get_class(config["training"].get("trainer_class", "freeseg.training.Training"))        
-    trainer = trainer_cls(train_output_folder,
-                          train_loader,
-                          model,
-                          accuracy_fn=dice_hard_fn,
+    trainer = trainer_cls(dnn=model,
+                          train_loader=train_loader,
                           model_arch_dict=model_arch_dict,
-                          train_dataset_dict=train_dataset_dict,
-                          ctab=ctab,
-                          model_checkpoint=checkpoint,
+                          train_dataset_dict=config["dataset"],
                           validation_loader=validation_loader,
-                          best_model_metric=config["training"]["best_model_metric"],
-                          write_tensorboard_summary=config["training"].get("write_tensorboard_summary", False),
-                          device=device,
-                          gpu_index=gpu_index,
-                          preprocessing_device=preprocessing_device,
-                          report_moving_avg=report_moving_avg,
-                          debug=debug)
+                          accuracy_fn=dice_hard_fn,
+                          ctab=config["ctab"],
+                          model_checkpoint=config["model_checkpoint"],
+                          device=config["device"],
+                          gpu_index=config["gpu_index"],
+                          preprocessing_device=config["preprocessing_device"],
+                          debug=config["debug"],
+                          **config["training"],
+                          #train_output_folder=config["training"]["train_output_folder"],                          
+                          #best_model_metric=config["training"]["best_model_metric"],
+                          #write_tensorboard_summary=config["training"].get("write_tensorboard_summary", False),
+                          #report_moving_avg=config["training"].get("report_moving_avg", False),
+                         )
 
     # train wl2 epochs
-    wl2_epochs = config["training"].get("wl2_epochs", 0)
-    wl2_metrics = config["training"].get("wl2_metrics", None)
     if (wl2_epochs > 0 and wl2_metrics is not None):
         cls_wl2_metrics = utils.get_class(wl2_metrics.pop("class_name", "freeseg.metrics.WeightedL2Loss"))
         if (checkpoint is None):
@@ -179,8 +176,6 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
                             loss_fn=wl2_loss_fn)
 
     # train dice epochs
-    dice_epochs = config["training"].get("dice_epochs", 0)
-    model_metrics = config["training"].get("model_metrics", None)
     if (dice_epochs > 0 and model_metrics is not None):
         cls_model_metrics = utils.get_class(model_metrics.pop("class_name", "freeseg.metrics.DiceLoss"))
         mainlogger.info(f"training {dice_epochs} dice epochs: {trainer_cls}, {optimizer_cls}, {cls_model_metrics}, lr:{config['training']['learning_rate']} ...")

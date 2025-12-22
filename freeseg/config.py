@@ -111,7 +111,7 @@ class Config:
                        "device": device,
                        "gpu_index": gpu_index,
                        "preprocessing_device": preprocessing_device,
-                       "checkpoint": args.checkpoint if ('checkpoint' in args) else None,
+                       "model_checkpoint": args.checkpoint if ('checkpoint' in args) else None,
                        "ctab": args.ctab if ('ctab' in args) else None,
                        "keep_trainset_in_memory": args.keep_trainset_in_memory if ('keep_trainset_in_memory' in args) else False,
                        "logfile": logfile,
@@ -228,9 +228,9 @@ class Config:
 
         logger.info("")
         logger.info("Training Device: {}".format(cfg['device']) + (f' (GPU index: {cfg["gpu_index"]})' if (cfg.get('gpu_index') is not None) else ''))
-        if (cfg["checkpoint"] is not None):
-            logger.info(f"resume training from model: {cfg['checkpoint']}")
-            logger.info(f"optimizer: {cfg['training'].get('optimizer', 'torch.optim.Adam')}")
+        if (cfg["model_checkpoint"] is not None):
+            logger.info(f"resume training from model: {cfg['model_checkpoint']}")
+        logger.info(f"optimizer: {cfg['training'].get('optimizer', 'torch.optim.Adam')}")
         if (cfg["training"].get("wl2_epochs", 0) > 0):
             logger.info(f"wl2_epochs: {cfg['training'].get('wl2_epochs')}")
             logger.info(f"wl2_metrics: {cfg['training'].get('wl2_metrics', None)}")

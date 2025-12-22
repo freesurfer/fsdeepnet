@@ -31,22 +31,23 @@ class Training:
     stage_order = {'wl2': 0, 'dice': 1}
         
     def __init__(self,
-                 train_output_folder,
-                 train_loader,  # torch.utils.data.DataLoader              
-                 model,
+                 dnn=None,                 # deep neural network
+                 train_loader=None,        # torch.utils.data.DataLoader              
+                 model_arch_dict=None,     # network architecture dictionary
+                 train_dataset_dict=None,  # training dataset dictionary
+                 train_output_folder=None, # training output directory              
+                 validation_loader=None,
                  accuracy_fn=None,
-                 model_arch_dict=None,
-                 train_dataset_dict=None,
                  ctab=None,     # ascii color table
                  model_checkpoint=None,
-                 validation_loader=None,                 
                  best_model_metric="dice",                 
                  write_tensorboard_summary=False,
+                 report_moving_avg=False,
                  device=None,
                  gpu_index=None,
                  preprocessing_device=None,
-                 report_moving_avg=False,
-                 debug=False):
+                 debug=False,
+                 **kwargs):
         """
         Training Constructor.
 
@@ -65,7 +66,7 @@ class Training:
 
         self._report_moving_avg = report_moving_avg
         self._debug = debug
-        self._model = model
+        self._model = dnn
         self._model_arch_dict = model_arch_dict
         self._train_dataset_dict = train_dataset_dict
         self._model_checkpoint = model_checkpoint
@@ -126,7 +127,7 @@ class Training:
             os.makedirs(self._debug_dir, exist_ok=True)
 
 
-    def train_model(self, lr, epochs, steps_per_epoch, metric_type, optimizer_cls, loss_fn):
+    def train_model(self, lr=0.0001, epochs=100, steps_per_epoch=1000, metric_type=None, optimizer_cls=None, loss_fn=None):
         """
         model training loop
 
