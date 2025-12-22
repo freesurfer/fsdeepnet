@@ -126,6 +126,15 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
     if (checkpoint is not None):
         mainlogger.info(f"Resuming training from checkpoint: {checkpoint}")
 
+    # retrieve data_generator information
+    cfg_data_generator = config["training"].pop("data_generator", {})
+    if (cfg_data_generator):
+        data_generator = utils.get_class(cfg_data_generator.pop("fn", "freeseg.utils.utility.DataGenerator"))
+    else:
+        data_generator = utils.get_class("freeseg.utils.utility.DataGenerator")
+    cfg_data_generator.update({"device" : config["preprocessing_device"]})
+    fn_data_generator = data_generator(train_loader, **cfg_data_generator)
+
     # retrieve model_metrics_accuracy
     model_metrics_accuracy = config["training"].pop("model_metrics_accuracy", None)
     dice_hard_fn = None
@@ -139,11 +148,12 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
     wl2_metrics = config["training"].pop("wl2_metrics", None)
     dice_epochs = config["training"].pop("dice_epochs", 0)
     model_metrics = config["training"].pop("model_metrics", None)
-        
+
     # create the Training object
     trainer_cls = utils.get_class(config["training"].get("trainer_class", "freeseg.training.Training"))        
     trainer = trainer_cls(dnn=model,
                           train_loader=train_loader,
+                          fn_data_generator=fn_data_generator,
                           model_arch_dict=model_arch_dict,
                           train_dataset_dict=config["dataset"],
                           validation_loader=validation_loader,
@@ -152,7 +162,6 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
                           model_checkpoint=config["model_checkpoint"],
                           device=config["device"],
                           gpu_index=config["gpu_index"],
-                          preprocessing_device=config["preprocessing_device"],
                           debug=config["debug"],
                           **config["training"],
                           #train_output_folder=config["training"]["train_output_folder"],                          

@@ -161,6 +161,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
             label_tensor  = self.label_tensors[index]
             priors_tensor = self.prior_tensors[index]
 
+        # convert label_tensor to int, image_tensor/priors_tensor to float
         label_tensor  = label_tensor.int()
         if (image_tensor is not None):
             image_tensor  = image_tensor.float()

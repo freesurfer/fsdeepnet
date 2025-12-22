@@ -82,6 +82,9 @@ preprocessing:
 
 training:
   trainer_class: freeseg.training.Training
+  data_generator:
+    fn: freeseg.utils.utility.DataGenerator
+    return_priors: True
   batch_size: 1
   deterministic: False
   report_moving_avg: False

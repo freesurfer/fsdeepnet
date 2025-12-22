@@ -231,6 +231,7 @@ class Config:
         if (cfg["model_checkpoint"] is not None):
             logger.info(f"resume training from model: {cfg['model_checkpoint']}")
         logger.info(f"optimizer: {cfg['training'].get('optimizer', 'torch.optim.Adam')}")
+        logger.info(f"data_generator: {cfg['training'].get('data_generator', None)}")
         if (cfg["training"].get("wl2_epochs", 0) > 0):
             logger.info(f"wl2_epochs: {cfg['training'].get('wl2_epochs')}")
             logger.info(f"wl2_metrics: {cfg['training'].get('wl2_metrics', None)}")

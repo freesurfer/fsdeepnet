@@ -32,7 +32,8 @@ class Training:
         
     def __init__(self,
                  dnn=None,                 # deep neural network
-                 train_loader=None,        # torch.utils.data.DataLoader              
+                 train_loader=None,        # torch.utils.data.DataLoader
+                 fn_data_generator=None,   # data generator
                  model_arch_dict=None,     # network architecture dictionary
                  train_dataset_dict=None,  # training dataset dictionary
                  train_output_folder=None, # training output directory              
@@ -45,7 +46,6 @@ class Training:
                  report_moving_avg=False,
                  device=None,
                  gpu_index=None,
-                 preprocessing_device=None,
                  debug=False,
                  **kwargs):
         """
@@ -84,15 +84,12 @@ class Training:
 
         self._device = device
         self._gpu_index = gpu_index
-        self._preprocessing_device = preprocessing_device
         if (self._device is None):
             self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        if (self._preprocessing_device is None):
-            self._preprocessing_device = self._device
         if (self._gpu_index is None and torch.cuda.is_available()):
             self._gpu_index = torch.cuda.current_device()
-            
-        self._input_generator = utils.DataGenerator(train_loader, self._preprocessing_device)        
+
+        self._data_generator = fn_data_generator
 
         self._summary_writer = None
         if (write_tensorboard_summary):
@@ -322,9 +319,20 @@ class Training:
 
         self._model.train()        
         for step in range(steps_per_epoch):
-            (batch_idx, images, onehot_labels, priors, dataset_indices) = next(self._input_generator)
+            batched_sample = next(self._data_generator)
+            batch_idx = batched_sample.pop(0)         # remove first item batch_idx
+            dataset_indices = batched_sample.pop(-1)  # remove last item dataset_indices
+            haspriors = True if (len(batched_sample) == 3) else False
+            if (haspriors):
+                images, onehot_labels, priors = batched_sample
+            else:
+                images, onehot_labels = batched_sample
+                priors = None
+
             # training device and preprocessing device could be different
-            images, onehot_labels, priors = images.to(self._device), onehot_labels.to(self._device), priors.to(self._device)
+            images, onehot_labels = images.to(self._device).float(), onehot_labels.to(self._device).int()
+            if (priors is not None):
+                 priors = priors.to(self._device).float()
             
             # Zero your gradients for every batch
             optimizer.zero_grad()
@@ -470,8 +478,18 @@ class Training:
 
         self._model.eval()
         with torch.no_grad():
-            for batch_idx, (dataset_indices, images, onehot_labels, priors) in enumerate(self._validation_loader):
-                images, onehot_labels, priors = images.to(self._device), onehot_labels.to(self._device), priors.to(self._device)
+            for batch_idx, batched_sample in enumerate(self._validation_loader):
+                dataset_indices = batched_sample.pop(0)
+                haspriors = True if (len(batched_sample) == 3) else False
+                if (haspriors):
+                    images, onehot_labels, priors = batched_sample
+                else:
+                    images, onehot_labels = batched_sample
+                    priors = None
+
+                images, onehot_labels = images.to(self._device), onehot_labels.to(self._device)
+                if (priors is not None):
+                    priors = priors.to(self._device)
 
                 (outputs, penultimate) = self._model(images, priors=priors)
                 if (self._debug):

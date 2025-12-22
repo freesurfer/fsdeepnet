@@ -43,14 +43,35 @@ def main():
 
     start_epoch = 0
     epochs = config["training"]["dice_epochs"]
-    input_generator = utils.DataGenerator(train_loader, config["preprocessing_device"])
-    steps_per_epoch = config["training"]["steps_per_epoch"]    
+    steps_per_epoch = config["training"]["steps_per_epoch"]
+
+    # retrieve data_generator information
+    cfg_data_generator = config["training"].pop("data_generator", {})
+    if (cfg_data_generator):
+        data_generator = utils.get_class(cfg_data_generator.pop("fn", "freeseg.utils.utility.DataGenerator"))
+    else:
+        data_generator = utils.get_class("freeseg.utils.utility.DataGenerator")
+    cfg_data_generator.update({"device" : config["preprocessing_device"]})
+    input_generator = data_generator(train_loader, **cfg_data_generator)
+    
     for epoch in range(start_epoch, epochs):
         logging.info(f"Epoch {epoch+1:3d}/{epochs:<3d}")
         for step in range(steps_per_epoch):
-            (batch_idx, images, onehot_labels, priors, dataset_indices) = next(input_generator)
+            batched_sample = next(input_generator)
+
+            batch_idx = batched_sample.pop(0)         # remove first item batch_idx
+            dataset_indices = batched_sample.pop(-1)  # remove last item dataset_indices
             batch_indices = ", ".join(str(item).zfill(4) for item in dataset_indices.tolist())
-            logging.info(f"  {step+1:4d}/{steps_per_epoch:<4d} batch #{batch_idx:<2d} ({batch_indices}), images({images.shape}), onehot_labels({onehot_labels.shape}), priors({priors.shape})")
+            haspriors = True if (len(batched_sample) == 3) else False
+            if (haspriors):
+                images, onehot_labels, priors = batched_sample
+            else:
+                images, onehot_labels = batched_sample
+
+            msg = f"  {step+1:4d}/{steps_per_epoch:<4d} batch #{batch_idx:<2d} ({batch_indices}), images({images.shape}), onehot_labels({onehot_labels.shape}) "
+            if (haspriors):
+                msg += f", priors({priors.shape}"
+            logging.info(msg)
             #torch.cuda._sleep(500)
 
     

@@ -48,7 +48,8 @@ def main():
     if (args.augment):
         logging.info("Perform data augmentation ...")
         for idx in range(len(train_dataset)):
-            index, image_tensor, onehot_label_tensor, priors_tensor = train_dataset[idx]
+            sample = train_dataset[idx]
+            logging.info(f"Sample #{sample[0]:>3d} processed, sample len={len(sample)-1}")
 
     
 def argument_parse():

@@ -211,16 +211,28 @@ def centroid(label, verbose=False):
     return centroid.int()
 
 
-def DataGenerator(dataloader, device=None):
+# yield sampled data in this order: n_batch, images, labels, [priors,] dataset_indices
+def DataGenerator(dataloader, device=None, return_priors=True, **kwargs):
     if (device is None):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     while (True):
-        for n_batch, (dataset_indices, images, labels, priors) in enumerate(dataloader):
-            images, priors, labels = images.to(device).float(), priors.to(device).float(), labels.to(device).int()
-
+        for n_batch, batched_sample in enumerate(dataloader):
             # images/labels are batched, dataset_indices is list of index to dataset entry
-            yield n_batch, images, labels, priors, dataset_indices
+            dataset_indices = batched_sample.pop(0)
+            sample = [n_batch] + batched_sample  # n_batch, images, labels, [priors,]
+            
+            if (return_priors and len(sample) == 3):
+                # torch.utils.data.DataLoader can't return NoneType, make an empty tensor with 0 elements
+                sample.append(torch.empty(0, *sample[2].shape[1:], device=device))
+            elif (not return_priors and len(sample) > 3):
+                # remove tensors except image and onehot encoded label
+                del(sample[3:])
+
+            # insert dataset_indices at last position
+            sample.append(dataset_indices)
+
+            yield sample
 
 
 # https://pytorch.org/docs/stable/notes/randomness.html
