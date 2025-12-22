@@ -475,6 +475,8 @@ Output Segmentation
 
               ...
 
+              # load first label, update self.dataset_profile target_res
+              ...
   ```
 - Implement required methods:
   - **`process_dataset_attr(dataset_profile, traindir)`**: static method to process and update dataset configurables
@@ -491,12 +493,16 @@ Output Segmentation
     ```
         def __getitem__(self, index):
             # load data
-	    ...
+            ...
 
             # apply data augmentation
-	    ...
+            ...
+
+            return index, augmented_image_tensor, onehot_augmented_label_tensor
     ```
-    - **Note**: Augmentations are applied in this method calling `freeseg.augmentation.apply_augmentations()`.
+    - **Note**:
+      - Augmentations are applied in this method calling `freeseg.augmentation.apply_augmentations()`.
+      - `tuple` is returned containing `index`, `image_tensor`, and `onehot_label_tensor`.
 - Implement required property
   - **profile**: getter method for self.dataset_profile
     ```
@@ -507,7 +513,22 @@ Output Segmentation
     ```
 
 ### Adding New Trainer Classes
-
+- Create network trainer class
+- Implement required method
+  - **`__init__(self, dnn=None, train_loader=None, model_arch_dict=None, train_dataset_dict=None, train_output_folder=None, **kwargs)`**
+    ```
+        class MyTrainer:
+            def __init__(self,
+                         dnn=None,                 # deep neural network
+                         train_loader=None,        # torch.utils.data.DataLoader              
+                         model_arch_dict=None,     # network architecture dictionary
+                         train_dataset_dict=None,  # training dataset dictionary
+                         train_output_folder=None, # training output directory
+                         **kwargs)
+                ...
+    ```
+   - **`train_model(self, , lr=0.0001, epochs=100, steps_per_epoch=1000, metric_type=None, optimizer_cls=Npne, loss_fn=None)`**
+   - **Note**: 'training' configurables are unpacked and passed to initialize the trainer class.
 ---
 
 ## Future Enhancements

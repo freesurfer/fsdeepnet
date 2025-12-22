@@ -217,7 +217,7 @@ fspython scripts/freeseg_evaluate.py \
 ### Learn More
 
 1. **Read Documentation:**
-   - [API Documentation](API.md) - Detailed API reference
+   - [API Documentation (WIP)](API.md) - Detailed API reference
    - [Configuration Guide](CONFIGURATION.md) - Configuration details
    - [Training Guide](TRAINING.md) - Training options
    - [Architecture Documentation](ARCHITECTURE.md) - System architecture

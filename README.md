@@ -6,7 +6,7 @@ A generic pyTorch deep-learning pipeline to accompany freesurfer adjacent models
 Comprehensive documentation is available in the `docs/` directory:
 
 - **[Getting Started Guide](docs/GETTING_STARTED.md)** - Quick start guide
-- **[API Documentation](docs/API.md)** - API reference for modules and classes
+- **[API Documentation (WIP)](docs/API.md)** - API reference for modules and classes
 - **[Configuration Guide](docs/CONFIGURATION.md)** - Detailed configuration file documentation
 - **[Training Guide](docs/TRAINING.md)** - Training options
 - **[Architecture Documentation](docs/ARCHITECTURE.md)** - System architecture and design principles
