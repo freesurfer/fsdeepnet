@@ -684,7 +684,9 @@ class Training:
 
         ### create validation DataLoader
         validation_loader = None
-        perform_evaluation = config["training"].get("perform_evaluation", False)
+        perform_evaluation = False
+        if (config.get("training", None)):
+            perform_evaluation = config["training"].get("perform_evaluation", False)
         if (create_loader and create_val_loader and perform_evaluation):
             # enforce "centercrop"/"rescalevolume" for evaluation_augmentations
             val_augmentations = ["centercrop", "rescalevolume"]
@@ -742,7 +744,9 @@ class Training:
             optimizer_cls = utils.get_class(optimizer)
         
         ### set_deterministic_training if requested
-        deterministic = config["training"].get("deterministic", False)
+        deterministic = False
+        if (config.get("training", None)):
+            deterministic = config["training"].get("deterministic", False)
         if (deterministic):
             # ??? todo: for multi-process dataloader, use worker_init_fn() and generator to preserve reproducibility
             #           see https://pytorch.org/docs/stable/notes/randomness.html

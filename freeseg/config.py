@@ -82,11 +82,14 @@ class Config:
         ### IN THE REST OF THE FUNCTION,
         ### CONFIG WILL BE RE-ARRANGED AND UPDATED TO BE USED IN TRAINING SETUP
         ### UPDATE config.dataloader
-        config["dataloader"].update({"batch_size": config["training"]["batch_size"]})
+        batch_size = 1
+        if (config.get("training", None)):
+            batch_size = config["training"]["batch_size"]
+            config["dataloader"].update({"batch_size": batch_size})
 
         ### UPDATE config.dataset
         config["dataset"].update({ "ndims": config["model"]["ndims"],
-                                   "batch_size": config["training"]["batch_size"],
+                                   "batch_size": batch_size,
                                   #"crop_size": crop_size,                                   
                                  })
     
