@@ -112,7 +112,7 @@ def main():
     # load config file
     config = None
     if (args.config is not None):
-        config = Config.process(args, logger=logging, require_train_outfolder=False, require_dataset_list=False)
+        config = Config.process(args, logger=logging, require_train_outfolder=False, require_dataset_list=False, assert_dimensions=False)
         config, _, _, _, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=False)
 
     # load pre-trained model
@@ -158,15 +158,22 @@ def main():
     if (update):
         update_checkpoint(checkpoint, args.saveas, config, args.update, args.strip, args.rename, args.prefix_model_layer, args.replace_model_layer)
 
-    if (info or update or checkpoint.model_arch_dict is None):
+    if (info or update):
         sys.exit(0)
 
     # create the network from config or re-construct it from pre-trained model
-    model_arch_dict = None
+    model_arch_dict, input_shape = None, None
     if (checkpoint is not None):
         model_arch_dict = checkpoint.model_arch_dict
     else:
         model_arch_dict = config["model"]
+        if (config.get("preprocessing", None)):
+            input_shape = config["preprocessing"].get("crop_size", None)
+
+    # set input shape for model_summary() call
+    if (args.input_shape):
+        input_shape = args.input_shape
+    assert(input_shape is not None), "Use '--input_shape <x y z>' to specify input shape"
 
     assert (model_arch_dict is not None), "Model architecture information not available."        
     the_model_name = model_arch_dict.get("name", None)
@@ -179,7 +186,7 @@ def main():
     # print network summary
     models.model_arch(model_arch_dict)
     models.model_print(model)
-    models.model_summary(model, (n_channels, *args.input_shape[-args.ndims:]), device=device, debug=True)
+    models.model_summary(model, (n_channels, *input_shape[-args.ndims:]), device=device, debug=True)
     #models.model_parameters(model)
     #models.model_summary_torchinfo(model, (1, 1, *args.input_shape[-args.ndims:]))
         
@@ -204,7 +211,7 @@ def argument_parse(description):
     parser.add_argument("--update", nargs="+", type=str, help="Update pre-trained checkpoint dict, choices are 'label_lookup:<>', 'segmentation_names:<>', 'topology_classes:<>', 'model_class:<>', and 'config:config'")
     parser.add_argument("--saveas", type=str, help="Path to save new checkpoint as")
     parser.add_argument("--ndims", type=int, default=3, help="Number of image dimensions, 2D or 3D")
-    parser.add_argument("--input_shape", nargs="+", type=int, default=(160,160,160), help="Network image input shape, ex. 160 160 160")
+    parser.add_argument("--input_shape", nargs="+", type=int, help="Network image input shape, ex. 160 160 160")
     parser.add_argument("--cpu", action='store_true', help="Run on CPU")
 
     if len(sys.argv) < 3:

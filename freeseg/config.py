@@ -11,7 +11,7 @@ from freeseg.utils import utility as utils
 
 class Config:
     @staticmethod
-    def process(args, logger=None, require_train_outfolder=True, require_dataset_list=True, test_augment=False):
+    def process(args, logger=None, require_train_outfolder=True, require_dataset_list=True, test_augment=False, assert_dimensions=True):
         if (logger is None):
             logger = logging
 
@@ -37,11 +37,12 @@ class Config:
         if (require_dataset_list):
             assert (config["dataset"].get("dataset_list_file", None) is not None), "Use '--dataset_list_file <dataset.yaml>' or 'dataset_list_file' in config.yaml to specify the dataset"
 
-        crop_size = config["preprocessing"]["crop_size"]
-        nb_levels = config["model"]["nb_levels"]
-        ndims = config["model"]["ndims"]
-        assert (np.all(np.array(crop_size) % (2**(nb_levels)) == 0)), f"crop_size {crop_size} needs to be divisible by 2^{nb_levels}"
-        assert (ndims == len(crop_size)), f"crop_size {crop_size} is not for {ndims}D"
+        if (assert_dimensions):
+            crop_size = config["preprocessing"]["crop_size"]
+            nb_levels = config["model"]["nb_levels"]
+            ndims = config["model"]["ndims"]
+            assert (np.all(np.array(crop_size) % (2**(nb_levels)) == 0)), f"crop_size {crop_size} needs to be divisible by 2^{nb_levels}"
+            assert (ndims == len(crop_size)), f"crop_size {crop_size} is not for {ndims}D"
 
         now = datetime.datetime.now()
         dt_nowstring = str(now).replace(' ', '.').replace(':', '.')
