@@ -83,6 +83,7 @@ def argument_parse():
     parser.add_argument("--wl2_epochs", type=int, help="Number of wl2 training epochs")
     parser.add_argument("--dice_epochs", type=int, help="Number of dice training epochs")
     parser.add_argument("--learning_rate", type=float, help="Network learning rate")
+    parser.add_argument("--nb_labels", type=int, help="Number of segmentation labels")
     parser.add_argument("--nb_levels", type=int, help="Number of network levels")
     parser.add_argument("--nb_features", type=int, help="Number of features at the first level")
     parser.add_argument("--feat_mult", type=int, help="Feature multiplication factor")

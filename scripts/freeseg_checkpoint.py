@@ -211,6 +211,7 @@ def argument_parse(description):
     parser.add_argument("--saveas", type=str, help="Path to save new checkpoint as")
     parser.add_argument("--ndims", type=int, default=3, help="Number of image dimensions, 2D or 3D")
     parser.add_argument("--input_shape", nargs="+", type=int, help="Network image input shape, ex. 160 160 160")
+    parser.add_argument("--nb_labels", type=int, help="Number of segmentation labels")
     parser.add_argument("--cpu", action='store_true', help="Run on CPU")
 
     if len(sys.argv) < 3:

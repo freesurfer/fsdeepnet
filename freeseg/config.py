@@ -158,6 +158,8 @@ class Config:
             config["model"]["name"] = args.model_name
         if ('weight_init' in args and args.weight_init is not None):
             config["model"]["weight_init"] = args.weight_init
+        if ('nb_labels' in args and args.nb_labels is not None):
+            config["model"]["nb_labels"] = args.nb_labels
         if ('nb_levels' in args and args.nb_levels is not None):
             config["model"]["nb_levels"] = args.nb_levels
         if ('nb_features' in args and args.nb_features is not None):
