@@ -324,7 +324,7 @@ Output Segmentation
 
 - Create model class: can be either a complete implementation or a wrapper class providing the interface between Freeseg and the network implementation.
 - Implement required methods
-  - **`__init__(self, model_arch_dict)`**: takes dict `model_arch_dict` as input. Required `model_arch_dict` keywords: `num_channels`, `nb_labels`, `nb_levels`, `ndims`.
+  - **`__init__(self, model_arch_dict)`**: takes dict `model_arch_dict` as input. Required `model_arch_dict` keywords: `nb_levels` and `ndims`.
     ```
        def __init__(self, model_arch_dict):
            self._model_arch_dict = {}
@@ -338,11 +338,11 @@ Output Segmentation
 
     ```
     **Notes**:
-    - keywords `num_channels`, `nb_labels`, `nb_levels`, and `ndims must be present in dict `model_arch_dict`.
-    - `ndims` and `nb_levels` are required model configurables.
-    - `num_channels` and `nb_labels` are derived from dataset configurables `expected_num_channels` and `len(segmentation_labels)` by defaults. \
-      Use the optional model configurables `in_channels` and `out_channels` to override the defaults. 
-    - Other `model_arch_dict` keyword are from model configurables with the same names of users' choices.
+    - `model_arch_dict` is taken from model configurables.
+    - `ndims` and `nb_levels` are required.
+    - `num_channels` and `nb_labels` are not required. They are set in Training.setup() for `freeseg.models.unet.UNet` to dataset configurables `expected_num_channels` and `len(segmentation_labels)` respectively if they are missing from model configurables.
+    - It is the individual network implementation's responsibility to check their availabilities.
+     
   - **`_setdefault_arch_dict(self)`**: set network defaults in `self._model_arch_dict`to ensure the default values are recorded in checkpoints.
     ```
         def _setdefault_arch_dict(self):

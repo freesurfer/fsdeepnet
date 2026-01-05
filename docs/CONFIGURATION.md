@@ -55,10 +55,7 @@ dataset:
   # torch.utils.data.Dataset class
   class_name: freeseg.datasets.segmentationdataset.SegmentationDataset
   
-  # number of channels of the input data
-  expected_num_channels: 1
-
-  # the dataset list YAML file
+  # the dataset list YAML file (can also be specified with '--dataset_list_file <dataset.yaml>' command line option)
   dataset_list_file: /path/to/dataset_list.yaml
 ```
 
@@ -66,6 +63,9 @@ dataset:
 
 ```yaml
 dataset:
+  # number of channels of the input data
+  expected_num_channels: 1
+
   # label ids in the final segmentation 
   segmentation_labels: [0, 2, 3, 4, 17, 41, 42, 43, 53]
 
@@ -158,12 +158,9 @@ model:
 
 **Notes:**
 - Required configurables: `name`, `ndims`, and `nb_levels`.
-- Optional configurables: `in_channels` and `out_channels`. \
-  Keywords `num_channels` and `nb_labels` must be present in `model_arch_dict` used to initiate a network object. \
-  By default, they are derived from dataset configurables `expected_num_channels` and `len(segmentation_labels)`. \
-  Use the optional model configurables `in_channels` and `out_channels` to override the defaults.
-- Other model configurables can be users' choices as long as they are consistent with the keywords in `model_arch_dict` used to initiate a network object. 
-
+- The `model` configurables will be passed to create individual network object. The keywords need to match individual network implementations.
+- It is the individual network implementation's responsibility to check their availabilities.
+- `num_channels` and `nb_labels` are not required. They are set in Training.setup() for `freeseg.models.unet.UNet` to dataset configurables `expected_num_channels` and `len(segmentation_labels)` respectively if they are missing from model configurables.
 ---
 
 ## Preprocessing Configuration
@@ -337,6 +334,9 @@ preprocessing:
 ```yaml
 training:
   trainer_class: freeseg.training.Training   # the trainer class
+  data_generator:
+    fn: freeseg.utils.utility.DataGenerator
+    return_priors: True
   batch_size: 1                              # number of training samples passed through network per training step
   deterministic: False                       # whether to do deterministic training
   report_moving_avg: False                   # whether to report moving average training loss and dice
