@@ -580,7 +580,13 @@ class Training:
     
 
     @staticmethod
-    def setup(config, preload_dataset=False, create_train_dataset=True, create_loader=True, create_val_loader=True, create_model=True):
+    def setup(config,
+              preload_dataset=False,
+              create_train_dataset=True,
+              create_loader=True,
+              create_val_loader=True,
+              create_model=True,
+              set_dataset_attr=True):
         """
         1. create training DataLoader, validation DataLoader, model, and optimizer
         2. update config
@@ -651,15 +657,16 @@ class Training:
 
 
         ### retrieve dataset class
-        dataset_classname = config["dataset"].get("class_name", "freeseg.datasets.segmentationdataset.SegmentationDataset")
-        py_dataset_cls = utils.get_class(dataset_classname)                    
+        if (set_dataset_attr):
+            dataset_classname = config["dataset"].get("class_name", "freeseg.datasets.segmentationdataset.SegmentationDataset")
+            py_dataset_cls = utils.get_class(dataset_classname)                    
 
-        ### retrieve dataset class static method process_dataset_attr(), process and update dataset attributes
-        process_dataset_attr = getattr(py_dataset_cls, "process_dataset_attr", None)
-        if (process_dataset_attr is None):
-            logging.warning(f"Method 'process_dataset_attr' not found in {py_dataset_cls}. Skipped dataset attributes processing. The training will fail if there are dependency on processed attributes.")
-        else:
-            config["dataset"] = process_dataset_attr(config["dataset"], config["output_folder"])
+            ### retrieve dataset class static method process_dataset_attr(), process and update dataset attributes
+            process_dataset_attr = getattr(py_dataset_cls, "process_dataset_attr", None)
+            if (process_dataset_attr is None):
+                logging.warning(f"Method 'process_dataset_attr' not found in {py_dataset_cls}. Skipped dataset attributes processing. The training will fail if there are dependency on processed attributes.")
+            else:
+                config["dataset"] = process_dataset_attr(config["dataset"], config["output_folder"])
 
         ### create training Dataset
         train_dataset = None
@@ -734,9 +741,10 @@ class Training:
             the_model_name = model_arch_dict.get("name", None)
             assert the_model_name is not None, "Model name is not available."
 
+            # create model object
             model_class = utils.get_class(the_model_name)
             model = model_class(model_arch_dict).to(config["device"])
-                
+
             ### retrieve optimizer class
             optimizer=config["training"].get("optimizer", "torch.optim.Adam")
             optimizer_cls = utils.get_class(optimizer)

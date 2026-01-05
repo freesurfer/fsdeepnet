@@ -14,7 +14,7 @@ from freeseg.checkpoint import Checkpoint
 from freeseg.utils import utility as utils
 
 description = """
-Usage: freeseg_checkmodel.py 
+Usage: freeseg_checkpoint.py 
        --config <config.yaml> | --checkpoint <checkpoint> [ [--info [--detail] [--report_type] [--nkeys <n>] [--keys <>] ]
                                                             [--weights <model_state_key>:weight_outdir>]
                                                             [--saveas <> 
@@ -47,30 +47,30 @@ Usage: freeseg_checkmodel.py
              rename the checkpoint top level dictionary keywords
 
 Example 1: retrieve checkpoint top level information
-       fspython freeseg_checkmodel.py --checkpoint orig.pth --info
+       fspython freeseg_checkpoint.py --checkpoint orig.pth --info
 
 Example 2: retrieve information of 30 layers of model_state_dict
-       fspython freeseg_checkmodel.py --checkpoint orig.pth --info --detail --keys model_state_dict --nkey 30
+       fspython freeseg_checkpoint.py --checkpoint orig.pth --info --detail --keys model_state_dict --nkey 30
 
 Example 3: rename 'model_state' to 'model_state_dict'
-       fspython freeseg_checkmodel.py --checkpoint orig.pth --rename model_state:model_state_dict --saveas new.pth
+       fspython freeseg_checkpoint.py --checkpoint orig.pth --rename model_state:model_state_dict --saveas new.pth
 
 Example 4: strip 'optimizer_state'
-       fspython freeseg_checkmodel.py --checkpoint orig.pth --strip optimizer_state --saveas new.pth
+       fspython freeseg_checkpoint.py --checkpoint orig.pth --strip optimizer_state --saveas new.pth
 
 Example 5: prefix model state layer
-       fspython freeseg_checkmodel.py --checkpoint orig.pth --prefix-model_layer unet3d. --saveas new.pth
+       fspython freeseg_checkpoint.py --checkpoint orig.pth --prefix-model_layer unet3d. --saveas new.pth
 
 Example 6: replace model state layer
-       fspython freeseg_checkmodel.py --checkpoint orig.pth --replace-model_layer unet3d:unet --saveas new.pth
+       fspython freeseg_checkpoint.py --checkpoint orig.pth --replace-model_layer unet3d:unet --saveas new.pth
 
 Example 7: update checkpoint
-       fspython freeseg_checkmodel.py --checkpoint orig.pth
+       fspython freeseg_checkpoint.py --checkpoint orig.pth
          --update topology_classes:topological_classes.npy segmentation_names:segmentation_names.npy
          --saveas new.pth
 
 Example 8: update checkpoint 'train_dataset_dict' and 'model_arch_dict' using information from config.yaml
-       fspython freeseg_checkmodel.py --checkpoint orig.pth --update config:config --saveas new.pth
+       fspython freeseg_checkpoint.py --checkpoint orig.pth --update config:config --saveas new.pth
 """
 
 # Configure logging settings
@@ -113,7 +113,7 @@ def main():
     config = None
     if (args.config is not None):
         config = Config.process(args, logger=logging, require_train_outfolder=False, require_dataset_list=False, assert_dimensions=False)
-        config, _, _, _, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=False)
+        config, _, _, _, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=False, set_dataset_attr=False)
 
     # load pre-trained model
     checkpoint = None
