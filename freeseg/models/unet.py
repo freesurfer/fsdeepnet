@@ -364,6 +364,9 @@ class UNet(nn.Module):
             input_shape = model_arch_dict["input_shape"]
             num_channels = input_shape[0]
             del(model_arch_dict["input_shape"])
+        if (num_channels is None and model_arch_dict.get("in_channels", None)):
+            # get num_channels from 'in_channels' configurable
+            num_channels = model_arch_dict["in_channels"]
         if (num_channels is not None):
             model_arch_dict["num_channels"] = num_channels
 
@@ -399,8 +402,13 @@ class UNet(nn.Module):
         if (self._model_arch_dict["norm"] is None):
             self._model_arch_dict["skip_connect"] = "encoder"
 
+        # get nb_lables from 'out_channels' configurable
+        if ("nb_labels" not in self._model_arch_dict or \
+            self._model_arch_dict["nb_labels"] is None):
+            self._model_arch_dict["nb_labels"] = model_arch_dict.get("out_channels", None)
+
         # verify network output channels
-        assert ("nb_labels" in self._model_arch_dict), \
+        assert ("nb_labels" in self._model_arch_dict and self._model_arch_dict["nb_labels"] is not None), \
             "Use model configurable `nb_labels` to specify network output channels"
 
 
