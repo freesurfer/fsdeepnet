@@ -12,7 +12,7 @@ from freeseg.training import Training
 from freeseg.config import Config
 
 """
-Usage: test_segmentationdataset.py 
+Usage: test_dataset.py 
        --config <config.yaml>
        [--augment]
        [--deterministic]
@@ -42,7 +42,7 @@ def main():
     args = argument_parse()
     
     config = Config.process(args, logger=logging, require_train_outfolder=False, test_augment=args.augment)
-    config, _, _, _, _, train_dataset = Training.setup(config, preload_dataset=args.preload, create_loader=False, create_model=False)
+    config, _, _, _, _, _, train_dataset = Training.setup(config, preload_dataset=args.preload, create_loader=False, create_model=False)
     Config.print(config, logging)
 
     if (args.augment):

@@ -591,7 +591,7 @@ class Training:
         1. create training DataLoader, validation DataLoader, model, and optimizer
         2. update config
 
-        returns config, train_loader, validation_loader, model, optimizer, train_dataset
+        returns config, train_loader, validation_loader, model_arch_dict, model, optimizer, train_dataset
         """
 
         # create a torch.utils.data.Dataset object
@@ -745,6 +745,9 @@ class Training:
             model_class = utils.get_class(the_model_name)
             model = model_class(model_arch_dict).to(config["device"])
 
+            # update model_arch_dict with network defaults
+            model_arch_dict = model.arch_dict
+                
             ### retrieve optimizer class
             optimizer=config["training"].get("optimizer", "torch.optim.Adam")
             optimizer_cls = utils.get_class(optimizer)
@@ -758,4 +761,4 @@ class Training:
             #           see https://pytorch.org/docs/stable/notes/randomness.html
             utils.set_deterministic_training()
 
-        return config, train_loader, validation_loader, model, optimizer_cls, train_dataset
+        return config, train_loader, validation_loader, model_arch_dict, model, optimizer_cls, train_dataset

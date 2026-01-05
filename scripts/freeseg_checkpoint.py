@@ -113,7 +113,7 @@ def main():
     config = None
     if (args.config is not None):
         config = Config.process(args, logger=logging, require_train_outfolder=False, require_dataset_list=False, assert_dimensions=False)
-        config, _, _, _, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=False, set_dataset_attr=False)
+        config, _, _, model_arch_dict, _, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=False, set_dataset_attr=False)
 
     # load pre-trained model
     checkpoint = None
@@ -162,26 +162,25 @@ def main():
         sys.exit(0)
 
     # create the network from config or re-construct it from pre-trained model
-    model_arch_dict, input_shape = None, None
     if (checkpoint is not None):
         model_arch_dict = checkpoint.model_arch_dict
-    else:
-        model_arch_dict = config["model"]
-        if (config.get("preprocessing", None)):
-            input_shape = config["preprocessing"].get("crop_size", None)
-
-    # set input shape for model_summary() call
-    if (args.input_shape):
-        input_shape = args.input_shape
-    assert(input_shape is not None), "Use '--input_shape <x y z>' to specify input shape"
 
     assert (model_arch_dict is not None), "Model architecture information not available."        
     the_model_name = model_arch_dict.get("name", None)
     assert the_model_name is not None, "Model class is not available."
-    n_channels = model_arch_dict.get("num_channels", 1)
         
     model_class = utils.get_class(the_model_name)
     model = model_class(model_arch_dict).to(device)
+
+    # update model_arch_dict with network defaults
+    model_arch_dict = model.arch_dict
+
+    # set n_channels and input shape for model_summary() call
+    input_shape = None
+    if (args.input_shape):
+        input_shape = args.input_shape
+    assert(input_shape is not None), "Use '--input_shape <x y z>' to specify input shape"    
+    n_channels = model_arch_dict.get("num_channels", 1)
 
     # print network summary
     models.model_arch(model_arch_dict)

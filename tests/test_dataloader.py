@@ -38,7 +38,7 @@ def main():
     args = argument_parse()
     
     config = Config.process(args, logger=logging, require_train_outfolder=False)
-    config, train_loader, _, _, _, _ = Training.setup(config, preload_dataset=False, create_val_loader=False, create_model=False)
+    config, train_loader, _, _, _, _, _ = Training.setup(config, preload_dataset=False, create_val_loader=False, create_model=False)
     Config.print(config, logging)
 
     start_epoch = 0

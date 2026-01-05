@@ -42,7 +42,7 @@ def main():
     args = argument_parse()
 
     config = Config.process(args, logger=mainlogger)
-    config, train_loader, validation_loader, model, optimizer_cls, _ = Training.setup(config, preload_dataset=args.preload)
+    config, train_loader, validation_loader, _, model, optimizer_cls, _ = Training.setup(config, preload_dataset=args.preload)
     Config.print(config, mainlogger)
 
     train(config, train_loader, model, optimizer_cls,
