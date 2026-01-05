@@ -714,21 +714,19 @@ class Training:
             config["dataset"].update(train_dataset_dict)
 
         #### update model architecture dict
-        # keywords `num_channels` and `nb_labels` must be present in model_arch_dict
-        # by default, they are from dataset configurables `expected_num_channels` and len(segmentation_labels).
-        # use model configurables `in_channels` and `out_channels` to override the defaults.
+        """
+        - `model_arch_dict` will be passed to create individual network object
+        - the model configurable keywords need to match individual network implementations
+        - it is the individual network implementation's responsibility to check their availabilities
+        - `num_channels` and `nb_labels` are not required, they are set here for freeseg.models.unet.UNet
+            to dataset configurables `expected_num_channels` and `len(segmentation_labels)` respectively
+            if they are missing from model configurables.
+        """
         model_arch_dict = config["model"]
-        model_arch_dict["num_channels"] = config["model"].get("in_channels", None)
-        if (model_arch_dict["num_channels"] is None):
+        if ("num_channels" not in model_arch_dict and "expected_num_channels" in config["dataset"]):
             model_arch_dict["num_channels"] = config["dataset"]["expected_num_channels"]
-        assert(model_arch_dict["num_channels"] is not None), "Need to specify model 'in_channels'"
-        model_arch_dict["nb_labels"] = config["model"].get("out_channels", None)
-        if (model_arch_dict["nb_labels"] is None):
+        if ("nb_labels" not in model_arch_dict and "num_labels" in config["dataset"]):
             model_arch_dict["nb_labels"] = config["dataset"]["num_labels"]
-        assert(model_arch_dict["nb_labels"] is not None), "Need to specify model 'out_channels'"
-        model_arch_dict["add_priors"] = train_dataset_dict.get("priors", False)
-        model_arch_dict["weight_init"] = config["model"].get("weight_init", None)
-
 
         #### create the model to train
         model, optimizer_cls = None, None

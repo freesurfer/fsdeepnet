@@ -84,9 +84,6 @@ class ConvBlock(nn.Module):
 
 
 class UNet(nn.Module):
-    # keywords `num_channels` and `nb_labels` must be present in model_arch_dict
-    # by default, they are from dataset configurables `expected_num_channels` and len(segmentation_labels).
-    # use model configurables `in_channels` and `out_channels` to override the defaults.
     def __init__(self, model_arch_dict):
 
         self._model_arch_dict = {}
@@ -327,13 +324,13 @@ class UNet(nn.Module):
 
 
     # set network defaults
+    # `num_channels` - network input channels
     def _setdefault_arch_dict(self):
         self._model_arch_dict["__unetver__"] = __unetver__
         self._model_arch_dict["num_channels"] = 1
         self._model_arch_dict["ndims"] = 3
         self._model_arch_dict["nb_features"] = 24
         self._model_arch_dict["nb_levels"] = 3
-        #self._model_arch_dict["nb_labels"] = ???
         self._model_arch_dict["feat_mult"] = 1
         self._model_arch_dict["conv_size"] = 3
         self._model_arch_dict["pool_size"] = 2
@@ -351,15 +348,24 @@ class UNet(nn.Module):
 
 
     # update network parameters with user input
+    # - `num_channels` and `nb_labels` are not required model_arch_dict keywords
+    #   they are set to dataset configurables `expected_num_channels` and `len(segmentation_labels)` respectively
+    #   in Training.setup() if they are missing in model configurables
+    # - `num_channels` - network input channels
+    #   use default self._model_arch_dict["num_channels"] for network input channels
+    #   if user specified `num_channels` is not available
+    # - `nb_labels` - network output channels
+    #   need to verify `nb_labels` availability
     def _update_arch_dict(self, model_arch_dict):
         num_channels = model_arch_dict.get("num_channels", None)
-        if (num_channels is None):
+        if (num_channels is None and model_arch_dict.get("input_shape", None)):
             # backward compatible - read older models with model_arch_dict["input_shape"] saved instead
             logging.warning(f"this is an older model file w/ 'input_shape' saved instead of 'num_channels'")
             input_shape = model_arch_dict["input_shape"]
             num_channels = input_shape[0]
             del(model_arch_dict["input_shape"])
-        model_arch_dict["num_channels"] = num_channels
+        if (num_channels is not None):
+            model_arch_dict["num_channels"] = num_channels
 
         # backward compatibility
         # read older models before 'norm' is introduced, model_arch_dict["use_batchnorm"] is saved instead
@@ -392,6 +398,10 @@ class UNet(nn.Module):
 
         if (self._model_arch_dict["norm"] is None):
             self._model_arch_dict["skip_connect"] = "encoder"
+
+        # verify network output channels
+        assert ("nb_labels" in self._model_arch_dict), \
+            "Use model configurable `nb_labels` to specify network output channels"
 
 
     @property
