@@ -85,13 +85,14 @@ class Config:
         batch_size = 1
         if (config.get("training", None)):
             batch_size = config["training"]["batch_size"]
-            config["dataloader"].update({"batch_size": batch_size})
+        config["dataloader"].update({"batch_size": batch_size})
 
         ### UPDATE config.dataset
-        config["dataset"].update({ "ndims": config["model"]["ndims"],
-                                   "batch_size": batch_size,
-                                  #"crop_size": crop_size,                                   
-                                 })
+        if (config.get("dataset", None)):
+            config["dataset"].update({ "ndims": config["model"]["ndims"],
+                                    "batch_size": batch_size,
+                                    #"crop_size": crop_size,                                   
+                                    })
     
         ### set training, preprocessing devices
         if ('cpu' in args and args.cpu):

@@ -656,6 +656,23 @@ class Training:
             return augment_obj
 
 
+        ### check 'dataset' configurables
+        perform_evaluation = False
+        if (config.get("training", None)):
+            perform_evaluation = config["training"].get("perform_evaluation", False)
+        if (set_dataset_attr or create_train_dataset or \
+            (config["output_folder"] is not None and preload_dataset) or \
+            (create_loader and create_val_loader and perform_evaluation)):
+            assert("dataset" in config), "'dataset' configurables are required"
+
+        ### check 'preprocessing' configurables
+        if (create_train_dataset):
+            assert("preprocessing" in config), "'preprocessing' configurables are required"
+
+        ### check 'training' configurables
+        if ((create_train_dataset and create_loader) or create_model):
+            assert("training" in config), "'training' configurables are required"
+
         ### retrieve dataset class
         if (set_dataset_attr):
             dataset_classname = config["dataset"].get("class_name", "freeseg.datasets.segmentationdataset.SegmentationDataset")
@@ -691,9 +708,6 @@ class Training:
 
         ### create validation DataLoader
         validation_loader = None
-        perform_evaluation = False
-        if (config.get("training", None)):
-            perform_evaluation = config["training"].get("perform_evaluation", False)
         if (create_loader and create_val_loader and perform_evaluation):
             # enforce "centercrop"/"rescalevolume" for evaluation_augmentations
             val_augmentations = ["centercrop", "rescalevolume"]
@@ -711,7 +725,7 @@ class Training:
                 validation_loader = DataLoader(validation_dataset, batch_size=config["evaluation"]["batch_size"], shuffle=False)
 
         ### output segmentation_labels.npy
-        train_dataset_dict = config["dataset"]
+        train_dataset_dict = config["dataset"] if ("dataset" in config) else {}
         if (config["output_folder"] is not None and preload_dataset):
             train_dataset_dict = train_dataset.profile
             generation_labels = train_dataset_dict["reported_generation_labels"]
@@ -730,10 +744,10 @@ class Training:
             if they are missing from model configurables.
         """
         model_arch_dict = config["model"]
-        if ("num_channels" not in model_arch_dict and "expected_num_channels" in config["dataset"]):
-            model_arch_dict["num_channels"] = config["dataset"]["expected_num_channels"]
-        if ("nb_labels" not in model_arch_dict and "num_labels" in config["dataset"]):
-            model_arch_dict["nb_labels"] = config["dataset"]["num_labels"]
+        if ("num_channels" not in model_arch_dict and "expected_num_channels" in train_dataset_dict):
+            model_arch_dict["num_channels"] = train_dataset_dict["expected_num_channels"]
+        if ("nb_labels" not in model_arch_dict and "num_labels" in train_dataset_dict):
+            model_arch_dict["nb_labels"] = train_dataset_dict["num_labels"]
 
         #### create the model to train
         model, optimizer_cls = None, None
@@ -749,7 +763,7 @@ class Training:
             model_arch_dict = model.arch_dict
                 
             ### retrieve optimizer class
-            optimizer=config["training"].get("optimizer", "torch.optim.Adam")
+            optimizer = config["training"].get("optimizer", "torch.optim.Adam")
             optimizer_cls = utils.get_class(optimizer)
         
         ### set_deterministic_training if requested
