@@ -4,6 +4,7 @@ requirements = [
     'torch',
     'torchvision<0.17',  # to satisfy torch 2.1.2
     'psutil',
+    #'PyQt5',  # for matplotlib
     #'pynvml',
     #'voxynth@git+https://github.com/dalcalab/voxynth.git@main'
 ]
@@ -15,7 +16,7 @@ setup(
     url = "https://github.com/freesurfer/freeseg",
     packages=['freeseg', 'freeseg.utils', 'freeseg.augmentation', 'freeseg.models', 'freeseg.datasets', 'freeseg.voxynth'],
     install_requires=requirements,
-    scripts=['scripts/freeseg_split_dataset.py', 'scripts/freeseg_evaluate.py', 'scripts/freeseg_predict.py', 'scripts/freeseg_train.py'],
+    scripts=['scripts/freeseg_checkpoint.py', 'scripts/freeseg_split_dataset.py', 'scripts/freeseg_evaluate.py', 'scripts/freeseg_predict.py', 'scripts/freeseg_train.py'],
 )
 
 
