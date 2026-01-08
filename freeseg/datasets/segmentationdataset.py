@@ -175,8 +175,8 @@ class SegmentationDataset(torch.utils.data.Dataset):
                     self.data_augment,
                     image_tensor,
                     label_tensor,
-                    image,
-                    label,
+                    original_image=image,
+                    original_label=label,
                     priors_tensor=priors_tensor,
                     orig_fpath=image_path if (self.hasimage()) else label_path,
                     index=index

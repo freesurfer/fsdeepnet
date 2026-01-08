@@ -647,7 +647,7 @@ class Training:
 
             # create data augment object                    
             py_augment_cls = utils.get_class(augment_classname)
-            augment_obj = py_augment_cls(Config.list2dict(cfg_preprocess.pop("augmentations")),    # retrieve and remove 'augmentations'
+            augment_obj = py_augment_cls(Config.list2dict(cfg_preprocess.pop("augmentations", {})),    # retrieve and remove 'augmentations'
                                          transforms,
                                          device=device,
                                          **cfg_preprocess,  # '**' operator unpacks 'preprocessing' key/value pairs to keyword arguments
@@ -697,7 +697,8 @@ class Training:
             # UPDATE config
             config.update({"train_augmentations": train_augmentations})
             # update config["dataset"]
-            config["dataset"].update(train_dataset.profile)
+            if (hasattr(train_dataset, "profile")):
+                config["dataset"].update(train_dataset.profile)
 
         ### create training DataLoader
         train_loader = None        

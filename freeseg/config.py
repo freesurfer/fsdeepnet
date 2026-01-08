@@ -300,6 +300,9 @@ class Config:
 
     @staticmethod
     def list2dict(in_list):
+        if (not in_list):
+            return {}
+    
         out_dict = {}
         for item in in_list:
             if isinstance(item, dict):
@@ -307,7 +310,6 @@ class Config:
                     out_dict[key] = value
             else:
                 out_dict[item] = {}
-                    
 
         return out_dict
 

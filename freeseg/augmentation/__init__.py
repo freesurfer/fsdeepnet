@@ -5,8 +5,8 @@ from .augmentvoxynth import AugmentVoxynth
 def apply_augmentations(augment_obj,
                         image_tensor,
                         label_tensor,
-                        original_image,
-                        original_label,
+                        original_image=None,
+                        original_label=None,
                         priors_tensor=None,
                         orig_fpath=None,
                         index=None):
@@ -49,7 +49,7 @@ def apply_augmentations(augment_obj,
             )
             np.save(f"{debugsaveprefix0}_reoriented_prior.npy", priors_tensor.cpu().numpy().astype(np.float32))
 
-    geom = original_label.geom
+    geom = original_label.geom if (original_label is not None) else None
     augmentations_to_apply = augment_obj.transforms
     for idx, augment_name in enumerate(augmentations_to_apply):
         augment = getattr(augment_obj, augment_name, None)
