@@ -62,15 +62,16 @@ def main():
             batch_idx = batched_sample.pop(0)         # remove first item batch_idx
             dataset_indices = batched_sample.pop(-1)  # remove last item dataset_indices
             batch_indices = ", ".join(str(item).zfill(4) for item in dataset_indices.tolist())
-            haspriors = True if (len(batched_sample) == 3) else False
-            if (haspriors):
-                images, onehot_labels, priors = batched_sample
+            hasextra = True if (len(batched_sample) == 3) else False
+            if (hasextra):
+                images, labels, extra = batched_sample
             else:
-                images, onehot_labels = batched_sample
+                images, labels = batched_sample
 
-            msg = f"  {step+1:4d}/{steps_per_epoch:<4d} batch #{batch_idx:<2d} ({batch_indices}), images({images.shape}), onehot_labels({onehot_labels.shape}) "
-            if (haspriors):
-                msg += f", priors({priors.shape}"
+            msg = f"  {step+1:4d}/{steps_per_epoch:<4d} batch #{batch_idx:<2d} ({batch_indices}), images({images.shape}), labels({labels.shape}) "
+            if (hasextra):
+                shape = len(extra) if(isinstance(extra, list)) else extra.shape
+                msg += f", extra({shape})"
             logging.info(msg)
             #torch.cuda._sleep(500)
 
