@@ -1,5 +1,5 @@
 dataset:
-  class_name: freeseg.datasets.segmentationdataset.SegmentationDataset
+  class: freeseg.datasets.segmentationdataset.SegmentationDataset
   segmentation_labels: [0, 883, 900, 903, 904]
   #segmentation_names:  /path/segmentation_names.npy or a list of label names corresponding to segmentation_labels
   #left_right_corresponding: define-left-right-label-correspondings #ex. this is for SynthSeg training [2, 41, 3, 42, 4, 43, 5, 44, 7, 46, 8, 47, 10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54, 25, 57, 26, 58, 28, 60, 30, 62, 136, 163, 137, 164]
@@ -12,7 +12,7 @@ dataloader:
   prefetch_factor: 2
 
 model:
-  name: freeseg.models.unet.UNet
+  class: freeseg.models.unet.UNet
   nb_levels: 3
   nb_features: 24 
   feat_mult: 2
@@ -31,7 +31,7 @@ model:
   skip_connect: norm    # norm or encoder
 
 preprocessing:
-  augmentation_wrapper: freeseg.augmentation.augmentbase.AugmentBase   # or freeseg.augmentation.augmentvoxynth.AugmentVoxynth
+  class: freeseg.augmentation.augmentbase.AugmentBase   # or freeseg.augmentation.augmentvoxynth.AugmentVoxynth
   sampling_hp: True
   verbose: False
   crop_size: [160, 160, 160]
@@ -81,7 +81,7 @@ preprocessing:
     #- remaplabels:
 
 training:
-  trainer_class: freeseg.training.Training
+  class: freeseg.training.Training
   data_generator:
     fn: freeseg.utils.utility.DataGenerator
     return_priors: True
@@ -93,16 +93,17 @@ training:
   steps_per_epoch: 1000
   learning_rate: 0.0001
   pre_train_learning_rate: 0.0001
-  optimizer: torch.optim.Adam
+  optimizer:
+    class: torch.optim.Adam
   wl2_metrics:
-    class_name: freeseg.metrics.WeightedL2Loss  
+    class: freeseg.metrics.WeightedL2Loss  
     gt_target_value: 15
   model_metrics:
-    class_name: freeseg.metrics.DiceLoss
+    class: freeseg.metrics.DiceLoss
     dice_type: soft
     dice_squared_form: False
   model_metrics_accuracy:
-    class_name: freeseg.metrics.DiceScore
+    class: freeseg.metrics.DiceScore
     num_classes: 5  # number of segmentation labels
     dice_type: hard
     dice_squared_form: False  

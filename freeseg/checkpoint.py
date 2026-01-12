@@ -198,3 +198,14 @@ class Checkpoint:
     @property
     def optimizer_state_dict(self):
         return self._dict.get('optimizer_state_dict', None)
+
+    # backward compatibility
+    # older model checkpoints have model class saved under 'name' instead of 'class'
+    @property
+    def model_name(self):
+        arch_dict = self._dict.get("model_arch_dict", {})
+        the_model_class = arch_dict.get("class", None)
+        if (the_model_class is None):
+            the_model_class = arch_dict.get("name", None)
+        
+        return the_model_class

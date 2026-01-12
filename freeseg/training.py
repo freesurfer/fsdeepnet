@@ -635,7 +635,7 @@ class Training:
                 cfg_preprocess = config["preprocessing"].copy()                
 
             # retrieve and remove 'augmentation_wrapper'
-            augment_classname = cfg_preprocess.pop("augmentation_wrapper", "freeseg.augmentation.augmentbase.AugmentBase")
+            augment_classname = cfg_preprocess.pop("class", "freeseg.augmentation.augmentbase.AugmentBase")
             if ("Augment2" in augment_classname):
                 logging.info("'augment2.Augment2' is specified in config.")
                 logging.info("Change 'augment2.Augment2' to 'augmentbase.AugmentBase' since augmentations in augment2.Augment2 are now implemented in augmentbase.AugmentBase")
@@ -674,8 +674,8 @@ class Training:
             assert("training" in config), "'training' configurables are required"
 
         ### retrieve dataset class
-        if (set_dataset_attr):
-            dataset_classname = config["dataset"].get("class_name", "freeseg.datasets.segmentationdataset.SegmentationDataset")
+        if (set_dataset_attr and config.get("dataset", None)):
+            dataset_classname = config["dataset"].get("class", "freeseg.datasets.segmentationdataset.SegmentationDataset")
             py_dataset_cls = utils.get_class(dataset_classname)                    
 
             ### retrieve dataset class static method process_dataset_attr(), process and update dataset attributes
@@ -753,7 +753,7 @@ class Training:
         #### create the model to train
         model, optimizer_cls = None, None
         if (create_model):
-            the_model_name = model_arch_dict.get("name", None)
+            the_model_name = model_arch_dict.get("class", None)
             assert the_model_name is not None, "Model name is not available."
 
             # create model object
@@ -764,8 +764,8 @@ class Training:
             model_arch_dict = model.arch_dict
                 
             ### retrieve optimizer class
-            optimizer = config["training"].get("optimizer", "torch.optim.Adam")
-            optimizer_cls = utils.get_class(optimizer)
+            optimizer = config["training"].get("optimizer")
+            optimizer_cls = utils.get_class(optimizer.get("class", "torch.optim.Adam"))
         
         ### set_deterministic_training if requested
         deterministic = False

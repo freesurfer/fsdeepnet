@@ -113,7 +113,7 @@ def main():
     config = None
     if (args.config is not None):
         config = Config.process(args, logger=logging, require_train_outfolder=False, require_dataset_list=False, assert_dimensions=False)
-        config, _, _, model_arch_dict, _, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=False, set_dataset_attr=False)
+        config, _, _, model_arch_dict, _, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=False, set_dataset_attr=True)
 
     # load pre-trained model
     checkpoint = None
@@ -162,11 +162,14 @@ def main():
         sys.exit(0)
 
     # create the network from config or re-construct it from pre-trained model
+    the_model_name = None
     if (checkpoint is not None):
+        the_model_name = checkpoint.model_name
         model_arch_dict = checkpoint.model_arch_dict
 
     assert (model_arch_dict is not None), "Model architecture information not available."        
-    the_model_name = model_arch_dict.get("name", None)
+    if (the_model_name is None):
+        the_model_name = model_arch_dict.get("class", None)
     assert the_model_name is not None, "Model class is not available."
         
     model_class = utils.get_class(the_model_name)

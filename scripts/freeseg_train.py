@@ -140,7 +140,7 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
     model_metrics_accuracy = config["training"].pop("model_metrics_accuracy", None)
     dice_hard_fn = None
     if (model_metrics_accuracy is not None):
-        cls_model_metrics_accuracy = utils.get_class(model_metrics_accuracy.pop("class_name", "freeseg.metrics.DiceDice"))
+        cls_model_metrics_accuracy = utils.get_class(model_metrics_accuracy.pop("class", "freeseg.metrics.DiceDice"))
         # '**' operator unpacks rest of dictionary key/value pairs to keyword arguments
         dice_hard_fn = cls_model_metrics_accuracy(**model_metrics_accuracy)
 
@@ -151,7 +151,7 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
     model_metrics = config["training"].pop("model_metrics", None)
 
     # create the Training object
-    trainer_cls = utils.get_class(config["training"].get("trainer_class", "freeseg.training.Training"))        
+    trainer_cls = utils.get_class(config["training"].get("class", "freeseg.training.Training"))        
     trainer = trainer_cls(dnn=model,
                           train_loader=train_loader,
                           fn_data_generator=fn_data_generator,
@@ -173,7 +173,7 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
 
     # train wl2 epochs
     if (wl2_epochs > 0 and wl2_metrics is not None):
-        cls_wl2_metrics = utils.get_class(wl2_metrics.pop("class_name", "freeseg.metrics.WeightedL2Loss"))
+        cls_wl2_metrics = utils.get_class(wl2_metrics.pop("class", "freeseg.metrics.WeightedL2Loss"))
         if (checkpoint is None):
             mainlogger.info(f"training {wl2_epochs} wl2 epochs: {trainer_cls}, {optimizer_cls}, {cls_wl2_metrics}, lr:{config['training']['pre_train_learning_rate']} ...")
         # '**' operator unpacks rest of dictionary key/value pairs to keyword arguments
@@ -187,7 +187,7 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
 
     # train dice epochs
     if (dice_epochs > 0 and model_metrics is not None):
-        cls_model_metrics = utils.get_class(model_metrics.pop("class_name", "freeseg.metrics.DiceLoss"))
+        cls_model_metrics = utils.get_class(model_metrics.pop("class", "freeseg.metrics.DiceLoss"))
         mainlogger.info(f"training {dice_epochs} dice epochs: {trainer_cls}, {optimizer_cls}, {cls_model_metrics}, lr:{config['training']['learning_rate']} ...")
         # '**' operator unpacks dictionary key/value pairs to keyword arguments        
         dice_loss_fn = cls_model_metrics(**model_metrics)

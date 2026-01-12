@@ -9,7 +9,7 @@ dataloader:
   prefetch_factor: 2
 
 model:
-  name: freeseg.models.unet.UNet
+  class: freeseg.models.unet.UNet
   nb_levels: 5
   nb_features: 24  # first level convolution features
   out_channels: 69 # number of network output features
@@ -30,14 +30,14 @@ model:
   skip_connect: encoder    # norm or encoder
 
 preprocessing:
-  #augmentation_wrapper: freeseg.augmentation.augmentbase.AugmentBase   # or freeseg.augmentation.augmentvoxynth.AugmentVoxynth
+  #class: freeseg.augmentation.augmentbase.AugmentBase   # or freeseg.augmentation.augmentvoxynth.AugmentVoxynth
   #sampling_hp: True
   #verbose: False
   #augmentation_dir: /path/to-save-augmented-data
   crop_size: [160, 160, 160]
 
 training:
-  trainer_class: freeseg.training.Training
+  class: freeseg.training.Training
   data_generator:
     fn: freeseg.utils.utility.DataGenerator
     return_priors: True
@@ -49,16 +49,17 @@ training:
   steps_per_epoch: 1000
   learning_rate: 0.0001
   pre_train_learning_rate: 0.0001
-  optimizer: torch.optim.Adam
+  optimizer:
+    class: torch.optim.Adam
   wl2_metrics:
-    class_name: freeseg.metrics.WeightedL2Loss
+    class: freeseg.metrics.WeightedL2Loss
     gt_target_value: 5    
   model_metrics:
-    class_name: freeseg.metrics.DiceLoss
+    class: freeseg.metrics.DiceLoss
     dice_type: soft
     dice_squared_form: True    
   model_metrics_accuracy:
-    class_name: freeseg.metrics.DiceScore
+    class: freeseg.metrics.DiceScore
     num_classes: 69  # number of parcellation labels
     dice_type: hard
     dice_squared_form: True

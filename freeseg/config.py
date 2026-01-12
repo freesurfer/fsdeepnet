@@ -6,6 +6,7 @@ import datetime
 import yaml
 import numpy as np
 import shutil
+from functools import partial
 
 from freeseg.utils import utility as utils
 
@@ -259,7 +260,7 @@ class Config:
         if (perform_evaluation):
             logger.info(f"best_model_metric: {cfg['training'].get('best_model_metric')}")
         logger.info("Preprocessing Device: {}".format(cfg['preprocessing_device']) + (f' (GPU index: {cfg["gpu_index"]})' if (cfg.get('gpu_index') is not None) else ''))
-        logger.info(f"Preprocessing augmentation_wrapper: {cfg['preprocessing']['augmentation_wrapper']}")
+        logger.info(f"Preprocessing augmentation wrapper: {cfg['preprocessing']['class']}")
         logger.info(f"Preprocessing augmentations: {cfg['train_augmentations']}")
         logger.info(f"Preprocessing crop_size: {cfg['preprocessing']['crop_size']}")
         logger.info(f"Preprocessing sampling_hp: {cfg['preprocessing'].get('sampling_hp', True)}")
@@ -362,6 +363,42 @@ class Config:
                         fp.write("]\n")
         else:
             fp.write(str(data) + "\n")
+
+
+    @staticmethod
+    def eval(cfg, parent=None, listidx=0, debug=False):
+        if (debug):
+            sys.stdout.write(f"\n[DEBUG] parent={parent}, listidx={listidx}, cfg={cfg}\n")
+
+        ### process dict
+        if isinstance(cfg, dict):
+            for key, value in cfg.items():
+                if isinstance(value, (dict, list, tuple)):
+                    cfg[key] = Config.eval(value, parent={}, debug=debug)
+
+            if ("class" in cfg):
+                # replace the input dict with created class instance at the same memory location
+                cls = utils.get_class(cfg.pop("class"))
+                cfg = cls(**cfg)
+            elif ("fn" in cfg):
+                # replace the input dict with partial function at the same memory location
+                fn = utils.get_class(cfg.pop("fn"))
+                cfg = partial(fn, **cfg)
+            
+            # return the processed dict at the same memory location
+            return cfg
+        
+        ### process list, tuple
+        elif isinstance(cfg, (list, tuple)):
+            # each item in list or tuple is processed seperately
+            # the result of each processed item is returned as a list
+            processed_cfg = []
+            for index, item in enumerate(cfg):
+                processed_cfg.append(Config.eval(item, parent=[], listidx=index, debug=debug))
+            return processed_cfg
+
+        ### non-[dict, list, tuple], simple return the value
+        return cfg
 
 
     @staticmethod
