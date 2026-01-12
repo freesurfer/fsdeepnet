@@ -53,7 +53,7 @@ See `configs/config.yaml` and `configs/synthseg_config.yaml` for complete exampl
 ```yaml
 dataset:
   # torch.utils.data.Dataset class
-  class_name: freeseg.datasets.segmentationdataset.SegmentationDataset
+  class: freeseg.datasets.segmentationdataset.SegmentationDataset
   
   # the dataset list YAML file (can also be specified with '--dataset_list_file <dataset.yaml>' command line option)
   dataset_list_file: /path/to/dataset_list.yaml
@@ -100,7 +100,7 @@ dataset:
 ```
 **Note**:
 - Specify any configurables that need to be recorded in the checkpoint `train_dataset_dict`.
-- The configurables are processed in the static method `process_dataset_attr()` of the `torch.utils.data.Dataset` class specified in dataset `class_name`, ex. 'freeseg.datasets.segmentationdataset.SegmentationDataset.process_dataset_attr()'.
+- The configurables are processed in the static method `process_dataset_attr()` of the `torch.utils.data.Dataset` class specified in dataset `class`, ex. 'freeseg.datasets.segmentationdataset.SegmentationDataset.process_dataset_attr()'.
 
 ### Dataset List File
 
@@ -137,7 +137,7 @@ test:
 
 ```yaml
 model:
-  name: freeseg.models.unet.UNet   # torch.nn.Module class
+  class: freeseg.models.unet.UNet   # torch.nn.Module class
   nb_levels: 3                     # number of U-Net levels (encoder/decoder depth)
   nb_features: 24                  # base number of features
   feat_mult: 2                     # feature multiplier per level
@@ -171,7 +171,7 @@ model:
 preprocessing:
   # augmentation wrapper class
   # alternative: freeseg.augmentation.augmentvoxynth.AugmentVoxynth
-  augmentation_wrapper: freeseg.augmentation.augmentbase.AugmentBase
+  class: freeseg.augmentation.augmentbase.AugmentBase
   
   # constrained by the U-Net architecture
   # must be divisible by `2^(nb_levels)`
@@ -333,7 +333,7 @@ preprocessing:
 
 ```yaml
 training:
-  trainer_class: freeseg.training.Training   # the trainer class
+  class: freeseg.training.Training   # the trainer class
   data_generator:
     fn: freeseg.utils.utility.DataGenerator
     return_priors: True
@@ -341,7 +341,8 @@ training:
   deterministic: False                       # whether to do deterministic training
   report_moving_avg: False                   # whether to report moving average training loss and dice
   steps_per_epoch: 1000                      # number of steps per training epoch
-  optimizer: torch.optim.Adam                # optimizer class
+  optimizer:
+    class: torch.optim.Adam                # optimizer class
   write_tensorboard_summary: False           # whether to write tensorboard summary (to be tested)
 ```
 
@@ -357,7 +358,7 @@ training:
   wl2_gt_target_value: 15
   pre_train_learning_rate: 0.0001
   wl2_metrics:
-    class_name: freeseg.metrics.WeightedL2Loss
+    class: freeseg.metrics.WeightedL2Loss
     gt_target_value: 15
 ```
 
@@ -366,7 +367,7 @@ training:
   - `wl2_epochs`: Number of pre-training epochs
   - `pre_train_learning_rate`: Learning rate for pre-training
   - `wl2_metrics`:
-    - `class_name`: Loss function class arguments to initiate wl2 loss instance
+    - `class`: Loss function class arguments to initiate wl2 loss instance
     - `gt_target_value`: Target value for ground truth labels of the layer before `final_pred_activation`: gt_target_value when gt = 1, -gt_target_value when gt = 0.
     - Add any keyword arguments need to be passed to loss function constructor.
 
@@ -377,7 +378,7 @@ training:
   dice_epochs: 100
   learning_rate: 0.0001
   model_metrics:
-    class_name: freeseg.metrics.DiceLoss
+    class: freeseg.metrics.DiceLoss
     dice_type: soft
     dice_squared_form: False  
 ```
@@ -387,7 +388,7 @@ training:
   - `dice_epochs`: Number of training epochs
   - `learning_rate`: Learning rate for training
   - `model_metrics`:
-    - `class_name`: Loss function class arguments to initiate soft dice loss instance
+    - `class`: Loss function class arguments to initiate soft dice loss instance
     - `dice_type`:  Type of dice calculation, soft or hard
     - `dice_squared_form`: Whether to use squared Dice form
     - Add any keyword arguments need to be passed to loss function constructor.
