@@ -178,16 +178,17 @@ def main():
     # update model_arch_dict with network defaults
     model_arch_dict = model.arch_dict
 
+    # print network summary
+    models.model_arch(model_arch_dict)
+    models.model_print(model)
+
     # set n_channels and input shape for model_summary() call
     input_shape = None
     if (args.input_shape):
         input_shape = args.input_shape
     assert(input_shape is not None), "Use '--input_shape <x y z>' to specify input shape"    
-    n_channels = model_arch_dict.get("num_channels", 1)
-
-    # print network summary
-    models.model_arch(model_arch_dict)
-    models.model_print(model)
+    n_channels = model_arch_dict["in_channels"] if ("in_channels" in model_arch_dict) else model_arch_dict.get("num_channels", 1)
+    n_channels = n_channels[0] if (isinstance(n_channels, (list, tuple))) else n_channels
     models.model_summary(model, (n_channels, *input_shape[-args.ndims:]), device=device, debug=True)
     #models.model_parameters(model)
     #models.model_summary_torchinfo(model, (1, 1, *args.input_shape[-args.ndims:]))
