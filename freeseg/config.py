@@ -43,11 +43,13 @@ class Config:
             config["dataset"].pop("dataset_list_file")
 
         if (assert_dimensions):
-            crop_size = config["preprocessing"]["crop_size"]
-            nb_levels = config["model"]["nb_levels"]
-            ndims = config["model"]["ndims"]
-            assert (np.all(np.array(crop_size) % (2**(nb_levels)) == 0)), f"crop_size {crop_size} needs to be divisible by 2^{nb_levels}"
-            assert (ndims == len(crop_size)), f"crop_size {crop_size} is not for {ndims}D"
+            crop_size = config["preprocessing"].get("crop_size", None)
+            nb_levels = config["model"].get("nb_levels", None)
+            ndims = config["model"].get("ndims", None)
+            if (crop_size is not None and nb_levels is not None):
+                assert (np.all(np.array(crop_size) % (2**(nb_levels)) == 0)), f"crop_size {crop_size} needs to be divisible by 2^{nb_levels}"
+            if (crop_size is not None and ndims is not None):
+                assert (ndims == len(crop_size)), f"crop_size {crop_size} is not for {ndims}D"
 
         now = datetime.datetime.now()
         dt_nowstring = str(now).replace(' ', '.').replace(':', '.')
@@ -95,10 +97,9 @@ class Config:
 
         ### UPDATE config.dataset
         if (config.get("dataset", None)):
-            config["dataset"].update({ "ndims": config["model"]["ndims"],
-                                    "batch_size": batch_size,
-                                    #"crop_size": crop_size,
-                                    })
+            config["dataset"].update({"batch_size": batch_size,})
+            if ("ndims" in config["model"]):
+                config["dataset"].update({"ndims": config["model"]["ndims"],})
     
         ### set training, preprocessing devices
         if ('cpu' in args and args.cpu):
