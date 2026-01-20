@@ -37,11 +37,19 @@ def model_summary(model, input_size, logger=logging, device=None, debug=False):
                     datasize_list = list(datasize)
                     param_sizes.append(f"{nm:s}:{str(datasize_list):s}")
 
-            # layer output from nn.Module forward() can be a tuple, determine output shape using its first element
+            # layer input/output from nn.Module forward() can be either (list, tuple) of tensor or tensor
+            if (isinstance(input, (list, tuple))):
+                input_shape = [list(i.size()) for i in input]
+            else:
+                input_shape = list(input.size())
+            if (isinstance(output, (list, tuple))):
+                output_shape = [list(o.size()) for o in output]
+            else:
+                output_shape = list(output.size())
             forward_hook_summary.append({
                 "name": m_key,
-                "input_shape":  list(input[0].size()),
-                "output_shape": list(output[0].size()),
+                "input_shape":  input_shape, #list(input[0].size()),
+                "output_shape": output_shape,  #list(output.size()),
                 "nb_params":    sum(p.numel() for p in module.parameters()),
                 "param_sizes":  ", ".join(param_sizes)
             })
@@ -145,7 +153,7 @@ def model_arch(arch_dict, logger=logging):
     if (logger is None):
             logger = logging
 
-    logger.info(f"{arch_dict.get('name')}:")    
+    logger.info(f"{arch_dict.get('class')}:")    
     for k in arch_dict.keys():
         logger.info(f"    {k}: {arch_dict[k]}")
     logger.info("")
