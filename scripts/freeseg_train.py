@@ -41,7 +41,7 @@ mainlogger.addHandler(logging.StreamHandler())
 def main():
     args = argument_parse()
 
-    config = Config.process(args, logger=mainlogger)
+    config = Config.process(args, logger=mainlogger, require_dataset_list=(not args.no_datasetlist))
     config, train_loader, validation_loader, _, model, optimizer_cls, _ = Training.setup(config, preload_dataset=args.preload)
     Config.print(config, mainlogger)
 
@@ -100,6 +100,7 @@ def argument_parse():
     parser.add_argument('--logfile', type=str, help='Set logfile (default is freeseg_train.log)')
     parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
     parser.add_argument("--verbose", action='store_true', help="Print debug info to stdout")
+    parser.add_argument("--no_datasetlist", action='store_true', help="No dataset_list.yaml required")
 
     if len(sys.argv) < 2:
         parser.print_help()
@@ -165,10 +166,6 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
                           gpu_index=config["gpu_index"],
                           debug=config["debug"],
                           **config["training"],
-                          #train_output_folder=config["training"]["train_output_folder"],                          
-                          #best_model_metric=config["training"]["best_model_metric"],
-                          #write_tensorboard_summary=config["training"].get("write_tensorboard_summary", False),
-                          #report_moving_avg=config["training"].get("report_moving_avg", False),
                          )
 
     # train wl2 epochs

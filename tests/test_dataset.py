@@ -41,7 +41,7 @@ logging.basicConfig(
 def main():
     args = argument_parse()
     
-    config = Config.process(args, logger=logging, require_train_outfolder=False, test_augment=args.augment)
+    config = Config.process(args, logger=logging, require_train_outfolder=False, test_augment=args.augment, require_dataset_list=(not args.no_datasetlist))
     config, _, _, _, _, _, train_dataset = Training.setup(config, preload_dataset=args.preload, create_loader=False, create_model=False)
     Config.print(config, logging)
 
@@ -63,6 +63,7 @@ def argument_parse():
     parser.add_argument("--deterministic", action='store_true', help="deterministic training")
     parser.add_argument("--augmentation_dir", type=str, help="Path to augmentation output (needed for augmenting)")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
+    parser.add_argument("--no_datasetlist", action='store_true', help="No dataset_list.yaml required")
     parser.add_argument("--train_cohort", nargs="+", type=str, default=['train'], help="Specify dataset cohort. Can be combinations of train, validation, or test")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     parser.add_argument("--batch_size", type=int, help="Batch size for DataLoader")

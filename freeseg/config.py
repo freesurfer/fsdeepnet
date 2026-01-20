@@ -37,6 +37,10 @@ class Config:
             assert (output_folder is not None), "Use '--augmentation_dir <>' to specify augmentation output directory"
         if (require_dataset_list):
             assert (config["dataset"].get("dataset_list_file", None) is not None), "Use '--dataset_list_file <dataset.yaml>' or 'dataset_list_file' in config.yaml to specify the dataset"
+        elif ("dataset_list_file" in config["dataset"]):
+            # not required, remove it from config["dataset"] if it exists
+            logger.info("******* DATASET_LIST_FILE NOT REQUIRED, REMOVE IT FROM config['dataset'] *******")
+            config["dataset"].pop("dataset_list_file")
 
         if (assert_dimensions):
             crop_size = config["preprocessing"]["crop_size"]
@@ -77,8 +81,9 @@ class Config:
             # save the config updated with command line args
             Config.save(config, cwd=cwd, cmd=cmd, saveas=config_saveas)
             # cpoy dataset_list.yaml
-            dataset_list_saveas = os.path.join(output_folder, f"dataset_list.{dt_nowstring}.yaml")
-            shutil.copyfile(config["dataset"]["dataset_list_file"], dataset_list_saveas)
+            if (require_dataset_list):
+                dataset_list_saveas = os.path.join(output_folder, f"dataset_list.{dt_nowstring}.yaml")
+                shutil.copyfile(config["dataset"]["dataset_list_file"], dataset_list_saveas)
 
         ### IN THE REST OF THE FUNCTION,
         ### CONFIG WILL BE RE-ARRANGED AND UPDATED TO BE USED IN TRAINING SETUP
@@ -92,7 +97,7 @@ class Config:
         if (config.get("dataset", None)):
             config["dataset"].update({ "ndims": config["model"]["ndims"],
                                     "batch_size": batch_size,
-                                    #"crop_size": crop_size,                                   
+                                    #"crop_size": crop_size,
                                     })
     
         ### set training, preprocessing devices
@@ -272,7 +277,8 @@ class Config:
         logger.info(f"color table: {cfg['ctab']}")
         logger.info(f"output_folder: {cfg['output_folder']}")
         logger.info(f"training config: saved as {cfg['config_saveas']}")
-        logger.info(f"dataset list: saved as {cfg['dataset_list_saveas']}")
+        if (cfg['dataset_list_saveas'] is not None):
+            logger.info(f"dataset list: saved as {cfg['dataset_list_saveas']}")
         logger.info(f"log file: {cfg['logfile']}")
         logger.info("")
 

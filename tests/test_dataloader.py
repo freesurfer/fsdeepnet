@@ -37,7 +37,7 @@ logging.basicConfig(
 def main():
     args = argument_parse()
     
-    config = Config.process(args, logger=logging, require_train_outfolder=False)
+    config = Config.process(args, logger=logging, require_train_outfolder=False, require_dataset_list=(not args.no_datasetlist))
     config, train_loader, _, _, _, _, _ = Training.setup(config, preload_dataset=False, create_val_loader=False, create_model=False)
     Config.print(config, logging)
 
@@ -70,7 +70,7 @@ def main():
 
             msg = f"  {step+1:4d}/{steps_per_epoch:<4d} batch #{batch_idx:<2d} ({batch_indices}), images({images.shape}), labels({labels.shape}) "
             if (hasextra):
-                shape = len(extra) if(isinstance(extra, list)) else extra.shape
+                shape = extra if (isinstance(extra, (list, tuple))) else extra.shape
                 msg += f", extra({shape})"
             logging.info(msg)
             #torch.cuda._sleep(500)
@@ -92,6 +92,9 @@ def argument_parse():
     parser.add_argument("--pin_memory", action='store_true', help="Store data in pinned memory")
     parser.add_argument("--persistent_workers", action='store_true', help=" Keep the workers Dataset instances alive")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
+    parser.add_argument("--no_datasetlist", action='store_true', help="No dataset_list.yaml required")
+
+
 
     # parse commandline
     args = parser.parse_args()
