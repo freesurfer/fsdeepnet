@@ -36,12 +36,15 @@ class Config:
             output_folder = config["preprocessing"].get("augmentation_dir", None)
             assert (output_folder is not None), "Use '--augmentation_dir <>' to specify augmentation output directory"
         if (require_dataset_list):
-            assert (config["dataset"].get("dataset_list_file", None) is not None), "Use '--dataset_list_file <dataset.yaml>' or 'dataset_list_file' in config.yaml to specify the dataset"
+            assert (config["dataset"].get("dataset_list_file", None) is not None), \
+                "\n1. if dtaset.yaml is used, use '--dataset_list_file <dataset.yaml>' or 'dataset_list_file' in config.yaml to specify one\n" \
+                "2. if dataset.yaml is not used, use '--no_datasetlist' to indicate that"
         elif ("dataset_list_file" in config["dataset"]):
             # not required, remove it from config["dataset"] if it exists
             logger.info("******* DATASET_LIST_FILE NOT REQUIRED, REMOVE IT FROM config['dataset'] *******")
             config["dataset"].pop("dataset_list_file")
 
+        # ??? todo: move the checks to individual application ???
         if (assert_dimensions):
             crop_size = config["preprocessing"].get("crop_size", None)
             nb_levels = config["model"].get("nb_levels", None)
