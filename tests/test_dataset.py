@@ -16,7 +16,7 @@ Usage: test_dataset.py
        --config <config.yaml>
        [--augment]
        [--deterministic]
-       [--augmentation_dir <augmentation_output_dir>]
+       [--preprocessing_outdir <preprocessing_output_dir>]
        [--dataset_list_file <dataset_list_file> --cohort <train|validation|test>]
        [--crop_size <W H D>]
        [--batch_size <n>]
@@ -41,15 +41,15 @@ logging.basicConfig(
 def main():
     args = argument_parse()
     
-    config = Config.process(args, logger=logging, require_train_outfolder=False, test_augment=args.augment, require_dataset_list=(not args.no_datasetlist))
+    config = Config.process(args, logger=logging, require_train_outfolder=False, test_augment=True, require_dataset_list=(not args.no_datasetlist))
     config, _, _, _, _, _, train_dataset = Training.setup(config, preload_dataset=args.preload, create_loader=False, create_model=False)
     Config.print(config, logging)
 
     if (args.augment):
         logging.info("Perform data augmentation ...")
-        for idx in range(len(train_dataset)):
-            sample = train_dataset[idx]
-            logging.info(f"Sample #{sample[0]:>3d} processed, sample len={len(sample)-1}")
+    for idx in range(len(train_dataset)):
+        sample = train_dataset[idx]
+        logging.info(f"Sample #{sample[0]:>3d} processed, sample len={len(sample)-1}")
 
     
 def argument_parse():
@@ -61,7 +61,7 @@ def argument_parse():
     parser.add_argument("--preload", action='store_true', help="Preload training dataset")
     parser.add_argument("--augment", action='store_true', help="Perform augmentation on input image/label.")
     parser.add_argument("--deterministic", action='store_true', help="deterministic training")
-    parser.add_argument("--augmentation_dir", type=str, help="Path to augmentation output (needed for augmenting)")
+    parser.add_argument("--preprocessing_outdir", type=str, help="Path to preprocessing output (with augmenting if requested)")
     parser.add_argument("--dataset_list_file", type=str, help="Path to the dataset list file")
     parser.add_argument("--no_datasetlist", action='store_true', help="No dataset_list.yaml required")
     parser.add_argument("--train_cohort", nargs="+", type=str, default=['train'], help="Specify dataset cohort. Can be combinations of train, validation, or test")

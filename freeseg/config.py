@@ -34,7 +34,8 @@ class Config:
             assert (output_folder is not None), "Use '--train_output_folder <>' or 'train_output_folder' in config.yaml to specify training output directory"
         elif (test_augment):
             output_folder = config["preprocessing"].get("augmentation_dir", None)
-            assert (output_folder is not None), "Use '--augmentation_dir <>' to specify augmentation output directory"
+            assert (output_folder is not None), \
+                "Use '--preprocessing_outdir <>' or 'preprocessing.augmentation_dir' configurable to specify preprocessing output directory"
         if (require_dataset_list):
             assert (config["dataset"].get("dataset_list_file", None) is not None), \
                 "\n1. if dtaset.yaml is used, use '--dataset_list_file <dataset.yaml>' or 'dataset_list_file' in config.yaml to specify one\n" \
@@ -199,8 +200,8 @@ class Config:
             config["training"]["train_output_folder"] = args.train_output_folder
         if ('report_moving_avg' in args and args.report_moving_avg): # bool
             config["training"]["report_moving_avg"] = args.report_moving_avg        
-        if ('augmentation_dir' in args and args.augmentation_dir is not None):
-            config["preprocessing"]["augmentation_dir"] = args.augmentation_dir
+        if ('preprocessing_outdir' in args and args.preprocessing_outdir is not None):
+            config["preprocessing"]["augmentation_dir"] = args.preprocessing_outdir
         if ('deterministic' in args and args.deterministic): # bool
             config["training"]["deterministic"] = args.deterministic
         if ('batch_size' in args and args.batch_size is not None):
