@@ -799,7 +799,6 @@ class Training:
         config["wandb_dir"] = None
         if (wandb_logger is not None and wandb_logger != "disabled"):
             from freeseg.wandblogger import WandbLogger
-            cfg_wandb = config["training"].pop("wandb", {})
             wandb_logger = WandbLogger(config, **cfg_wandb)
             config["wandb_dir"] = wandb_logger.dir
         else:
