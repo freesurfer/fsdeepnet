@@ -164,7 +164,7 @@ def main():
     torch_model_saveas = args.torch_model_saveas
     
     config = Config.process(args, logger=logging, require_train_outfolder=False, require_dataset_list=False)
-    config, _, _, _, model, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=True)
+    config, _, _, _, model, _, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=True)
 
     models.model_arch(model.arch_dict, logger=logging)
     

@@ -113,7 +113,7 @@ def main():
     config = None
     if (args.config is not None):
         config = Config.process(args, logger=logging, require_train_outfolder=False, require_dataset_list=False, assert_dimensions=False)
-        config, _, _, model_arch_dict, _, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=False, set_dataset_attr=True)
+        config, _, _, model_arch_dict, _, _, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=False, set_dataset_attr=True)
 
     # load pre-trained model
     checkpoint = None
@@ -194,7 +194,7 @@ def main():
     #models.model_summary_torchinfo(model, (1, 1, *args.input_shape[-args.ndims:]))
         
 
-def argument_parse(description):
+def argument_parse(description=None):
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description=description)
 

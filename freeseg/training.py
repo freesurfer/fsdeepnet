@@ -32,6 +32,7 @@ class Training:
         
     def __init__(self,
                  dnn=None,                 # deep neural network
+                 wandb_logger=None,        # W&B runner
                  train_loader=None,        # torch.utils.data.DataLoader
                  fn_data_generator=None,   # data generator
                  model_arch_dict=None,     # network architecture dictionary
@@ -89,6 +90,7 @@ class Training:
         if (self._gpu_index is None and torch.cuda.is_available()):
             self._gpu_index = torch.cuda.current_device()
 
+        self._wandb_logger = wandb_logger
         self._data_generator = fn_data_generator
 
         self._summary_writer = None
@@ -172,6 +174,12 @@ class Training:
                 self._checkpoint.update({"label_lookup" : self._label_lookup})
             self._model_checkpoint = None  # the checkpoint will only be used once in the training
 
+        """
+        if (self._wandb_logger is not None):
+            # tell wandb to watch what the model gets up to: gradients, weights.
+            self._wandb_logger.watch(self._model, loss_fn, log="all", log_freq=watch_log_freq)
+        """
+        
         # save last epoch number
         self._end_epoch = end_epoch
         
@@ -206,8 +214,12 @@ class Training:
             if (self._validation_loader is None):
                 loss_dice_avg[epoch-start_epoch] = np.array((train_loss, train_dice_avg))
                 if (self._dice_metric_hard is not None):
+                    if (self._wandb_logger is not None):
+                        self._wandb_logger.log({f"train_Loss_{metric_type}": train_loss, f"train_dice_avg_{metric_type}": train_dice_avg}, step=epoch+1)
                     info = f"Epoch [{epoch+1:>3d}/{end_epoch:<3d}], Train Loss: {train_loss:.4f}, Train Dice Avg: {train_dice_avg:.4f}"
                 else:
+                    if (self._wandb_logger is not None):
+                        self._wandb_logger.log({f"train_Loss_{metric_type}": train_loss}, step=epoch+1)
                     info = f"Epoch [{epoch+1:>3d}/{end_epoch:<3d}], Train Loss: {train_loss:.4f}"
                 logging.info(info)
 
@@ -245,8 +257,12 @@ class Training:
 
                 loss_dice_avg[epoch-start_epoch] = np.array((train_loss, train_dice_avg, validation_loss, validation_dice_avg))
                 if (self._dice_metric_hard is not None):
+                    if (self._wandb_logger is not None):
+                        self._wandb_logger.log({f"train_Loss_{metric_type}": train_loss, f"train_dice_avg_{metric_type}": train_dice_avg, f"val_loss_{metric_type}": validation_loss, f"val_dice avg_{metric_type}": validation_dice_avg}, step=epoch+1)
                     info = f"Epoch [{epoch+1:>3d}/{end_epoch:<3d}], Train Loss: {train_loss:.4f}, Train Dice Avg: {train_dice_avg:.4f}, Val Loss: {validation_loss:.4f}, Val Dice Avg: {validation_dice_avg:.4f}"
                 else:
+                    if (self._wandb_logger is not None):
+                        self._wandb_logger.log({f"train_Loss_{metric_type}": train_loss, f"train_dice_avg_{metric_type}": train_dice_avg}, step=epoch+1)                    
                     info = f"Epoch [{epoch+1:>3d}/{end_epoch:<3d}], Train Loss: {train_loss:.4f}, Val Loss: {validation_loss:.4f}"
                 logging.info(info)
 
@@ -591,7 +607,7 @@ class Training:
         1. create training DataLoader, validation DataLoader, model, and optimizer
         2. update config
 
-        returns config, train_loader, validation_loader, model_arch_dict, model, optimizer, train_dataset
+        returns config, train_loader, validation_loader, model_arch_dict, model, optimizer, train_dataset, wandb_logger
         """
 
         # create a torch.utils.data.Dataset object
@@ -776,4 +792,17 @@ class Training:
             #           see https://pytorch.org/docs/stable/notes/randomness.html
             utils.set_deterministic_training()
 
-        return config, train_loader, validation_loader, model_arch_dict, model, optimizer_cls, train_dataset
+        ### create wandbLogger
+        cfg_wandb = config["training"].pop("wandb", {})
+        wandb_logger = cfg_wandb['mode'] if (cfg_wandb) else None
+        config["wandb_logger"] = wandb_logger
+        config["wandb_dir"] = None
+        if (wandb_logger is not None and wandb_logger != "disabled"):
+            from freeseg.wandblogger import WandbLogger
+            cfg_wandb = config["training"].pop("wandb", {})
+            wandb_logger = WandbLogger(config, **cfg_wandb)
+            config["wandb_dir"] = wandb_logger.dir
+        else:
+            wandb_logger = None     
+
+        return config, train_loader, validation_loader, model_arch_dict, model, optimizer_cls, train_dataset, wandb_logger

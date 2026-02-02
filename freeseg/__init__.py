@@ -4,6 +4,7 @@ from . import evaluation
 from . import checkpoint
 from . import metrics
 from . import config
+from . import wandblogger
 from . import filter
 
 from .models import unet

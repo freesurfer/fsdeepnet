@@ -110,6 +110,12 @@ training:
   write_tensorboard_summary: False  # whether to output tensorboard logs
   perform_evaluation: False         # whether to perform evaluation after each epoch
   best_model_metric: dice           # metric to pick best model when perform_evaluation=True  
+  wandb:
+    mode: disabled  # online, offline, disabled
+    project: wandb_project_name
+    name: wandb_run_name
+    #dir: /path/wandb # the local directory where W&B stores run data and logs (defaults to ./wandb)
+    watch_log_freq: 10
 
 evaluation:
   batch_size: 1

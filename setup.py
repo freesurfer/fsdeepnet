@@ -4,6 +4,7 @@ requirements = [
     'torch',
     'torchvision<0.17',  # to satisfy torch 2.1.2
     'psutil',
+    'wandb',
     #'PyQt5',  # for matplotlib
     #'pynvml',
     #'voxynth@git+https://github.com/dalcalab/voxynth.git@main'

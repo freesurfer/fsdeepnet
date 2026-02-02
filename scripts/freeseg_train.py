@@ -42,11 +42,10 @@ def main():
     args = argument_parse()
 
     config = Config.process(args, logger=mainlogger, require_dataset_list=(not args.no_datasetlist))
-    config, train_loader, validation_loader, _, model, optimizer_cls, _ = Training.setup(config, preload_dataset=args.preload)
+    config, train_loader, validation_loader, _, model, optimizer_cls, _, wandb_logger = Training.setup(config, preload_dataset=args.preload)
     Config.print(config, mainlogger)
 
-    train(config, train_loader, model, optimizer_cls,
-          validation_loader=validation_loader)
+    train(config, train_loader, model, optimizer_cls, validation_loader=validation_loader, wandb_logger=wandb_logger)
 
     # check memory usage
     if (config["vmp"]):
@@ -112,7 +111,7 @@ def argument_parse():
     return args
 
 
-def train(config, train_loader, model, optimizer_cls, validation_loader=None):
+def train(config, train_loader, model, optimizer_cls, validation_loader=None, wandb_logger=None):
     # print model_arch_dict
     model_arch_dict = model.arch_dict
     models.model_arch(model_arch_dict, logger=mainlogger)
@@ -154,6 +153,7 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
     # create the Training object
     trainer_cls = utils.get_class(config["training"].get("class", "freeseg.training.Training"))        
     trainer = trainer_cls(dnn=model,
+                          wandb_logger=wandb_logger,
                           train_loader=train_loader,
                           fn_data_generator=fn_data_generator,
                           model_arch_dict=model_arch_dict,
@@ -194,6 +194,9 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None):
                             metric_type='dice',
                             optimizer_cls=optimizer_cls,
                             loss_fn=dice_loss_fn)
+        
+    if (wandb_logger is not None):
+        wandb_logger.finish()
 
 
 # execute script
