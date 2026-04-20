@@ -41,7 +41,7 @@ logging.basicConfig(
 def main():
     args = argument_parse()
     
-    config = Config.process(args, logger=logging, require_train_outfolder=False, test_augment=True, require_dataset_list=(not args.no_datasetlist))
+    config = Config.process(args, logger=logging, require_train_outfolder=False, test_augment=args.augment, require_dataset_list=(not args.no_datasetlist))
     config, _, _, _, _, _, train_dataset, wandb_logger = Training.setup(config, preload_dataset=args.preload, create_loader=False, create_model=False)
     Config.print(config, logging)
 
