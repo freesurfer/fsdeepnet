@@ -104,7 +104,6 @@ training:
     dice_squared_form: False
   model_metrics_accuracy:
     class: freeseg.metrics.DiceScore
-    num_classes: 5  # number of segmentation labels
     dice_type: hard
     dice_squared_form: False  
   write_tensorboard_summary: False  # whether to output tensorboard logs

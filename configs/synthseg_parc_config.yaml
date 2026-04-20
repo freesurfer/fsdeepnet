@@ -60,7 +60,6 @@ training:
     dice_squared_form: True    
   model_metrics_accuracy:
     class: freeseg.metrics.DiceScore
-    num_classes: 69  # number of parcellation labels
     dice_type: hard
     dice_squared_form: True
   write_tensorboard_summary: False  # whether to output tensorboard logs

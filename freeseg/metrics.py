@@ -10,7 +10,6 @@ class Dice(nn.Module):
     Calculates the Dice score or loss for binary or multi-class segmentation.
 
     Args:
-        num_classes (int or None, optional): Number of segmentation classes (including background)
         dice_type (str, optional): Type of Dice calculation ('soft' or 'hard').
                                     Defaults to "soft".
         smooth (float, optional): Smoothing factor to prevent division by zero.
@@ -21,7 +20,6 @@ class Dice(nn.Module):
 
     def __init__(
         self,
-        num_classes: int = None,
         dice_type: str = "soft",
         smooth: float = 1e-6,
         return_loss: bool = True,
@@ -29,7 +27,6 @@ class Dice(nn.Module):
         **kwargs
     ):
         super(Dice, self).__init__()
-        self.num_classes = num_classes
         self.dice_type = dice_type.lower()
         self.smooth = smooth
         self.return_loss = return_loss
@@ -41,9 +38,6 @@ class Dice(nn.Module):
             raise ValueError(
                 f"Invalid `dice_type`: {dice_type}. " f"Choose from: {valid_dice_types}"
             )
-        if (dice_type.lower() == "hard"):
-            assert (num_classes is not None), "Must provide number of segmentation classes (including background)"
-
         
     
     def _dice_score(self, outputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
@@ -87,8 +81,9 @@ class Dice(nn.Module):
         """
         if self.dice_type == "hard":
             # convert the probabilities map to onehot encoded labels
+            num_classes = outputs.size(1)
             outputs = torch.argmax(outputs, dim=1)
-            outputs = utils.onehot(outputs, num_classes=self.num_classes, device=outputs.device)  
+            outputs = utils.onehot(outputs, num_classes=num_classes, device=outputs.device)  
 
         # Calculate Dice scores for each class
         dice_scores = self._dice_score(outputs, targets)
