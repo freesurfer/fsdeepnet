@@ -78,8 +78,6 @@ class SegmentationDataset(torch.utils.data.Dataset):
             assert (len(self.label_files) == len(self.priors_files)), "label and priors need to be the same length"
 
         self.data_augment = augment_obj
-        if (self.data_augment is not None):
-            augmentation.check_augmentations(self.data_augment)
 
         # update augmentation.AugmentBase.RES_DIFF_THRESH
         res_diff_thresh = self.dataset_profile.get("res_diff_thresh", None)

@@ -2,6 +2,8 @@ from .augmentbase import AugmentBase
 from .augmentvoxynth import AugmentVoxynth
 
 
+# implement apply_augmentations and check_augmentations at the package level
+# so that user augmentation plugin doesn't have to extend AugmentBase
 def apply_augmentations(augment_obj,
                         image_tensor,
                         label_tensor,

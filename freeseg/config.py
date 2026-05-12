@@ -33,7 +33,9 @@ class Config:
             output_folder = config["training"].get("train_output_folder", None)
             assert (output_folder is not None), "Use '--train_output_folder <>' or 'train_output_folder' in config.yaml to specify training output directory"
         elif (test_augment):
-            output_folder = config["preprocessing"].get("augmentation_dir", None)
+            output_folder = None
+            if ("preprocessing" in config):
+                output_folder = config["preprocessing"].get("augmentation_dir", None)
             assert (output_folder is not None), \
                 "Use '--preprocessing_outdir <>' or 'preprocessing.augmentation_dir' configurable to specify preprocessing output directory"
         if (require_dataset_list):
@@ -46,7 +48,7 @@ class Config:
             config["dataset"].pop("dataset_list_file")
 
         # ??? todo: move the checks to individual application ???
-        if (assert_dimensions):
+        if (assert_dimensions and "preprocessing" in config):
             crop_size = config["preprocessing"].get("crop_size", None)
             nb_levels = config["model"].get("nb_levels", None)
             ndims = config["model"].get("ndims", None)
@@ -162,6 +164,11 @@ class Config:
         # backward compatibility - handle config.yaml w/o 'dataloader' section
         if ('dataloader' not in config):
             config['dataloader'] = {}
+        # 'preprocessing' configurable is optional in config yaml
+        # create an empty dict so that its values can be updated with command line options
+        # remove empty config['preprocessing'] at the end if there are no command line options related to 'preprocessing'
+        if ('preprocessing' not in config):
+            config['preprocessing'] = {}
 
         # overwrite config with command line options
         if ('verbose' in args and args.verbose):  # bool
@@ -236,6 +243,10 @@ class Config:
                                      "persistent_workers": persistent_workers,
                                      "prefetch_factor": prefetch_factor})
 
+        # remove config.preprocessing if it is empty
+        if (not config['preprocessing']):
+            del(config['preprocessing'])
+
         return config
 
 
@@ -264,16 +275,17 @@ class Config:
         logger.info(f"batch_size: {cfg['training']['batch_size']}")
 
         logger.info(f"keep_trainset_in_memory: {cfg['keep_trainset_in_memory']}")
-        logger.info(f"deterministic: {cfg['preprocessing'].get('deterministic', False)}")
+        logger.info(f"deterministic: {cfg['training'].get('deterministic', False)}")
         perform_evaluation = cfg['training'].get('perform_evaluation', False)
         logger.info(f"perform_evaluation: {perform_evaluation}")
         if (perform_evaluation):
             logger.info(f"best_model_metric: {cfg['training'].get('best_model_metric')}")
-        logger.info("Preprocessing Device: {}".format(cfg['preprocessing_device']) + (f' (GPU index: {cfg["gpu_index"]})' if (cfg.get('gpu_index') is not None) else ''))
-        logger.info(f"Preprocessing augmentation wrapper: {cfg['preprocessing']['class']}")
-        logger.info(f"Preprocessing augmentations: {cfg['train_augmentations']}")
-        logger.info(f"Preprocessing crop_size: {cfg['preprocessing']['crop_size']}")
-        logger.info(f"Preprocessing sampling_hp: {cfg['preprocessing'].get('sampling_hp', True)}")
+        logger.info("Preprocessing Device: {}".format(cfg['preprocessing_device']) + (f' (GPU index: {cfg["gpu_index"]})' if (cfg.get('gpu_index') is not None) else ''))            
+        if ("preprocessing" in cfg):
+            logger.info(f"Preprocessing augmentation wrapper: {cfg['preprocessing']['class']}")
+            logger.info(f"Preprocessing augmentations: {cfg['train_augmentations']}")
+            logger.info(f"Preprocessing crop_size: {cfg['preprocessing']['crop_size']}")
+            logger.info(f"Preprocessing sampling_hp: {cfg['preprocessing'].get('sampling_hp', True)}")
         logger.info(f"Preprocessing num_workers: {cfg['dataloader']['num_workers']}")
         logger.info(f"Preprocessing persistent_workers: {cfg['dataloader']['persistent_workers']}")
         logger.info(f"Preprocessing pin_memory: {cfg['dataloader']['pin_memory']}")

@@ -669,6 +669,10 @@ class Training:
                                          **cfg_preprocess,  # '**' operator unpacks 'preprocessing' key/value pairs to keyword arguments
                                          **cfg_dataset)     # '**' operator unpacks 'dataset' key/value pairs to keyword arguments
 
+            # check if augmentations specified are valid
+            from freeseg import augmentation                
+            augmentation.check_augmentations(augment_obj)
+                
             return augment_obj
 
 
@@ -681,10 +685,11 @@ class Training:
             (create_loader and create_val_loader and perform_evaluation)):
             assert("dataset" in config), "'dataset' configurables are required"
 
-        ### check 'preprocessing' configurables
-        if (create_train_dataset):
-            assert("preprocessing" in config), "'preprocessing' configurables are required"
-
+        ### check if 'preprocessing' configurable presents
+        do_preprocessing = False
+        if ("preprocessing" in config):
+            do_preprocessing = True
+        
         ### check 'training' configurables
         if ((create_train_dataset and create_loader) or create_model):
             assert("training" in config), "'training' configurables are required"
@@ -704,14 +709,18 @@ class Training:
         ### create training Dataset
         train_dataset = None
         if (create_train_dataset):
-            train_augmentations = utils.remove_duplicates(Config.get_augmentations(config["preprocessing"].get("augmentations")))
-            train_augment_obj = create_augment_object(train_augmentations, config, cohort="train", device=config["preprocessing_device"])
+            train_augment_obj, augmentation_dir = None, None
+            if (do_preprocessing):
+                train_augmentations = utils.remove_duplicates(Config.get_augmentations(config["preprocessing"].get("augmentations")))
+                # UPDATE config
+                config.update({"train_augmentations": train_augmentations})                
+                train_augment_obj = create_augment_object(train_augmentations, config, cohort="train", device=config["preprocessing_device"])
+                augmentation_dir = config["preprocessing"].get("augmentation_dir", None)
+                
             train_dataset = load_dataset(py_dataset_cls, config["dataset"], train_augment_obj,
                                          device=config["preprocessing_device"],
                                          keep_trainset_in_memory=config["keep_trainset_in_memory"],
-                                         cohort=config["train_cohort"], preload=preload_dataset, augdir=config["preprocessing"].get("augmentation_dir", None))
-            # UPDATE config
-            config.update({"train_augmentations": train_augmentations})
+                                         cohort=config["train_cohort"], preload=preload_dataset, augdir=augmentation_dir)
             # update config["dataset"]
             if (hasattr(train_dataset, "profile")):
                 config["dataset"].update(train_dataset.profile)
@@ -726,10 +735,12 @@ class Training:
         ### create validation DataLoader
         validation_loader = None
         if (create_loader and create_val_loader and perform_evaluation):
-            # enforce "centercrop"/"rescalevolume" for evaluation_augmentations
-            val_augmentations = ["centercrop", "rescalevolume"]
-            config["evaluation"]["augmentations"] = val_augmentations
-            val_augment_obj = create_augment_object(val_augmentations, config, cohort="validation", device=config["preprocessing_device"])
+            val_augment_obj = None
+            if (do_preprocessing):
+                # enforce "centercrop"/"rescalevolume" for evaluation_augmentations
+                val_augmentations = ["centercrop", "rescalevolume"]
+                config["evaluation"]["augmentations"] = val_augmentations
+                val_augment_obj = create_augment_object(val_augmentations, config, cohort="validation", device=config["preprocessing_device"])
             # to keep validation_dataset in memory,
             # validation_dataset.preload() needs to be called
             validation_dataset = load_dataset(py_dataset_cls, config["dataset"], val_augment_obj,

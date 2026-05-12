@@ -55,7 +55,13 @@ class AugmentBase:
         # 3. transforms: save the augmentations to be applied
         self.transforms = transforms
 
-        # 4. individual augmentation instances: initiate augmentation instances that the wrapper class supports
+        # 4. crop_size: required for augmentations centroidcrop, centercrop, randomcrop, randomcentercrop
+        for augmentation in (self.transforms):
+            if (augmentation == "centroidcrop" or augmentation == "centercrop" or
+                augmentation == "randomcrop"   or augmentation == "randomcentercrop"):
+                assert(crop_size is not None), f"'crop_size' is required for augmentation '{augmentation}'. Specify it in 'preprocessing' section."        
+        
+        # 5. individual augmentation instances: initiate augmentation instances that the wrapper class supports
         self.flip = Flip(left_right_corresponding, hp=hp.get('flip'), device=device, sampling_hp=sampling_hp, verbose=verbose)
         self.spatialdeformation = SpatialDeformation(hp=hp.get('spatialdeformation'), device=device, sampling_hp=sampling_hp, verbose=verbose)
         self.randomcrop = RandomCrop(crop_size, bbox_labels=bbox_labels, hp=hp.get('randomcrop'), device=device, mode='random', sampling_hp=sampling_hp, verbose=verbose)
