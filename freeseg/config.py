@@ -42,7 +42,7 @@ class Config:
             assert (config["dataset"].get("dataset_list_file", None) is not None), \
                 "\n1. if dtaset.yaml is used, use '--dataset_list_file <dataset.yaml>' or 'dataset_list_file' in config.yaml to specify one\n" \
                 "2. if dataset.yaml is not used, use '--no_datasetlist' to indicate that"
-        elif ("dataset_list_file" in config["dataset"]):
+        elif (("dataset" in config) and ("dataset_list_file" in config["dataset"])):
             # not required, remove it from config["dataset"] if it exists
             logger.info("******* DATASET_LIST_FILE NOT REQUIRED, REMOVE IT FROM config['dataset'] *******")
             config["dataset"].pop("dataset_list_file")
