@@ -691,7 +691,7 @@ class Training:
             do_preprocessing = True
         
         ### check 'training' configurables
-        if ((create_train_dataset and create_loader) or create_model):
+        if (create_train_dataset and create_loader):
             assert("training" in config), "'training' configurables are required"
 
         ### retrieve dataset class
@@ -791,8 +791,10 @@ class Training:
             model_arch_dict = model.arch_dict
                 
             ### retrieve optimizer class
-            optimizer = config["training"].get("optimizer")
-            optimizer_cls = utils.get_class(optimizer.get("class", "torch.optim.Adam"))
+            optimizer_cls = None
+            if ("training" in config):
+                optimizer = config["training"].get("optimizer")
+                optimizer_cls = utils.get_class(optimizer.get("class", "torch.optim.Adam"))
         
         ### set_deterministic_training if requested
         deterministic = False
@@ -804,15 +806,15 @@ class Training:
             utils.set_deterministic_training()
 
         ### create wandbLogger
-        cfg_wandb = config["training"].pop("wandb", {})
-        wandb_logger = cfg_wandb['mode'] if (cfg_wandb) else None
-        config["wandb_logger"] = wandb_logger
-        config["wandb_dir"] = None
-        if (wandb_logger is not None and wandb_logger != "disabled"):
-            from freeseg.wandblogger import WandbLogger
-            wandb_logger = WandbLogger(config, **cfg_wandb)
-            config["wandb_dir"] = wandb_logger.dir
-        else:
-            wandb_logger = None     
+        wandb_logger = None
+        if (create_train_dataset and create_loader):
+            cfg_wandb = config["training"].pop("wandb", {})
+            wandb_logger = cfg_wandb['mode'] if (cfg_wandb) else None
+            config["wandb_logger"] = wandb_logger
+            config["wandb_dir"] = None
+            if (wandb_logger is not None and wandb_logger != "disabled"):
+                from freeseg.wandblogger import WandbLogger
+                wandb_logger = WandbLogger(config, **cfg_wandb)
+                config["wandb_dir"] = wandb_logger.dir
 
         return config, train_loader, validation_loader, model_arch_dict, model, optimizer_cls, train_dataset, wandb_logger
