@@ -17,6 +17,7 @@ description = """
 Usage: freeseg_checkpoint.py 
        --config <config.yaml> | --checkpoint <checkpoint> [ [--info [--detail] [--report_type] [--nkeys <n>] [--keys <>] ]
                                                             [--weights <model_state_key>:weight_outdir>]
+                                                            [--load_weights]
                                                             [--saveas <> 
                                                               [--strip <dictkey1 dictkey2 ...>]
                                                               [--rename <fromkey1:tokey1 fromkey2:tokey2 ...>]
@@ -29,9 +30,11 @@ Usage: freeseg_checkpoint.py
 
        1. Use '--config <>' to create the network, or 
               '--checkpoint <> to load a pre-trained network.
-       2. Use '--weights <model_state_key>:weight_outdir>' to save trainable parameters in <checkpoint>.
-          The option is ignored if it is not run with '--checkpoint <>'.
-       3. Options to update pre-trained model: 
+       2. Use '--weights <model_state_key>:<weight_outdir>' to save trainable parameters in <checkpoint>.
+          <model_state_key> is the dictionary key for model state. It depends on the <checkpoint>. The option is ignored if not run with '--checkpoint <>'.
+       3. Use '--load_weights' to load weights into constructed model.
+          The option can be used to test if the weights are consistent with model architecture. It is ignored if not run with '--checkpoint <>'.
+       4. Options to update pre-trained model: 
           a) '--strip <dictkey1 dictkey2 ...>': strip <dictkey> from checkpoint
              <dictkey> needs to match dict keywords in checkpoint
           b) '--update label_lookup:<> segmentation_names:<> topology_classes:<> target_res:<> model_class:<> config:config'
@@ -52,24 +55,27 @@ Example 1: retrieve checkpoint top level information
 Example 2: retrieve information of 30 layers of model_state_dict
        fspython freeseg_checkpoint.py --checkpoint orig.pth --info --detail --keys model_state_dict --nkey 30
 
-Example 3: rename 'model_state' to 'model_state_dict'
+Example 3: save trainable parameters only
+        fspython freeseg_checkpoint.py --checkpoint orig.pth --weights model_state_dict:weight_dir
+
+Example 4: rename 'model_state' to 'model_state_dict'
        fspython freeseg_checkpoint.py --checkpoint orig.pth --rename model_state:model_state_dict --saveas new.pth
 
-Example 4: strip 'optimizer_state'
+Example 5: strip 'optimizer_state'
        fspython freeseg_checkpoint.py --checkpoint orig.pth --strip optimizer_state --saveas new.pth
 
-Example 5: prefix model state layer
+Example 6: prefix model state layer
        fspython freeseg_checkpoint.py --checkpoint orig.pth --prefix-model_layer unet3d. --saveas new.pth
 
-Example 6: replace model state layer
+Example 7: replace model state layer
        fspython freeseg_checkpoint.py --checkpoint orig.pth --replace-model_layer unet3d:unet --saveas new.pth
 
-Example 7: update checkpoint
+Example 8: update checkpoint
        fspython freeseg_checkpoint.py --checkpoint orig.pth
          --update topology_classes:topological_classes.npy segmentation_names:segmentation_names.npy
          --saveas new.pth
 
-Example 8: update checkpoint 'train_dataset_dict' and 'model_arch_dict' using information from config.yaml
+Example 9: update checkpoint 'train_dataset_dict' and 'model_arch_dict' using information from config.yaml
        fspython freeseg_checkpoint.py --checkpoint orig.pth --update config:config --saveas new.pth
 """
 
@@ -160,7 +166,7 @@ def main():
     if (update):
         update_checkpoint(checkpoint, args.saveas, config, args.update, args.strip, args.rename, args.prefix_model_layer, args.replace_model_layer)
 
-    if (info or update):
+    if (info or update or (args.weights is not None and args.input_shape is None)):
         sys.exit(0)
 
     # create the network from config or re-construct it from pre-trained model
@@ -176,6 +182,10 @@ def main():
         
     model_class = utils.get_class(the_model_name)
     model = model_class(model_arch_dict).to(device)
+
+    if (args.load_weights):
+        print(f"Loading weights from {args.checkpoint}")
+        model.load_state_dict(checkpoint.model_state_dict)
 
     # update model_arch_dict with network defaults
     model_arch_dict = model.arch_dict
@@ -209,6 +219,7 @@ def argument_parse(description=None):
     parser.add_argument("--nkeys", type=int, default=30, help="Limit the number of dict keys to report, only works with '--detail'")
     parser.add_argument("--keys", nargs="+", type=str, help="List of dict keys to report, only works with '--detail'")
     parser.add_argument("--weights", type=str, help="Save trainable parameters in given checkpoint, <model_state_key:weight_outdir>")
+    parser.add_argument("--load_weights", action='store_true', help="Load weights from given checkpoint")
     parser.add_argument("--strip", nargs="+", type=str, help="Strip dict keys from checkpoint")
     parser.add_argument("--rename", nargs="+", type=str, help="Rename checkpoint top level dictionary keywords, <fromkey1:tokey1 fromkey2:tokey2 ...>")
     parser.add_argument("--prefix-model_layer", type=str, help="Prepend 'prefix' to each model state layer name")
