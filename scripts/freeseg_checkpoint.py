@@ -85,6 +85,7 @@ logging.basicConfig(
 def main():
     args = argument_parse(description)
 
+    set_dataset_attr = False
     info = True if (args.info) else False
     update = False
     if (args.rename is not None or \
@@ -102,6 +103,7 @@ def main():
         assert (args.checkpoint is not None), f"Use '--checkpoint <>' to load a pre-trained network"
     if (args.update is not None and "config:config" in args.update):
         assert (args.config is not None), f"Specify '--config <>' for '--update {args.update}'"
+        set_dataset_attr = True
     if (update):
         assert (args.saveas is not None), f"Specify path to save new checkpoint as '--saveas <>'"
 
@@ -113,7 +115,7 @@ def main():
     config = None
     if (args.config is not None):
         config = Config.process(args, logger=logging, require_train_outfolder=False, require_dataset_list=False, assert_dimensions=False)
-        config, _, _, model_arch_dict, _, _, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=False, set_dataset_attr=True)
+        config, _, _, model_arch_dict, _, _, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=False, set_dataset_attr=set_dataset_attr)
 
     # load pre-trained model
     checkpoint = None
