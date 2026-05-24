@@ -180,7 +180,7 @@ def main():
     label_lookup = None
     train_dataset_dict = config.get("dataset", None)
     if (train_dataset_dict is not None):
-        label_lookup = train_dataset_dict.get("label_lookup", None)
+        label_lookup = train_dataset_dict.pop("label_lookup", None)
     checkpoint = Checkpoint(model_arch_dict=model.arch_dict, train_dataset_dict=train_dataset_dict, label_lookup=label_lookup) 
 
     # skip moving_mean/moving_variance if track_running_stat=False
