@@ -153,7 +153,7 @@ class Prediction:
         # self._topology_classes can be either str to npy, or numpy array
         if (isinstance(self._topology_classes, str)):
             self._topology_classes = np.load(self._topology_classes) if (os.path.exists(self._topology_classes)) else None
-        if (self._topology_classes is not None):            
+        if (self._topology_classes is not None):
             self._topology_classes = self._topology_classes[self._unique_idx_seg]
 
         # retrieve self._label_mapping, self._inverse_label_mapping from checkpoint.train_dataset_dict
@@ -338,7 +338,7 @@ class Prediction:
         for i in range(len(path_images)):
             ### preprocessing ###
             label_lookup = self._label_lookup
-            sfimage, orig_ori, preprocessed_im_geom, preprocessed_im_shape, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup = \
+            sfimage, orig_ori, preprocessed_im_geom, preprocessed_im_shape, target_im_geom, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup = \
                 self.preprocess(i, path_images, path_labels, path_priors, codenames, label_lookup)
 
             ### prediction ###
@@ -360,7 +360,8 @@ class Prediction:
                         dtype=np.int32 if (posteriors_parc is not None) else None,
                         orientation=orig_ori,
                         labels=label_lookup if (addctab) else None,
-                        resample=resample, method='nearest')
+                        resample=resample, method='nearest',
+                        target_im_geom=target_im_geom)
             logging.info(f"output segmentation {out_segmentations[i]}")
             if (self._debug):
                 logging.debug("output prediction ...")
@@ -447,16 +448,18 @@ class Prediction:
             logging.debug("output re-oriented image/prior ...")
             out_reoriented_image = os.path.join(self._out_debug_dir, f"{self._curr_codename}_image.reoriented.RAS.mgz")
             utils.save_framedimage(image_tensor, out_reoriented_image, original_framedimage=sfimage)
+            np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_image.reoriented.RAS.npy"), image_tensor.cpu().movedim(0, -1).numpy().astype(np.float32))
             if (path_priors is not None):
                 out_reoriented_prior = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prior.reoriented.RAS.mgz")
                 utils.save_framedimage(prior_tensor, out_reoriented_prior, original_framedimage=sfprior)
 
         # resample image to target_res if necessary
         # original input is returned from ResampleVolume() if no resampling is necessary
-        out_resample = self.apply_resample({'image':image_tensor, 'voxsize':sfimage.geom.voxsize[:image_tensor.ndim-1], 'geom':sfimage.geom})
+        out_resample = self.apply_resample({'image':image_tensor, 'voxsize':sfimage.geom.voxsize[:image_tensor.ndim-1], 'geom':sfimage.geom, 'target_geom':orig_geom})
         image_tensor_preprocessed = out_resample.get('image')
         preprocessed_im_geom = out_resample.get('geom')
-        preprocessed_im_shape = image_tensor_preprocessed.shape[1:]        
+        preprocessed_im_shape = image_tensor_preprocessed.shape[1:]
+        target_im_geom = out_resample.get('target_geom')  # target network output geom
         if (self._debug):
             np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_resampled_image.npy"), image_tensor_preprocessed.cpu().movedim(0, -1).numpy().astype(np.float32))
 
@@ -529,13 +532,15 @@ class Prediction:
         # pad image
         pad_shape = [utils.find_closest_number_divisible_by_m(s, 2 ** self._nb_levels, 'higher') for s in image_tensor_preprocessed.shape[1:]]
         image_tensor_preprocessed, pad_idx = augmentbase.PadVolume(image_tensor_preprocessed, pad_shape)
+        if (self._debug):
+            np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_padded_image.npy"), image_tensor_preprocessed.cpu().movedim(0, -1).numpy().astype(np.float32))
                 
         # add batch axes
         image_tensor_preprocessed = image_tensor_preprocessed.unsqueeze(0)
         if (prior_tensor_preprocessed is not None):
             prior_tensor_preprocessed = prior_tensor_preprocessed.unsqueeze(0)
 
-        return sfimage, orig_orientation, preprocessed_im_geom, preprocessed_im_shape, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup
+        return sfimage, orig_orientation, preprocessed_im_geom, preprocessed_im_shape, target_im_geom, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup
 
 
     def postprocess(self, posteriors_seg, target_im_res, preprocessed_im_shape, crop_idx, pad_idx,
