@@ -338,7 +338,7 @@ class Prediction:
         for i in range(len(path_images)):
             ### preprocessing ###
             label_lookup = self._label_lookup
-            sfimage, orig_ori, target_im_geom, target_im_shape, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup = \
+            sfimage, orig_ori, preprocessed_im_geom, preprocessed_im_shape, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup = \
                 self.preprocess(i, path_images, path_labels, path_priors, codenames, label_lookup)
 
             ### prediction ###
@@ -347,7 +347,7 @@ class Prediction:
 
             ### postprocessing ###
             segmentation, posteriors, = \
-                self.postprocess(posteriors_seg, target_im_geom.voxsize, target_im_shape, crop_idx, pad_idx,
+                self.postprocess(posteriors_seg, preprocessed_im_geom.voxsize, preprocessed_im_shape, crop_idx, pad_idx,
                                  keep_biggest_component=keep_biggest_component, use_topology_classes=use_topology_classes, path_volumes=path_volumes,
                                  posteriors_parc=posteriors_parc)
             
@@ -355,7 +355,7 @@ class Prediction:
             # align prediction back to original orientation, original geom (if keepgeom is True)
             resample = True if (self._keepgeom) else False
             utils.save_framedimage(segmentation, out_segmentations[i],
-                        geom=target_im_geom,
+                        geom=preprocessed_im_geom,
                         original_framedimage=sfimage,
                         dtype=np.int32 if (posteriors_parc is not None) else None,
                         orientation=orig_ori,
@@ -367,7 +367,7 @@ class Prediction:
                 np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_prediction_noresample.npy"), segmentation.cpu().movedim(0, -1).numpy().astype(np.int32))
                 seg_noreshape = os.path.join(self._out_debug_dir, f"{self._curr_codename}_prediction_noresample.mgz")
                 utils.save_framedimage(segmentation, seg_noreshape,
-                            geom=target_im_geom,
+                            geom=preprocessed_im_geom,
                             original_framedimage=sfimage,
                             dtype=np.int32 if (posteriors_parc is not None) else None,
                             orientation=orig_ori,
@@ -377,7 +377,7 @@ class Prediction:
             if (write_posteriors):
                 posteriors = posteriors.squeeze(0)  # remove batch axis => non-batched tensor [C, H, W (,D)]
                 #posteriors = movedim(1, -1)  # move channel to last axis
-                utils.save_framedimage(posteriors, out_posteriors[i], original_framedimage=sfimage, geom=target_im_geom,
+                utils.save_framedimage(posteriors, out_posteriors[i], original_framedimage=sfimage, geom=preprocessed_im_geom,
                                  orientation=orig_ori, onehotencoded=True, dtype=float)
                 logging.info(f"output posteriors {out_posteriors[i]}")
         # end of segmentation loop
@@ -455,8 +455,8 @@ class Prediction:
         # original input is returned from ResampleVolume() if no resampling is necessary
         out_resample = self.apply_resample({'image':image_tensor, 'voxsize':sfimage.geom.voxsize[:image_tensor.ndim-1], 'geom':sfimage.geom})
         image_tensor_preprocessed = out_resample.get('image')
-        target_im_geom = out_resample.get('geom')
-        target_im_shape = image_tensor_preprocessed.shape[1:]        
+        preprocessed_im_geom = out_resample.get('geom')
+        preprocessed_im_shape = image_tensor_preprocessed.shape[1:]        
         if (self._debug):
             np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_resampled_image.npy"), image_tensor_preprocessed.cpu().movedim(0, -1).numpy().astype(np.float32))
 
@@ -470,7 +470,7 @@ class Prediction:
         
         # check if the input image already has crop_size
         # image_tensor returned from utils.load_framedimage() is non-batched
-        if (self._crop_size is not None and np.any(np.array(target_im_shape) > np.array(self._crop_size))):
+        if (self._crop_size is not None and np.any(np.array(preprocessed_im_shape) > np.array(self._crop_size))):
             # create image cropping object
             apply_cropping = augmentbase.CenterCrop(self._crop_size, device=self._device)                
 
@@ -535,10 +535,10 @@ class Prediction:
         if (prior_tensor_preprocessed is not None):
             prior_tensor_preprocessed = prior_tensor_preprocessed.unsqueeze(0)
 
-        return sfimage, orig_orientation, target_im_geom, target_im_shape, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup
+        return sfimage, orig_orientation, preprocessed_im_geom, preprocessed_im_shape, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup
 
 
-    def postprocess(self, posteriors_seg, target_im_res, target_im_shape, crop_idx, pad_idx,
+    def postprocess(self, posteriors_seg, target_im_res, preprocessed_im_shape, crop_idx, pad_idx,
                     keep_biggest_component=False, use_topology_classes=False, path_volumes=None,
                     posteriors_parc=None):
         # remove the padding
@@ -629,9 +629,9 @@ class Prediction:
         
         if (crop_idx is not None):
             # re-position posteriors and predicted segmentation back to the original image indices where the image was cropped out
-            segmentation = np.zeros(shape=(segmentation_cropped.shape[0], *target_im_shape), dtype='int32')
-            posteriors = np.zeros(shape=(posteriors_seg.shape[0], posteriors_seg.shape[1], *target_im_shape), dtype='float32')
-            posteriors[:, 0, ...] = np.ones((posteriors_seg.shape[0], *target_im_shape))  # preset background posterior
+            segmentation = np.zeros(shape=(segmentation_cropped.shape[0], *preprocessed_im_shape), dtype='int32')
+            posteriors = np.zeros(shape=(posteriors_seg.shape[0], posteriors_seg.shape[1], *preprocessed_im_shape), dtype='float32')
+            posteriors[:, 0, ...] = np.ones((posteriors_seg.shape[0], *preprocessed_im_shape))  # preset background posterior
             if (self._ndims == 3):
                 segmentation[:, crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] = segmentation_cropped.detach().cpu().numpy()
                 posteriors[..., crop_idx[0]:crop_idx[3], crop_idx[1]:crop_idx[4], crop_idx[2]:crop_idx[5]] = posteriors_seg.detach().cpu().numpy()
