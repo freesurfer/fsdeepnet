@@ -8,10 +8,7 @@ import torch
 import argparse
 import yaml
 
-from freeseg.config import Config
 from freeseg.utils import utility as utils
-from freeseg.prediction import Prediction
-
 
 description = """
 Usage: freeseg_predict.py 
@@ -97,6 +94,8 @@ def main():
     path_gt = args.gt
     path_priors = args.prior
     if ((args.dataset_list_file is not None)):
+        from freeseg.config import Config
+
         # --label <> needs to specified separately, pointing to a directory
         dataset_dict = Config.load_dataset_list(args.dataset_list_file)
 
@@ -201,6 +200,8 @@ def argument_parse():
 
 def predict(path_images, out_segmentations, checkpoint, args, path_priors=None, codenames=None,
             path_gt=None, addctab=True, device=None, keepgeom=False, segmentation_names=None,):
+    from freeseg.prediction import Prediction
+    
     prediction = Prediction(device, ctab=args.ctab, topology_classes=args.topology_classes, debug=args.debug, debug_feat=args.debug_feat, gc=args.gc)
     prediction.build_model(checkpoint, parcellation_checkpoint=args.parc, flip=args.flip, smooth_posteriors=args.smooth_posteriors, smooth_sigma=args.smooth_sigma)
     prediction.predict(path_images, out_segmentations,
