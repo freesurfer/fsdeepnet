@@ -965,9 +965,10 @@ class RescaleVolume(torch.nn.Module):
         geom = input.get("geom", None)
         
         if (self.use_positive_only):
-            image = image[image > 0]
+            image = image.clamp(min=0)
             
         ndims = image.ndim - 1
+        nchannels = image.shape[0]
         axis = tuple(dim for dim in range(1, ndims+1)) # axis=(H, W (,D))
 
         # m is reduced to [C, 1, 1 (,1)]
@@ -975,18 +976,18 @@ class RescaleVolume(torch.nn.Module):
             m = torch.amin(image, dim=axis, keepdim=True)
         else:
             q = torch.tensor(self.min_percentile/100).to(self.device)
-            m = image
-            for dim in (axis):
-                m = torch.quantile(m, q, dim=dim, keepdim=True, interpolation='linear')
+            # reshape image data to [C, n], quantile each channel separately, reshape m [C] -> [C, 1, 1 (,1)]            
+            m = torch.quantile(image.reshape(nchannels, -1), q, dim=1)
+            m = m.reshape(m.shape + (1,) * ndims)
 
         # M is reduced to [C, 1, 1 (,1)]
         if (self.max_percentile == 100):
             M = torch.amax(image, dim=axis, keepdim=True)
         else:
             q = torch.tensor(self.max_percentile/100).to(self.device)
-            M = image
-            for dim in (axis):
-                M = torch.quantile(M, q, dim=dim, keepdim=True, interpolation='linear')
+            # reshape image data to [C, n], quantile each channel separately, reshape M [C] -> [C, 1, 1 (,1)]
+            M = torch.quantile(image.reshape(nchannels, -1), q, dim=1)
+            M = M.reshape(M.shape + (1,) * ndims)
 
         # normalize
         image = torch.clip(image, min=m, max=M)
@@ -1111,11 +1112,14 @@ class ResampleVolume(torch.nn.Module):
         image = input.get("image", None)
         label = input.get("label", None)
         prior = input.get("prior", None)
-        geom = input.get("geom", None)
+        geom = input.get("geom", None)   # used to compute resampled image geom
+        target_geom = input.get("target_geom", None)   # used to compute target network prediction geom
 
         ndims = image.ndim - 1
         image_shape = image.shape[1:]
         voxsize = geom.voxsize[:ndims]
+        if (target_geom is not None):
+            assert (np.all(voxsize == target_geom.voxsize[:ndims])), f"ResampleVolume: target_geom has different voxsizes"
 
         if (self.target_res is not None and len(self.target_res) == 1):
             self.target_res = np.concatenate([self.target_res] * ndims) # pad length 1 list or array to ndims array
@@ -1127,6 +1131,7 @@ class ResampleVolume(torch.nn.Module):
                 'label': label,
                 'prior': prior,
                 'geom': geom,
+                'target_geom': target_geom,
                      }
             return output
     
@@ -1153,23 +1158,47 @@ class ResampleVolume(torch.nn.Module):
         meshgrid = meshgrid.flip(-1)
 
         resampled_image = torch.nn.functional.grid_sample(image.unsqueeze(0), meshgrid.unsqueeze(0),
-                                                          mode="bilinear", padding_mode='zeros', align_corners=True)
+                                                          mode="bilinear", padding_mode='reflection', align_corners=True)
         if (label is not None):
             resampled_label = torch.nn.functional.grid_sample(label.float().unsqueeze(0), meshgrid.unsqueeze(0),
-                                                              mode="nearest", padding_mode='zeros', align_corners=True)
+                                                              mode="nearest", padding_mode='reflection', align_corners=True)
 
-        from surfa.transform import ImageGeometry
-        new_geom = ImageGeometry(
-            shape=resampled_image.shape[2:],
-            voxsize=self.target_res,
-            rotation=geom.rotation,
-            center=geom.center)
+        if ((geom is not None) or (target_geom is not None)):
+            from surfa.transform import ImageGeometry
+
+        # calculate new affine and geom, logic borrowed from ext.lab2im.edit_volumes.resample_volume() on https://github.com/BBillot/SynthSeg
+        new_geom = None
+        if (geom is not None):
+            aff_new = geom.vox2world.matrix.copy()
+            for c in range(3):
+                aff_new[:-1, c] = aff_new[:-1, c] / factor[c]
+            aff_new[:-1, -1] = aff_new[:-1, -1] - np.matmul(aff_new[:-1, :-1], 0.5 * (factor - 1))
+
+            # create new geom
+            new_geom = ImageGeometry(
+                shape=resampled_image.shape[2:],
+                voxsize=self.target_res,
+                vox2world=aff_new)
+        
+        # do the same for new target affine and geom
+        new_target_geom = None
+        if (target_geom is not None):
+            aff_target = target_geom.vox2world.matrix.copy()
+            for c in range(3):
+                aff_target[:-1, c] = aff_target[:-1, c] / factor[c]
+            aff_target[:-1, -1] = aff_target[:-1, -1] - np.matmul(aff_target[:-1, :-1], 0.5 * (factor - 1))
+
+            new_target_geom = ImageGeometry(
+                shape=resampled_image.shape[2:],
+                voxsize=self.target_res,
+                vox2world=aff_target)        
 
         output = {
             'image': resampled_image.squeeze(0),
             'label': resampled_label.squeeze(0).int() if (label is not None) else label,
             'prior': prior,
             'geom':  new_geom,            
+            'target_geom': new_target_geom,
                  }
         return output
 
