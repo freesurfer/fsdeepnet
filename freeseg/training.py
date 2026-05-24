@@ -4,10 +4,8 @@ import random
 import numpy as np
 
 import torch
-import torch.optim as optim
-import torch.nn as nn
-from torch.utils.data import DataLoader
-from torchvision.utils import make_grid
+#import torch.optim as optim
+#import torch.nn as nn
 
 from freeseg.config import Config
 from freeseg.checkpoint import Checkpoint
@@ -95,6 +93,7 @@ class Training:
 
         self._summary_writer = None
         if (write_tensorboard_summary):
+            from torchvision.utils import make_grid
             # Create TensorBoard writer
             from torch.utils.tensorboard import SummaryWriter
             self._summary_writer = SummaryWriter(train_output_folder)
@@ -694,6 +693,10 @@ class Training:
         if (create_train_dataset and create_loader):
             assert("training" in config), "'training' configurables are required"
 
+        ### import DataLoader
+        if (create_loader):
+            from torch.utils.data import DataLoader
+
         ### retrieve dataset class
         if (set_dataset_attr and config.get("dataset", None)):
             dataset_classname = config["dataset"].get("class", "freeseg.datasets.segmentationdataset.SegmentationDataset")
@@ -809,10 +812,10 @@ class Training:
         wandb_logger = None
         if (create_train_dataset and create_loader):
             cfg_wandb = config["training"].pop("wandb", {})
-            wandb_logger = cfg_wandb['mode'] if (cfg_wandb) else None
-            config["wandb_logger"] = wandb_logger
+            wandb_mode = cfg_wandb['mode'] if (cfg_wandb) else None
+            config["wandb_logger"] = wandb_mode
             config["wandb_dir"] = None
-            if (wandb_logger is not None and wandb_logger != "disabled"):
+            if (wandb_mode is not None and wandb_mode != "disabled"):
                 from freeseg.wandblogger import WandbLogger
                 wandb_logger = WandbLogger(config, **cfg_wandb)
                 config["wandb_dir"] = wandb_logger.dir
