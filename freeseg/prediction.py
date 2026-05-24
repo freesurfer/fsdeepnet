@@ -153,6 +153,8 @@ class Prediction:
         # self._topology_classes can be either str to npy, or numpy array
         if (isinstance(self._topology_classes, str)):
             self._topology_classes = np.load(self._topology_classes) if (os.path.exists(self._topology_classes)) else None
+        elif (isinstance(self._topology_classes, list)):
+            self._topology_classes = np.array(self._topology_classes)
         if (self._topology_classes is not None):
             self._topology_classes = self._topology_classes[self._unique_idx_seg]
 
@@ -579,7 +581,7 @@ class Prediction:
                 # obtain mask from posteriors channels belonging to the same topological class
                 tmp_mask = torch.any(posteriors_mask[:, tmp_topology_indices, ...], dim=1)  # [B, H, W (,D)]
                 # get largest connected component of the mask
-                tmp_mask = utils.get_largest_connected_component(tmp_mask)  # [B, H, W (,D)]
+                tmp_mask = utils.get_largest_connected_component(tmp_mask.detach().numpy())  # [B, H, W (,D)]
                 if (self._debug):
                     np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_mask_topology_classs{topology_class}.npy"), tmp_mask.squeeze(0).astype(np.float32))
                 # apply the mask to each posteriors channel belonging to the same topological class
