@@ -429,13 +429,14 @@ class Prediction:
 
     def preprocess(self, idx, path_images, path_labels, path_priors, codenames, label_lookup):
         # reorient to 'RAS'
-        sfimage, image_tensor, orig_orientation = utils.load_framedimage(path_images[idx], orientation="RAS", device=self._device, ndims=self._ndims)
+        sfimage, image_tensor, orig_geom = utils.load_framedimage(path_images[idx], orientation="RAS", device=self._device, ndims=self._ndims)
+        orig_orientation = sf.transform.orientation.rotation_matrix_to_orientation(orig_geom.vox2world.matrix)
         image_tensor = image_tensor.float()
         if (label_lookup is None):
             label_lookup = sfimage.labels
 
         if (path_priors is not None):
-            sfprior, prior_tensor, orig_ori_prior = utils.load_framedimage(path_priors[idx], orientation="RAS", device=self._device, ndims=self._ndims)
+            sfprior, prior_tensor, _ = utils.load_framedimage(path_priors[idx], orientation="RAS", device=self._device, ndims=self._ndims)
             assert (list(prior_tensor.shape) == [self._num_labels, *image_tensor.shape[1:]]), \
                 f"Expected prior shape [self.num_classes, *image_tensor.shape[1:]], but got {list(prior_tensor.shape)}"
 

@@ -35,7 +35,7 @@ def load_framedimage(file_path, orientation=None, device=None, ndims=3):
 
     framedimage = sf.load_volume(file_path)
 
-    orig_orientation = sf.transform.orientation.rotation_matrix_to_orientation(framedimage.geom.vox2world.matrix)
+    orig_geom = framedimage.geom.copy()   # save a copy of original image geom before it is reoriented
     # surfa.image.framed.reorient() is not yet implemented for 2D data
     if (ndims == 3 and orientation is not None):
         framedimage = framedimage.reorient(orientation, copy=False, inplace=True)
@@ -47,11 +47,11 @@ def load_framedimage(file_path, orientation=None, device=None, ndims=3):
         framedimage_data_native = framedimage_data_native.squeeze(-1)
     framedimage_tensor = torch.from_numpy(framedimage_data_native).movedim(-1, 0).to(device)
     
-    return framedimage, framedimage_tensor, orig_orientation
+    return framedimage, framedimage_tensor, orig_geom
 
 
 def save_framedimage(framedimage_tensor, output_file, original_framedimage=None, geom=None, orientation=None,
-                     labels=None, onehotencoded=False, dtype=None, resample=False, method='nearest'):
+                     labels=None, onehotencoded=False, dtype=None, resample=False, method='nearest', target_im_geom=None):
     """
     Save the augmented framedimage to a file.
     input tensor is non-batched [C, H, W (,D)] (ndims = tensor.ndim - 1)
@@ -60,6 +60,10 @@ def save_framedimage(framedimage_tensor, output_file, original_framedimage=None,
         framedimage_tensor (torch.Tensor): Augmented framedimage tensor, non-batched [C, H, W(, D)]
         original_framedimage: Original loaded framedimage (surfa.Volume).
         output_file (str): Path to the output file.
+        geom: The surfa.ImageGeometry for the input framedimage_tensor
+        resample: Whether to resample to original_framedimage space
+        method: resampling method if resample=True
+        target_im_geom: If resample=False, it is the surfa.ImageGeometry for the saved image
     """
     # the input tensor is non-batched [C, H, W(, D)], move C to the last axis, C >= 1
     tensor_cpu = framedimage_tensor.cpu().movedim(0, -1)
@@ -82,10 +86,12 @@ def save_framedimage(framedimage_tensor, output_file, original_framedimage=None,
         else:
             surfa_image = sf.Volume(np_image.squeeze(), geometry=geom, labels=labels, metadata=original_framedimage.metadata)
 
+        # resample to original input image space
         if (resample):
             surfa_image = surfa_image.resample_like(original_framedimage.geom, method=method)
 
-        # surfa.image.framed.reorient() is not yet implemented for 2D data            
+        # surfa.image.framed.reorient() is not yet implemented for 2D data
+        # the 'orientation' should be the original input image orientation, so reorienting should not be needed if resample=True
         if (ndims == 3 and orientation is not None):
             surfa_image = surfa_image.reorient(orientation, copy=False, inplace=True)
     else:
@@ -96,6 +102,11 @@ def save_framedimage(framedimage_tensor, output_file, original_framedimage=None,
             surfa_image = sf.Slice(np_image.squeeze(), labels=labels, geometry=geom)
         else:
             surfa_image = sf.Volume(np_image.squeeze(), labels=labels, geometry=geom)            
+
+    # if we are not resampling back to original image space,
+    # simply put image in target_im_geom space if it is provided
+    if ((target_im_geom is not None) and (not resample)):
+        surfa_image = surfa_image.new(surfa_image.data, geometry=target_im_geom)
     
     surfa_image.save(output_file)
 
