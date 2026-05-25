@@ -697,7 +697,7 @@ class Training:
         if (create_loader):
             from torch.utils.data import DataLoader
 
-        ### retrieve dataset class
+        ### process dataset attributes
         if (set_dataset_attr and config.get("dataset", None)):
             dataset_classname = config["dataset"].get("class", "freeseg.datasets.segmentationdataset.SegmentationDataset")
             py_dataset_cls = utils.get_class(dataset_classname)                    

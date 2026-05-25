@@ -173,7 +173,7 @@ def main():
     keys_model_state_dict = Config.load(args.model_layer_mapping)
     
     config = Config.process(args, logger=logging, require_train_outfolder=False, require_dataset_list=False)
-    config, _, _, _, model, _, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=True, set_dataset_attr=False)
+    config, _, _, _, model, _, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=True, set_dataset_attr=args.set_dataset_attr)
 
     models.model_arch(model.arch_dict, logger=logging)
     
@@ -204,6 +204,7 @@ def argument_parse():
     # input/outputs
     parser.add_argument("--preview", action='store_true', help="Preview tensorflow model layers")
     parser.add_argument("--config", type=str, help="Path to the configuration file")
+    parser.add_argument("--set_dataset_attr", action='store_true', help="Process dataset attributions, need 'dataset' configurable in config")
     parser.add_argument("--model_layer_mapping", type=str, help="Path to tf-pytoch model layer mapping")
     parser.add_argument("--tf_model", type=str, required=True, help="Path to tensorflow model file")
     parser.add_argument("--torch_model_saveas", type=str, help="Path to converted pytorch checkpoint")
