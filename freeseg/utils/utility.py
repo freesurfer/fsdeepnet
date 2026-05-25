@@ -86,14 +86,15 @@ def save_framedimage(framedimage_tensor, output_file, original_framedimage=None,
         else:
             surfa_image = sf.Volume(np_image.squeeze(), geometry=geom, labels=labels, metadata=original_framedimage.metadata)
 
+        # surfa.image.framed.reorient() is not yet implemented for 2D data
+        if (ndims == 3 and orientation is not None):
+            surfa_image = surfa_image.reorient(orientation, copy=False, inplace=True)
+        # put the image into target_im_geom space
+        if (target_im_geom is not None):
+            surfa_image = surfa_image.new(surfa_image.data, geometry=target_im_geom)            
         # resample to original input image space
         if (resample):
             surfa_image = surfa_image.resample_like(original_framedimage.geom, method=method)
-
-        # surfa.image.framed.reorient() is not yet implemented for 2D data
-        # the 'orientation' should be the original input image orientation, so reorienting should not be needed if resample=True
-        if (ndims == 3 and orientation is not None):
-            surfa_image = surfa_image.reorient(orientation, copy=False, inplace=True)
     else:
         orientation = "RAS" if (orientation is None) else orientation
         rotation_matrix = sf.transform.orientation.orientation_to_rotation_matrix(orientation)
@@ -101,12 +102,7 @@ def save_framedimage(framedimage_tensor, output_file, original_framedimage=None,
         if (ndims == 2 and onehotencoded):
             surfa_image = sf.Slice(np_image.squeeze(), labels=labels, geometry=geom)
         else:
-            surfa_image = sf.Volume(np_image.squeeze(), labels=labels, geometry=geom)            
-
-    # if we are not resampling back to original image space,
-    # simply put image in target_im_geom space if it is provided
-    if ((target_im_geom is not None) and (not resample)):
-        surfa_image = surfa_image.new(surfa_image.data, geometry=target_im_geom)
+            surfa_image = sf.Volume(np_image.squeeze(), labels=labels, geometry=geom)
     
     surfa_image.save(output_file)
 
