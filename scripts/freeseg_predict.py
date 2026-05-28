@@ -166,6 +166,8 @@ def argument_parse():
     parser.add_argument("--flip", action="store_true", help="Perform left-right flipped image prediction")
     parser.add_argument("--smooth_posteriors", action="store_true", help="Smooth posteriors output from network")
     parser.add_argument("--smooth_sigma", default=0.5, type=float, help="Sigma to smooth posteriors, default is 0.5")
+    parser.add_argument("--resamplefirst", action="store_true", help="Do intensity image resampling first before reorienting in preprocessing")
+    parser.add_argument("--keep_resample_geom", action="store_true", help="Target geom for output segmentation if '--nokeepgeom'")
     parser.add_argument("--gc", action="store_true", help="Explicitly invoke the Garbage Collector")
     parser.add_argument("--crop_size", nargs="+", type=int, help="Crop size for training and validation")
     parser.add_argument("--target_res", type=float, help="Segmentation output resolution")
@@ -218,7 +220,9 @@ def predict(path_images, out_segmentations, checkpoint, args, path_priors=None, 
                        keepgeom=keepgeom,
                        segmentation_names=segmentation_names,
                        keep_biggest_component=args.keep_biggest_component,
-                       use_topology_classes=args.use_topology_classes,)
+                       use_topology_classes=args.use_topology_classes,
+                       resamplefirst=args.resamplefirst,
+                       keep_resample_geom=args.keep_resample_geom,)
 
 
 # execute script

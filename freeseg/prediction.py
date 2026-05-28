@@ -317,7 +317,9 @@ class Prediction:
                 keep_biggest_component=False,
                 topology_classes=None,
                 segmentation_names=None,
-                use_topology_classes=False):
+                use_topology_classes=False,
+                resamplefirst=False,
+                keep_resample_geom=False):
         
         # check inputs
         assert path_images is not None, 'please specify an input file/folder'
@@ -358,7 +360,7 @@ class Prediction:
             ### preprocessing ###
             label_lookup = self._label_lookup
             sfimage, orig_ori, preprocessed_im_geom, preprocessed_im_shape, target_im_geom, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup = \
-                self.preprocess(i, path_images, path_labels, path_priors, codenames, label_lookup)
+                self.preprocess(i, path_images, path_labels, path_priors, codenames, label_lookup, resamplefirst=resamplefirst)
 
             ### prediction ###
             with torch.no_grad():
@@ -380,7 +382,7 @@ class Prediction:
                         orientation=orig_ori,
                         labels=label_lookup if (addctab) else None,
                         resample=resample, method='nearest',
-                        target_im_geom=target_im_geom)
+                        target_im_geom=target_im_geom if (keep_resample_geom) else None)
             logging.info(f"output segmentation {out_segmentations[i]}")
             if (self._debug):
                 logging.debug("output prediction ...")
@@ -451,15 +453,16 @@ class Prediction:
                 eval.evaluate(path_gt, out_segmentations[0], path_dice=path_dice)
 
 
-    def preprocess(self, idx, path_images, path_labels, path_priors, codenames, label_lookup):
-        sfimage, image_tensor, orig_geom = utils.load_framedimage(path_images[idx], device=self._device, ndims=self._ndims)
+    def preprocess(self, idx, path_images, path_labels, path_priors, codenames, label_lookup, resamplefirst=False):
+        orientation = None if (resamplefirst) else 'RAS'
+        sfimage, image_tensor, orig_geom = utils.load_framedimage(path_images[idx], orientation=orientation, device=self._device, ndims=self._ndims)
         orig_orientation = sf.transform.orientation.rotation_matrix_to_orientation(orig_geom.vox2world.matrix)
         image_tensor = image_tensor.float()
         if (label_lookup is None):
             label_lookup = sfimage.labels
 
         if (path_priors is not None):
-            sfprior, prior_tensor, _ = utils.load_framedimage(path_priors[idx], device=self._device, ndims=self._ndims)
+            sfprior, prior_tensor, _ = utils.load_framedimage(path_priors[idx], orientation=orientation, device=self._device, ndims=self._ndims)
             assert (list(prior_tensor.shape) == [self._num_labels, *image_tensor.shape[1:]]), \
                 f"Expected prior shape [self.num_classes, *image_tensor.shape[1:]], but got {list(prior_tensor.shape)}"
             # ??? TODO: priors needs to be resampled and reoriented the same way as the image ???
@@ -486,13 +489,14 @@ class Prediction:
         if (self._debug):
             np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_resampled_image.npy"), image_tensor_preprocessed.cpu().movedim(0, -1).numpy().astype(np.float32))
 
-        # reorient to 'RAS'
-        # surfa.image.framed.reorient() is not yet implemented for 2D data
-        if (orig_orientation != "RAS" and self._ndims == 3):
-            sfimage_RAS = sf.Volume(image_tensor_preprocessed.cpu().movedim(0, -1).numpy(), geometry=preprocessed_im_geom)
-            sfimage_RAS = sfimage_RAS.reorient("RAS", copy=False, inplace=True)
-            image_tensor_preprocessed = torch.from_numpy(sfimage_RAS.framed_data.astype(sfimage_RAS.dtype.newbyteorder('='))).movedim(-1, 0).to(self._device)
-            preprocessed_im_geom = sfimage_RAS.geom.copy()
+        if (resamplefirst):
+            # reorient to 'RAS'
+            # surfa.image.framed.reorient() is not yet implemented for 2D data
+            if (orig_orientation != "RAS" and self._ndims == 3):
+                sfimage_RAS = sf.Volume(image_tensor_preprocessed.cpu().movedim(0, -1).numpy(), geometry=preprocessed_im_geom)
+                sfimage_RAS = sfimage_RAS.reorient("RAS", copy=False, inplace=True)
+                image_tensor_preprocessed = torch.from_numpy(sfimage_RAS.framed_data.astype(sfimage_RAS.dtype.newbyteorder('='))).movedim(-1, 0).to(self._device)
+                preprocessed_im_geom = sfimage_RAS.geom.copy()
 
         # calculate crop_size
         if (self._crop_size is not None):
