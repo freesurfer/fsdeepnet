@@ -470,7 +470,7 @@ class Prediction:
         self.list_predictions.append(path_images[idx])
         if (self._debug or self._debug_feat):
             self._curr_codename = f"{codenames[idx]}_{str(idx)}"
-        if (self._debug):
+        if (self._debug and (not resamplefirst)):
             logging.debug("output re-oriented image/prior ...")
             out_reoriented_image = os.path.join(self._out_debug_dir, f"{self._curr_codename}_image.reoriented.RAS.mgz")
             utils.save_framedimage(image_tensor, out_reoriented_image, original_framedimage=sfimage)
@@ -497,6 +497,11 @@ class Prediction:
                 sfimage_RAS = sfimage_RAS.reorient("RAS", copy=False, inplace=True)
                 image_tensor_preprocessed = torch.from_numpy(sfimage_RAS.framed_data.astype(sfimage_RAS.dtype.newbyteorder('='))).movedim(-1, 0).to(self._device)
                 preprocessed_im_geom = sfimage_RAS.geom.copy()
+                if (self._debug):
+                    logging.debug("output re-oriented image/prior ...")
+                    out_reoriented_image = os.path.join(self._out_debug_dir, f"{self._curr_codename}_image.reoriented.RAS.mgz")
+                    sfimage_RAS.save(out_reoriented_image)
+                    np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_image.reoriented.RAS.npy"), image_tensor_preprocessed.cpu().movedim(0, -1).numpy().astype(np.float32))              
 
         # calculate crop_size
         if (self._crop_size is not None):
