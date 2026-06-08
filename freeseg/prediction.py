@@ -284,13 +284,13 @@ class Prediction:
 
 
     """
-    # PREPROCESS AND POSTPROCESS STEPS:
+    # PREPROCESS AND POSTPROCESS STEPS for resamplefirst=True:
     #
     #                                input image
     #                                   /    \
     #  resample to input geom          /      \  resample to target resolution
     #                                 /        \
-    #                           resampled (target_im_geom space)
+    #                                 resampled 
     #                               /            \ 
     #  reoriented to               /              \  reoriented to RAS
     #  original orientation       /                \
@@ -318,8 +318,7 @@ class Prediction:
                 topology_classes=None,
                 segmentation_names=None,
                 use_topology_classes=False,
-                resamplefirst=False,
-                keep_resample_geom=False):
+                resamplefirst=False):
         
         # check inputs
         assert path_images is not None, 'please specify an input file/folder'
@@ -359,7 +358,7 @@ class Prediction:
         for i in range(len(path_images)):
             ### preprocessing ###
             label_lookup = self._label_lookup
-            sfimage, orig_ori, preprocessed_im_geom, preprocessed_im_shape, target_im_geom, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup = \
+            sfimage, orig_ori, preprocessed_im_geom, preprocessed_im_shape, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup = \
                 self.preprocess(i, path_images, path_labels, path_priors, codenames, label_lookup, resamplefirst=resamplefirst)
 
             ### prediction ###
@@ -381,8 +380,7 @@ class Prediction:
                         dtype=np.int32 if (posteriors_parc is not None) else None,
                         orientation=orig_ori,
                         labels=label_lookup if (addctab) else None,
-                        resample=resample, method='nearest',
-                        target_im_geom=target_im_geom if (keep_resample_geom) else None)
+                        resample=resample, method='nearest')
             logging.info(f"output segmentation {out_segmentations[i]}")
             if (self._debug):
                 logging.debug("output prediction ...")
@@ -401,7 +399,6 @@ class Prediction:
                 #posteriors = movedim(1, -1)  # move channel to last axis
                 """
                 # ??? does the posteriors need to be resampled back to original image space for '--keepgeom' ???
-                # ??? do we need to also pass target_im_geom to save_framedimage() ???
                 """
                 utils.save_framedimage(posteriors, out_posteriors[i], original_framedimage=sfimage, geom=preprocessed_im_geom,
                                  orientation=orig_ori, onehotencoded=True, dtype=float)
@@ -481,11 +478,10 @@ class Prediction:
 
         # resample image to target_res if necessary
         # original input is returned from ResampleVolume() if no resampling is necessary
-        out_resample = self.apply_resample({'image':image_tensor, 'voxsize':sfimage.geom.voxsize[:image_tensor.ndim-1], 'geom':sfimage.geom, 'target_geom':orig_geom})
+        out_resample = self.apply_resample({'image':image_tensor, 'voxsize':sfimage.geom.voxsize[:image_tensor.ndim-1], 'geom':sfimage.geom})
         image_tensor_preprocessed = out_resample.get('image')
         preprocessed_im_geom = out_resample.get('geom')
         preprocessed_im_shape = image_tensor_preprocessed.shape[1:]
-        target_im_geom = out_resample.get('target_geom')  # target network output geom
         if (self._debug):
             np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_resampled_image.npy"), image_tensor_preprocessed.cpu().movedim(0, -1).numpy().astype(np.float32))
 
@@ -580,7 +576,7 @@ class Prediction:
         if (prior_tensor_preprocessed is not None):
             prior_tensor_preprocessed = prior_tensor_preprocessed.unsqueeze(0)
 
-        return sfimage, orig_orientation, preprocessed_im_geom, preprocessed_im_shape, target_im_geom, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup
+        return sfimage, orig_orientation, preprocessed_im_geom, preprocessed_im_shape, image_tensor_preprocessed, prior_tensor_preprocessed, crop_idx, pad_idx, label_lookup
 
 
     def postprocess(self, posteriors_seg, target_im_res, preprocessed_im_shape, crop_idx, pad_idx,
