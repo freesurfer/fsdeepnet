@@ -297,8 +297,8 @@ class Config:
         if (cfg['dataset_list_saveas'] is not None):
             logger.info(f"dataset list: saved as {cfg['dataset_list_saveas']}")
         logger.info(f"log file: {cfg['logfile']}")
-        logger.info(f"wandb logger: {cfg['wandb_logger']}")
-        logger.info(f"wandb dir: {cfg['wandb_dir']}")
+        logger.info(f"wandb logger: {cfg.get('wandb_logger', None)}")
+        logger.info(f"wandb dir: {cfg.get('wandb_dir', None)}")
         logger.info("")
 
     
