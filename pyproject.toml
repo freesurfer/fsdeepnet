@@ -1,3 +1,26 @@
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "fsdeepnet"
+version = "0.1"
+dependencies= [
+    #'torch',
+    #'torchvision<0.17',  # to satisfy torch 2.1.2
+    'psutil',
+    'wandb',
+    #'PyQt5',  # for matplotlib
+    #'pynvml',
+    #'voxynth@git+https://github.com/dalcalab/voxynth.git@main'
+]
+
+[project.scripts]
+freeseg_train = 'freeseg.cli.freeseg_train:main'
+freeseg_predict = 'freeseg.cli.freeseg_predict:main'
+freeseg_evaluate = 'freeseg.cli.freeseg_evaluate:main'
+freeseg_create_data_list = 'freeseg.cli.freeseg_create_data_list:main'
+freeseg_checkpoint = 'freeseg.cli.freeseg_checkpoint:main'
+freeseg_test_dataset = 'freeseg.cli.test_dataset:main'
+freeseg_test_dataloader = 'freeseg.cli.test_dataloader:main'
+freeseg_tf2torch = 'freeseg.cli.tf2torch.loadh5_synthseg:main'

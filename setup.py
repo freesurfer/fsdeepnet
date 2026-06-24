@@ -1,23 +1,11 @@
-from setuptools import setup
+import setuptools
 
-requirements = [
-    'torch',
-    'torchvision<0.17',  # to satisfy torch 2.1.2
-    'psutil',
-    'wandb',
-    #'PyQt5',  # for matplotlib
-    #'pynvml',
-    #'voxynth@git+https://github.com/dalcalab/voxynth.git@main'
-]
-
-setup(
+setuptools.setup(
     name = "freeseg",
     version = "0.1",
     description = ("A generic deep-learning pipeline to accompany freesurfer adjacent models."),
     url = "https://github.com/freesurfer/freeseg",
-    packages=['freeseg', 'freeseg.utils', 'freeseg.augmentation', 'freeseg.models', 'freeseg.datasets', 'freeseg.voxynth'],
-    install_requires=requirements,
-    scripts=['scripts/freeseg_checkpoint.py', 'scripts/freeseg_split_dataset.py', 'scripts/freeseg_evaluate.py', 'scripts/freeseg_predict.py', 'scripts/freeseg_train.py'],
+    packages=setuptools.find_packages(),
 )
 
 
