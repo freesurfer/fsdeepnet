@@ -25,7 +25,7 @@ class Checkpoint:
 
         if (device is None):
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self._dict = torch.load(checkpoint, map_location=device)  # Load the saved checkpoint
+        self._dict = torch.load(checkpoint, map_location=device, weights_only=False)  # Load the saved checkpoint
 
         if (model is not None):
             model.load_state_dict(self._dict['model_state_dict'])  # Load model weights
