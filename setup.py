@@ -43,11 +43,16 @@ freeseg/
 |       |       |------ synth.py
 |       |       |------ transform.py
 |       |       |------ utility.py
-|------ scripts/
-|       |------ freeseg_split_dataset.py
-|       |------ freeseg_evaluate.py
-|       |------ freeseg_predict.py
-|       |------ freeseg_train.py
+|       |------ cli/
+|       |       |------ __init__.py
+|       |       |------ freeseg_split_dataset.py
+|       |       |------ freeseg_evaluate.py
+|       |       |------ freeseg_predict.py
+|       |       |------ freeseg_train.py
+|       |       |------ freeseg_checkpoint.py
+|       |       |------ tf2torch/
+|       |       |       |------ __init__.py
+|       |       |       |------ loadh5_synthseg.py
 |------ configs/
 |       |------ config.yaml
 |       |------ data_list.yaml
