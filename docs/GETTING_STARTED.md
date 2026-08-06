@@ -1,6 +1,6 @@
-# Getting Started with FreeSeg
+# Getting Started with Fsdeepnet
 
-This guide will help you get started with FreeSeg.
+This guide will help you get started with Fsdeepnet.
 
 ## Table of Contents
 
@@ -15,7 +15,7 @@ This guide will help you get started with FreeSeg.
 
 ### Prerequisites
 
-1. **FreeSurfer**: FreeSeg requires FreeSurfer to be installed and configured
+1. **FreeSurfer**: Fsdeepnet requires FreeSurfer to be installed and configured
 2. **Python**: Python 3.8 (via FreeSurfer's fspython)
 3. **CUDA**: GPU with CUDA support (optional but recommended)
 
@@ -34,11 +34,11 @@ This guide will help you get started with FreeSeg.
 
 3. **Clone the repository:**
    ```bash
-   git clone https://github.com/freesurfer/freeseg.git
-   cd freeseg
+   git clone https://github.com/freesurfer/fsdeepnet.git
+   cd fsdeepnet
    ```
 
-4. **Install FreeSeg:**
+4. **Install Fsdeepnet:**
    ```bash
    # Standard installation
    fspython -m pip install .
@@ -71,7 +71,7 @@ test:
     label_filepath: /path/to/my_data/labels/subject201.mgz
 ```
 
-- Method 2: Use the helper script `scripts/freeseg_create_data_list.py`:
+- Method 2: Use the helper script `scripts/fsdeepnet_create_data_list.py`:
 
   - #### **Organize data:** Organize your data in the following structure:
 
@@ -89,7 +89,7 @@ test:
 
   - #### **Create dataset list:** Use the helper script
   ```bash
-   fspython scripts/freeseg_split_dataset.py \
+   fspython scripts/fsdeepnet_split_dataset.py \
      -d datafolder/ \
      -o dataset_list.yaml
   ```
@@ -106,13 +106,13 @@ Edit `my_config.yaml`:
 
 ```yaml
 dataset:
-  class_name: freeseg.datasets.segmentationdataset.SegmentationDataset
+  class_name: fsdeepnet.datasets.segmentationdataset.SegmentationDataset
   segmentation_labels: [0, 2, 3, 4, 17, 41]  # Your label values
   expected_num_channels: 1
   dataset_list_file: /path/to/dataset_list.yaml
 
 model:
-  name: freeseg.models.unet.UNet
+  name: fsdeepnet.models.unet.UNet
   nb_levels: 3
   nb_features: 24
   ndims: 3
@@ -140,7 +140,7 @@ training:
 ### 3. Train Your Model
 
 ```bash
-fspython scripts/freeseg_train.py \
+fspython scripts/fsdeepnet_train.py \
   --config my_config.yaml \
   --dataset_list_file /path/to/dataset_list.yaml \  
   --train_output_folder output/my_training
@@ -149,7 +149,7 @@ fspython scripts/freeseg_train.py \
 ### 4. Predict on New Images
 
 ```bash
-fspython scripts/freeseg_predict.py \
+fspython scripts/fsdeepnet_predict.py \
   --i /path/to/new_image.mgz \
   --o /path/to/output_segmentation.mgz \
   --checkpoint output/my_training/checkpoints/best_model.pth
@@ -166,7 +166,7 @@ fspython scripts/freeseg_predict.py \
 # 2. Create dataset list
 # 3. Configure training
 # 4. Train
-fspython scripts/freeseg_train.py \
+fspython scripts/fsdeepnet_train.py \
   --config configs/config.yaml \
   --dataset_list_file data/dataset_list.yaml \  
   --train_output_folder output/training \
@@ -177,7 +177,7 @@ fspython scripts/freeseg_train.py \
 
 ```bash
 # 1. Start from pre-trained checkpoint
-fspython scripts/freeseg_train.py \
+fspython scripts/fsdeepnet_train.py \
   --config configs/config.yaml \
   --dataset_list_file data/new_dataset_list.yaml \  
   --train_output_folder output/finetuning \
@@ -191,7 +191,7 @@ fspython scripts/freeseg_train.py \
 ```bash
 # 1. Create prediction dataset list
 # 2. Run batch prediction
-fspython scripts/freeseg_predict.py \
+fspython scripts/fsdeepnet_predict.py \
   --dataset_list_file data/prediction_list.yaml \
   --cohort test \
   --o output/predictions/ \
@@ -203,7 +203,7 @@ fspython scripts/freeseg_predict.py \
 ```bash
 # 1. Run predictions on test set
 # 2. Evaluate all predictions
-fspython scripts/freeseg_evaluate.py \
+fspython scripts/fsdeepnet_evaluate.py \
   --gt data/test_labels/ \
   --seg output/predictions/ \
   --segmentation_labels checkpoints/segmentation_labels.npy \
@@ -234,5 +234,5 @@ fspython scripts/freeseg_evaluate.py \
 
 ---
 
-Congratulations! You're now ready to use FreeSeg. For more detailed information, refer to the other documentations in the `docs/` directory.
+Congratulations! You're now ready to use Fsdeepnet. For more detailed information, refer to the other documentations in the `docs/` directory.
 

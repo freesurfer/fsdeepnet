@@ -8,8 +8,8 @@ import argparse
 import numpy as np
 import shutil
 
-from freeseg.training import Training
-from freeseg.config import Config
+from fsdeepnet.training import Training
+from fsdeepnet.config import Config
 
 """
 Usage: test_dataset.py 

@@ -1,6 +1,6 @@
-# FreeSeg API Documentation (WIP)
+# Fsdeepnet API Documentation (WIP)
 
-This document provides API documentation for the FreeSeg package, a PyTorch-based deep learning pipeline.
+This document provides API documentation for the Fsdeepnet package, a PyTorch-based deep learning pipeline.
 
 ## Table of Contents
 
@@ -20,9 +20,9 @@ This document provides API documentation for the FreeSeg package, a PyTorch-base
 
 ## Core Modules
 
-### `freeseg.config.Config`
+### `fsdeepnet.config.Config`
 
-Configuration management class for handling YAML configuration files and command-line arguments. Provides utilities for loading, updating, saving, and processing configuration dictionaries used throughout the FreeSeg pipeline.
+Configuration management class for handling YAML configuration files and command-line arguments. Provides utilities for loading, updating, saving, and processing configuration dictionaries used throughout the Fsdeepnet pipeline.
 
 #### Methods
 
@@ -78,7 +78,7 @@ Main method for processing configuration from YAML file and command-line argumen
 
 **Example:**
 ```python
-from freeseg.config import Config
+from fsdeepnet.config import Config
 import argparse
 
 args = argparse.Namespace()
@@ -278,7 +278,7 @@ dataset = Config.retrieve_dataset_cohorts(dataset_dict, cohorts)
 
 ## Training
 
-### `freeseg.training.Training`
+### `fsdeepnet.training.Training`
 
 Main training class for model training and validation. Supports two-stage training with weighted L2 pre-training followed by Dice loss training.
 
@@ -433,7 +433,7 @@ Validates the model on the validation set.
 
 ## Prediction
 
-### `freeseg.prediction.Prediction`
+### `fsdeepnet.prediction.Prediction`
 
 Class for running inference and predictions on new images. Supports segmentation, parcellation, and quality control (QC) models. Can process single images or batches of images from directories.
 
@@ -666,7 +666,7 @@ Computes posterior channel indices for left-right flipped labels. Called automat
 
 ---
 
-### `freeseg.prediction.InferenceModel`
+### `fsdeepnet.prediction.InferenceModel`
 
 Internal PyTorch module that wraps segmentation, parcellation, and QC models for inference.
 
@@ -725,7 +725,7 @@ Forward pass through the inference model.
 
 ## Evaluation
 
-### `freeseg.evaluation.Evaluation`
+### `fsdeepnet.evaluation.Evaluation`
 
 Class for evaluating segmentation results using Dice scores. Computes Dice coefficients between ground truth and predicted segmentation label maps.
 
@@ -846,7 +846,7 @@ dice_scores = evaluator.evaluate_oneseg(
 
 ### Functions
 
-##### `freeseg.evaluation.fast_dice(x, y, labels)`
+##### `fsdeepnet.evaluation.fast_dice(x, y, labels)`
 
 Fast implementation of Dice scores using histogram-based computation.
 
@@ -881,7 +881,7 @@ dice_scores = fast_dice(gt, pred, labels)
 # Returns: array([dice_0, dice_1, dice_2])
 ```
 
-##### `freeseg.evaluation.dice_coeffs(gt, pred, labels)`
+##### `fsdeepnet.evaluation.dice_coeffs(gt, pred, labels)`
 
 Alternative implementation of Dice coefficient calculation using binary masks.
 
@@ -915,7 +915,7 @@ Dice = (2 * intersection) / (union + 1e-5)
 
 ## Models
 
-### `freeseg.models.unet.UNet`
+### `fsdeepnet.models.unet.UNet`
 
 U-Net architecture for medical image segmentation. Implements a fully convolutional encoder-decoder network with skip connections for dense prediction tasks.
 
@@ -1034,7 +1034,7 @@ Returns the model architecture dictionary.
 
 ---
 
-### `freeseg.models.unet.ConvBlock`
+### `fsdeepnet.models.unet.ConvBlock`
 
 Convolutional block used in U-Net encoder and decoder paths. Supports multiple convolutions per level, residual connections, and various activation functions.
 
@@ -1114,7 +1114,7 @@ output = conv_block(x)
 
 ---
 
-### `freeseg.models.model_print`
+### `fsdeepnet.models.model_print`
 
 Prints the string representation of a PyTorch model, showing its architecture hierarchy.
 
@@ -1138,7 +1138,7 @@ model_print(model, logger=logging)
 
 **Example:**
 ```python
-from freeseg.models import UNet, model_print
+from fsdeepnet.models import UNet, model_print
 import logging
 
 model_config = {
@@ -1154,7 +1154,7 @@ model_print(model, logger=logging)
 
 ---
 
-### `freeseg.models.model_summary_torchinfo`
+### `fsdeepnet.models.model_summary_torchinfo`
 
 Generates a comprehensive model summary using the `torchinfo` library, including layer information, parameter counts, and memory usage estimates.
 
@@ -1192,7 +1192,7 @@ model_summary_torchinfo(model, input_size)
 
 **Example:**
 ```python
-from freeseg.models import UNet, model_summary_torchinfo
+from fsdeepnet.models import UNet, model_summary_torchinfo
 
 model_config = {
     "num_channels": 1,
@@ -1208,7 +1208,7 @@ model_summary_torchinfo(model, input_size=(1, 1, 160, 160, 160))
 
 ---
 
-### `freeseg.models.model_summary`
+### `fsdeepnet.models.model_summary`
 
 Generates a detailed model summary using forward hooks to capture input/output shapes, parameter information, and layer details during a dummy forward pass.
 
@@ -1265,7 +1265,7 @@ The function prints a table with columns:
 
 **Example:**
 ```python
-from freeseg.models import UNet, model_summary
+from fsdeepnet.models import UNet, model_summary
 import torch
 
 model_config = {
@@ -1287,7 +1287,7 @@ model_summary(
 
 ---
 
-### `freeseg.models.model_parameters`
+### `fsdeepnet.models.model_parameters`
 
 Prints all model parameters with their names, shapes, element counts, and trainability status.
 
@@ -1328,7 +1328,7 @@ Each parameter is logged as:
 
 **Example:**
 ```python
-from freeseg.models import UNet, model_parameters
+from fsdeepnet.models import UNet, model_parameters
 
 model_config = {
     "num_channels": 1,
@@ -1348,7 +1348,7 @@ model_parameters(model)
 
 ---
 
-### `freeseg.models.model_arch`
+### `fsdeepnet.models.model_arch`
 
 Prints the model architecture dictionary in a formatted, readable way.
 
@@ -1392,7 +1392,7 @@ model_arch(arch_dict, logger=logging)
 
 **Example:**
 ```python
-from freeseg.models import UNet, model_arch
+from fsdeepnet.models import UNet, model_arch
 
 model_config = {
     "num_channels": 1,
@@ -1421,7 +1421,7 @@ model_arch(model.arch_dict)
 
 ## Datasets
 
-### `freeseg.datasets.segmentationdataset.SegmentationDataset`
+### `fsdeepnet.datasets.segmentationdataset.SegmentationDataset`
 
 PyTorch Dataset class for medical image segmentation tasks. Handles loading of images, labels, and optional prior probability maps with support for data augmentation, preloading, and in-memory storage.
 
@@ -1490,8 +1490,8 @@ validation:
 
 **Example:**
 ```python
-from freeseg.datasets.segmentationdataset import SegmentationDataset
-from freeseg.augmentation import augmentbase
+from fsdeepnet.datasets.segmentationdataset import SegmentationDataset
+from fsdeepnet.augmentation import augmentbase
 
 augment_obj = augmentbase.AugmentBase(...)
 dataset = SegmentationDataset(
@@ -1653,7 +1653,7 @@ Returns the processed dataset profile dictionary.
 
 ## Augmentation
 
-### `freeseg.augmentation.apply_augmentations`
+### `fsdeepnet.augmentation.apply_augmentations`
 
 Applies a sequence of augmentations to image and label tensors in the order specified by the augmentation object.
 
@@ -1714,7 +1714,7 @@ apply_augmentations(
 
 **Example:**
 ```python
-from freeseg.augmentation import AugmentBase, apply_augmentations
+from fsdeepnet.augmentation import AugmentBase, apply_augmentations
 import torch
 
 # Create augmentation object
@@ -1744,7 +1744,7 @@ aug_image, aug_label, aug_prior = apply_augmentations(
 
 ---
 
-### `freeseg.augmentation.check_augmentations`
+### `fsdeepnet.augmentation.check_augmentations`
 
 Validates augmentation configuration and checks for conflicts between incompatible augmentations.
 
@@ -1783,7 +1783,7 @@ check_augmentations(augment_obj)
 
 **Example:**
 ```python
-from freeseg.augmentation import AugmentBase, check_augmentations
+from fsdeepnet.augmentation import AugmentBase, check_augmentations
 
 # Valid configuration
 augment_obj = AugmentBase(
@@ -1817,7 +1817,7 @@ except AssertionError as e:
 
 ---
 
-### `freeseg.augmentation.augmentbase.AugmentBase`
+### `fsdeepnet.augmentation.augmentbase.AugmentBase`
 
 Wrapper class for medical image data augmentation. Manages multiple augmentation transforms and applies them sequentially to images, labels, and optional prior probability maps.
 
@@ -1953,7 +1953,7 @@ All augmentation classes inherit from `torch.nn.Module` and implement a `forward
 
 ---
 
-### `freeseg.augmentation.augmentbase.Flip`
+### `fsdeepnet.augmentation.augmentbase.Flip`
 
 Left-right flipping augmentation with automatic label swapping for symmetric structures.
 
@@ -1995,7 +1995,7 @@ Applies random left-right flip to image and label volumes, swapping left-right l
 
 ---
 
-### `freeseg.augmentation.augmentbase.SpatialDeformation`
+### `fsdeepnet.augmentation.augmentbase.SpatialDeformation`
 
 Affine and non-linear spatial deformation augmentation using velocity fields.
 
@@ -2047,7 +2047,7 @@ Applies random spatial transformation (affine + non-linear warp) to image and la
 
 ---
 
-### `freeseg.augmentation.augmentbase.RandomCrop`
+### `fsdeepnet.augmentation.augmentbase.RandomCrop`
 
 Random cropping augmentation with optional bounding box constraints.
 
@@ -2086,7 +2086,7 @@ Randomly crops input tensors to specified size.
 
 ---
 
-### `freeseg.augmentation.augmentbase.CenterCrop`
+### `fsdeepnet.augmentation.augmentbase.CenterCrop`
 
 Center cropping with optional random offset.
 
@@ -2124,7 +2124,7 @@ Crops volume centered at image center (with optional random offset).
 
 ---
 
-### `freeseg.augmentation.augmentbase.CentroidCrop`
+### `fsdeepnet.augmentation.augmentbase.CentroidCrop`
 
 Cropping centered on label centroid.
 
@@ -2162,7 +2162,7 @@ Crops volume centered at label centroid (non-zero labels).
 
 ---
 
-### `freeseg.augmentation.augmentbase.IntensityAugmentation`
+### `fsdeepnet.augmentation.augmentbase.IntensityAugmentation`
 
 Intensity augmentation with noise injection, normalization, and gamma scaling.
 
@@ -2205,7 +2205,7 @@ Applies intensity augmentation: noise → clipping → normalization → gamma s
 
 ---
 
-### `freeseg.augmentation.augmentbase.BiasFieldCorruption`
+### `fsdeepnet.augmentation.augmentbase.BiasFieldCorruption`
 
 Multiplicative bias field corruption to simulate MRI intensity inhomogeneities.
 
@@ -2244,7 +2244,7 @@ Applies smooth multiplicative bias field to image.
 
 ---
 
-### `freeseg.augmentation.augmentbase.SampleConditionalGMM`
+### `fsdeepnet.augmentation.augmentbase.SampleConditionalGMM`
 
 Generates synthetic images by sampling a Gaussian Mixture Model conditioned on labels.
 
@@ -2292,7 +2292,7 @@ Generates synthetic image by sampling GMM conditioned on label map.
 
 ---
 
-### `freeseg.augmentation.augmentbase.RescaleVolume`
+### `fsdeepnet.augmentation.augmentbase.RescaleVolume`
 
 Intensity rescaling with percentile-based clipping.
 
@@ -2333,7 +2333,7 @@ Rescales image intensities using percentile-based clipping.
 
 ---
 
-### `freeseg.augmentation.augmentbase.GaussianBlur`
+### `fsdeepnet.augmentation.augmentbase.GaussianBlur`
 
 Gaussian blurring augmentation.
 
@@ -2374,7 +2374,7 @@ Applies Gaussian blur to image.
 
 ---
 
-### `freeseg.augmentation.augmentbase.ResampleVolume`
+### `fsdeepnet.augmentation.augmentbase.ResampleVolume`
 
 Resamples volume to target resolution.
 
@@ -2413,7 +2413,7 @@ Resamples image and label to target resolution.
 
 ---
 
-### `freeseg.augmentation.augmentbase.MimicResolution`
+### `fsdeepnet.augmentation.augmentbase.MimicResolution`
 
 Simulates low-resolution acquisition by downsampling and upsampling.
 
@@ -2458,7 +2458,7 @@ Simulates low-resolution acquisition.
 
 ---
 
-### `freeseg.augmentation.augmentbase.RemapLabels`
+### `fsdeepnet.augmentation.augmentbase.RemapLabels`
 
 Remaps label values from source labels to destination labels.
 
@@ -2498,7 +2498,7 @@ Remaps label values according to mapping.
 
 ### Utility Functions
 
-#### `freeseg.augmentation.augmentbase.CropVolume(volume, crop_idx, verbose=False)`
+#### `fsdeepnet.augmentation.augmentbase.CropVolume(volume, crop_idx, verbose=False)`
 
 Crops a volume tensor using crop indices.
 
@@ -2514,7 +2514,7 @@ Crops a volume tensor using crop indices.
 - Returns original volume if `crop_idx` is `None`
 - Supports both 2D and 3D volumes
 
-#### `freeseg.augmentation.augmentbase.PadVolume(volume, padding_shape, padding_value=0)`
+#### `fsdeepnet.augmentation.augmentbase.PadVolume(volume, padding_shape, padding_value=0)`
 
 Pads a volume tensor to a target shape.
 
@@ -2535,7 +2535,7 @@ Pads a volume tensor to a target shape.
 
 ---
 
-### `freeseg.augmentation.augmentvoxynth.AugmentVoxynth`
+### `fsdeepnet.augmentation.augmentvoxynth.AugmentVoxynth`
 
 Extended augmentation class using the Voxynth library (https://github.com/dalcalab/voxynth/). Inherits from `AugmentBase` and adds additional augmentations that use Voxynth's `image_augment()` function for bias field corruption and intensity augmentation.
 
@@ -2621,7 +2621,7 @@ These classes use the Voxynth library's `image_augment()` function and provide a
 
 ---
 
-### `freeseg.augmentation.augmentvoxynth.BiasFieldCorruption`
+### `fsdeepnet.augmentation.augmentvoxynth.BiasFieldCorruption`
 
 Voxynth-based bias field corruption augmentation. Uses `voxynth.augment.image_augment()` for bias field generation.
 
@@ -2671,7 +2671,7 @@ Applies bias field corruption using Voxynth library.
 
 ---
 
-### `freeseg.augmentation.augmentvoxynth.IntensityAugmentation`
+### `fsdeepnet.augmentation.augmentvoxynth.IntensityAugmentation`
 
 Voxynth-based intensity augmentation. Uses `voxynth.augment.image_augment()` for noise and gamma scaling.
 
@@ -2712,7 +2712,7 @@ Applies intensity augmentation (noise and gamma scaling) using Voxynth library.
 
 ---
 
-### `freeseg.augmentation.augmentvoxynth.BiasFieldCorruptionAndIntensityAugmentation`
+### `fsdeepnet.augmentation.augmentvoxynth.BiasFieldCorruptionAndIntensityAugmentation`
 
 Combined bias field corruption and intensity augmentation in a single Voxynth call. More efficient than applying them separately.
 
@@ -2806,7 +2806,7 @@ augment_obj = AugmentVoxynth(hp=hp, transforms=transforms)
 
 ## Metrics
 
-### `freeseg.metrics.Dice`
+### `fsdeepnet.metrics.Dice`
 
 PyTorch module for calculating Dice score or Dice loss for binary or multi-class segmentation. Supports both soft Dice (on probability maps) and hard Dice (on discrete labels).
 
@@ -2896,7 +2896,7 @@ Calculates the Dice loss (1 - Dice Score).
 
 ---
 
-### `freeseg.metrics.DiceLoss`
+### `fsdeepnet.metrics.DiceLoss`
 
 Convenience wrapper class for Dice loss. Inherits from `Dice` and automatically sets `return_loss=True`.
 
@@ -2922,7 +2922,7 @@ loss = dice_loss(outputs, targets)  # Returns scalar loss
 
 ---
 
-### `freeseg.metrics.DiceScore`
+### `fsdeepnet.metrics.DiceScore`
 
 Convenience wrapper class for Dice score. Inherits from `Dice` and automatically sets `return_loss=False`.
 
@@ -2948,7 +2948,7 @@ scores = dice_score(outputs, targets)  # Returns [N, num_classes] tensor of scor
 
 ---
 
-### `freeseg.metrics.WeightedL2Loss`
+### `fsdeepnet.metrics.WeightedL2Loss`
 
 PyTorch module for calculating weighted L2 loss. Used for pre-training models before Dice loss training. The loss is computed on the layer before softmax activation.
 
@@ -2994,7 +2994,7 @@ loss = wl2_loss(penultimate_layer_output, onehot_labels)
 
 ---
 
-### `freeseg.metrics.WeightedCrossEntropyLoss`
+### `fsdeepnet.metrics.WeightedCrossEntropyLoss`
 
 PyTorch module for calculating weighted cross-entropy loss.
 
@@ -3035,7 +3035,7 @@ loss = wce_loss(logits, class_indices)
 
 ### Functions
 
-##### `freeseg.metrics.iou_score(outputs, targets, threshold=0.5, smooth=1e-6, exclude_background=True)`
+##### `fsdeepnet.metrics.iou_score(outputs, targets, threshold=0.5, smooth=1e-6, exclude_background=True)`
 
 Calculates the Intersection over Union (IoU) score for non-background predictions and targets.
 
@@ -3063,7 +3063,7 @@ iou = iou_score(predictions, ground_truth, threshold=0.5, exclude_background=Tru
 
 ## Filter
 
-### `freeseg.filter.Filter`
+### `fsdeepnet.filter.Filter`
 
 Utility class for generating Gaussian filter kernels. Provides static methods for creating 1D and multi-dimensional Gaussian kernels for image filtering operations.
 
@@ -3221,9 +3221,9 @@ The configuration file (`config.yaml`) contains the following sections:
 
 ## Utilities
 
-### `freeseg.utils.utility`
+### `fsdeepnet.utils.utility`
 
-Utility functions for data loading, logging, image processing, and other operations used throughout the FreeSeg pipeline.
+Utility functions for data loading, logging, image processing, and other operations used throughout the Fsdeepnet pipeline.
 
 #### Functions
 
@@ -3525,7 +3525,7 @@ config_logger(logfile="output/training.log", level=logging.INFO)
 Retrieves a Python class from a fully qualified class name.
 
 **Parameters:**
-- `qualified_class_name` (str): Fully qualified class name (e.g., `"freeseg.models.unet.UNet"`)
+- `qualified_class_name` (str): Fully qualified class name (e.g., `"fsdeepnet.models.unet.UNet"`)
 
 **Returns:**
 - `class`: The Python class object
@@ -3540,7 +3540,7 @@ Retrieves a Python class from a fully qualified class name.
 
 **Example:**
 ```python
-UNetClass = get_class("freeseg.models.unet.UNet")
+UNetClass = get_class("fsdeepnet.models.unet.UNet")
 model = UNetClass(model_arch_dict)
 ```
 
@@ -3733,7 +3733,7 @@ largest = get_largest_connected_component(mask)
 # Returns mask with only the largest connected region of 1s
 ```
 
-### `freeseg.checkpoint.Checkpoint`
+### `fsdeepnet.checkpoint.Checkpoint`
 
 Checkpoint management class for saving and loading PyTorch model checkpoints. Handles model state dictionaries, optimizer states, training metadata, and model architecture information.
 
@@ -3986,31 +3986,31 @@ Returns the optimizer state dictionary from checkpoint.
 
 ### Command-Line Scripts
 
-#### `freeseg_train.py`
+#### `fsdeepnet_train.py`
 
 Training script.
 
 **Usage:**
 ```bash
-fspython scripts/freeseg_train.py --config <config.yaml> [options]
+fspython scripts/fsdeepnet_train.py --config <config.yaml> [options]
 ```
 
-#### `freeseg_predict.py`
+#### `fsdeepnet_predict.py`
 
 Prediction script.
 
 **Usage:**
 ```bash
-fspython scripts/freeseg_predict.py --i <image> --o <output> --checkpoint <checkpoint> [options]
+fspython scripts/fsdeepnet_predict.py --i <image> --o <output> --checkpoint <checkpoint> [options]
 ```
 
-#### `freeseg_evaluate.py`
+#### `fsdeepnet_evaluate.py`
 
 Evaluation script.
 
 **Usage:**
 ```bash
-fspython scripts/freeseg_evaluate.py --gt <ground_truth> --seg <segmentation> [options]
+fspython scripts/fsdeepnet_evaluate.py --gt <ground_truth> --seg <segmentation> [options]
 ```
 
 ---
@@ -4020,8 +4020,8 @@ fspython scripts/freeseg_evaluate.py --gt <ground_truth> --seg <segmentation> [o
 ### Training Example
 
 ```python
-from freeseg.training import Training
-from freeseg.config import Config
+from fsdeepnet.training import Training
+from fsdeepnet.config import Config
 import argparse
 
 args = argparse.Namespace()
@@ -4047,7 +4047,7 @@ trainer.train_model(config, train_loader, model, optimizer_cls, val_loader)
 ### Prediction Example
 
 ```python
-from freeseg.prediction import Prediction
+from fsdeepnet.prediction import Prediction
 
 predictor = Prediction(device=torch.device("cuda"))
 predictor.build_model(segmentation_checkpoint="checkpoints/best_model.pt")
@@ -4060,7 +4060,7 @@ predictor.predict(
 ### Evaluation Example
 
 ```python
-from freeseg.evaluation import Evaluation
+from fsdeepnet.evaluation import Evaluation
 import numpy as np
 
 labels = np.array([0, 2, 3, 4, 17, 41])

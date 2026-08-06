@@ -1,4 +1,4 @@
-# freeseg
+# fsdeepnet
 A generic pyTorch deep-learning pipeline to accompany freesurfer adjacent models.
 
 ## Documentation
@@ -15,15 +15,15 @@ Comprehensive documentation is available in the `docs/` directory:
 
 1. Clone the repo
 ```bash
-git clone https://github.com/freesurfer/freeseg.git <freeseg-repo>
+git clone https://github.com/freesurfer/fsdeepnet.git <fsdeepnet-repo>
 ```
 
-2. Install freeseg package
+2. Install fsdeepnet package
 ```bash
 a. Build and install your Freesurfer with cmake options '-DDISTRIBUTE_FSPYTHON=ON -DFSPYTHON_INSTALL_CUDA=ON'
 b. Source your Freesurfer environment
-c. Install freeseg package
-   cd <freeseg-repo>
+c. Install fsdeepnet package
+   cd <fsdeepnet-repo>
    fspython -m pip install .
 
    * For editable install:  fspython -m pip install --editable .
@@ -31,7 +31,7 @@ c. Install freeseg package
 
 3. Setup the train/validation/test dataset
 ```bash
-fspython scripts/freeseg_create_data_list.py -d data/pgland_cropped/ -o "pgland_cropped_dataset_list.yaml"
+fspython scripts/fsdeepnet_create_data_list.py -d data/pgland_cropped/ -o "pgland_cropped_dataset_list.yaml"
 ```
 Note: this is a simple script to help create your ```dataset_list.yaml``` file. It may not cover your specific use-case. But as long as your ```dataset_list.yaml``` file looks like the following, you should be good to go:
 ```yaml
@@ -77,7 +77,7 @@ validation:
 
 5. Run the training script:
 ```bash
-fspython scripts/freeseg_train.py
+fspython scripts/fsdeepnet_train.py
          --config <config.yaml>
          [--train_output_folder <train_output_folder>]	 
 	 [--keep_trainset_in_memory]
@@ -94,7 +94,7 @@ fspython scripts/freeseg_train.py
 	 [--vmp]
 	 [--logfile <logfile>]
 
-       * default logfile is 'freeseg_train.log'
+       * default logfile is 'fsdeepnet_train.log'
 ```
 
 
@@ -103,7 +103,7 @@ fspython scripts/freeseg_train.py
 
 6. Run the prediction script to segment any input images
 ```bash
-fspython scripts/freeseg_predict.py 
+fspython scripts/fsdeepnet_predict.py 
        	 [--i <image_path> | --dataset_list_file <dataset.yaml> --cohort <train|validation|test>]
       	 --o <output_segmentations>
     	 --checkpoint <checkpoint>
@@ -122,12 +122,12 @@ fspython scripts/freeseg_predict.py
          1. --i <image_path> or 
          2. --dataset_list_file <dataset.yaml> --cohort <train|validation|test>
        * Options --i <image_path> and --dataset_list_file <dataset.yaml> are mutually exclusive.
-       * default logfile is 'freeseg_predict.log'
+       * default logfile is 'fsdeepnet_predict.log'
 ```
 
 7. Run the evaluation script to compute dice between ground truth and segmentation
 ```bash
-fspython scripts/freeseg_evaluate.py 
+fspython scripts/fsdeepnet_evaluate.py 
        	 --gt <ground_truth>
        	 --seg <segmentation>
          [--segmentation_labels <segmentation_labels.npy>]
@@ -137,5 +137,5 @@ fspython scripts/freeseg_evaluate.py
 
        * specify labels for dice evaluation using either --segmentation_labels <segmentation_labels.npy> or --evaluation_labels <label1 label2 ...>.
        * <segmentation_labels.npy> can be found in the training output directory.
-       * default logfile is 'freeseg_evaluate.log'
+       * default logfile is 'fsdeepnet_evaluate.log'
 ```

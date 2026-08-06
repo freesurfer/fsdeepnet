@@ -9,7 +9,7 @@ dataloader:
   prefetch_factor: 2
 
 model:
-  class: freeseg.models.unet.UNet
+  class: fsdeepnet.models.unet.UNet
   nb_levels: 5
   nb_features: 24  # first level convolution features
   out_channels: 69 # number of network output features
@@ -30,16 +30,16 @@ model:
   skip_connect: encoder    # norm or encoder
 
 preprocessing:
-  #class: freeseg.augmentation.augmentbase.AugmentBase   # or freeseg.augmentation.augmentvoxynth.AugmentVoxynth
+  #class: fsdeepnet.augmentation.augmentbase.AugmentBase   # or fsdeepnet.augmentation.augmentvoxynth.AugmentVoxynth
   #sampling_hp: True
   #verbose: False
   #augmentation_dir: /path/to-save-augmented-data
   crop_size: [160, 160, 160]
 
 training:
-  class: freeseg.training.Training
+  class: fsdeepnet.training.Training
   data_generator:
-    fn: freeseg.utils.utility.DataGenerator
+    fn: fsdeepnet.utils.utility.DataGenerator
     return_priors: True
   batch_size: 1
   deterministic: False
@@ -52,14 +52,14 @@ training:
   optimizer:
     class: torch.optim.Adam
   wl2_metrics:
-    class: freeseg.metrics.WeightedL2Loss
+    class: fsdeepnet.metrics.WeightedL2Loss
     gt_target_value: 5    
   model_metrics:
-    class: freeseg.metrics.DiceLoss
+    class: fsdeepnet.metrics.DiceLoss
     dice_type: soft
     dice_squared_form: True    
   model_metrics_accuracy:
-    class: freeseg.metrics.DiceScore
+    class: fsdeepnet.metrics.DiceScore
     dice_type: hard
     dice_squared_form: True
   write_tensorboard_summary: False  # whether to output tensorboard logs

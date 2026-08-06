@@ -3,9 +3,9 @@ import numpy as np
 import numpy.random as npr
 import math
 import torch
-from freeseg import voxynth
-from freeseg.utils import utility as utils
-from freeseg.filter import Filter
+from fsdeepnet import voxynth
+from fsdeepnet.utils import utility as utils
+from fsdeepnet.filter import Filter
 
 # augmentation wrapper class
 class AugmentBase:
@@ -45,12 +45,12 @@ class AugmentBase:
         # 1. valid_augmentations: augmentations supported in the class, used to validate augmentations requested
         self.valid_augmentations = valid_augmentations_base.copy()
 
-        # 2. output_dir: output directory used in freeseg.augmentation.apply_augmentations() to save augmented volumes for debugging
+        # 2. output_dir: output directory used in fsdeepnet.augmentation.apply_augmentations() to save augmented volumes for debugging
         self.output_dir = augmentation_dir
         if (device is None):
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if (verbose):
-            logging.debug(f"'freeseg.augmentation.augmentbase.AugmentBase' constructor")
+            logging.debug(f"'fsdeepnet.augmentation.augmentbase.AugmentBase' constructor")
 
         # 3. transforms: save the augmentations to be applied
         self.transforms = transforms
@@ -108,7 +108,7 @@ class Flip(torch.nn.Module):
         assert geom is not None, 'geom should not be None when applying flipping'
         assert self.left_right_corresponding is not None, 'left_right_corresponding should not be None when applying flipping'
         if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentbase.Flip'")
+            logging.debug(f"'fsdeepnet.augmentation.augmentbase.Flip'")
 
         aff = geom.vox2world.matrix
         if (image is not None):
@@ -180,7 +180,7 @@ class SpatialDeformation(torch.nn.Module):
         """Applies a random spatial transformation to image and label volumes."""
 
         if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentbase.SpatialDeformation'")
+            logging.debug(f"'fsdeepnet.augmentation.augmentbase.SpatialDeformation'")
 
         image = input.get("image", None)
         label = input.get("label", None)
@@ -275,7 +275,7 @@ class RandomCrop(torch.nn.Module):
         """
 
         if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentbase.RandomCrop'")
+            logging.debug(f"'fsdeepnet.augmentation.augmentbase.RandomCrop'")
 
         image = input.get("image", None)
         label = input.get("label", None)
@@ -470,7 +470,7 @@ class CentroidCrop(torch.nn.Module):
         """    
 
         if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentbase.CentroidCrop'")
+            logging.debug(f"'fsdeepnet.augmentation.augmentbase.CentroidCrop'")
 
         image = input.get("image", None)
         label = input.get("label", None)
@@ -574,7 +574,7 @@ class CenterCrop(torch.nn.Module):
         """    
 
         if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentbase.CenterCrop'")
+            logging.debug(f"'fsdeepnet.augmentation.augmentbase.CenterCrop'")
 
         image = input.get("image", None)
         label = input.get("label", None)
@@ -697,7 +697,7 @@ class IntensityAugmentation(torch.nn.Module):
         """
 
         if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentbase.IntensityAugmentation'")
+            logging.debug(f"'fsdeepnet.augmentation.augmentbase.IntensityAugmentation'")
 
         image = input.get("image", None)
         label = input.get("label", None)
@@ -802,11 +802,11 @@ class BiasFieldCorruption(torch.nn.Module):
         
         if (self.sampling and (not np.random.rand() < self.prob_bias or self.bias_field_std <= 0)):
             if (self.verbose):
-                logging.debug(f"'freeseg.augmentation.augmentbase.BiasFieldCorruption' - Skipped prob_bias={self.prob_bias}, bias_field_std={self.bias_field_std}")
+                logging.debug(f"'fsdeepnet.augmentation.augmentbase.BiasFieldCorruption' - Skipped prob_bias={self.prob_bias}, bias_field_std={self.bias_field_std}")
             return dict(image=image, label=label, prior=prior, geom=geom, crop_idx=None)
     
         if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentbase.BiasFieldCorruption'")
+            logging.debug(f"'fsdeepnet.augmentation.augmentbase.BiasFieldCorruption'")
 
         num_channels = image.shape[0]
         ndims = image.ndim - 1
@@ -872,7 +872,7 @@ class SampleConditionalGMM(torch.nn.Module):
         """    
 
         if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentbase.SampleConditionalGMM'")
+            logging.debug(f"'fsdeepnet.augmentation.augmentbase.SampleConditionalGMM'")
 
         image = input.get("image", None)
         label = input.get("label", None)
@@ -957,7 +957,7 @@ class RescaleVolume(torch.nn.Module):
         Applies intensity rescaling to the image volume. All channels are scaled separately.
         """
         if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentbase.RescaleVolume'")
+            logging.debug(f"'fsdeepnet.augmentation.augmentbase.RescaleVolume'")
 
         image = input.get("image", None)
         label = input.get("label", None)
@@ -1032,7 +1032,7 @@ class GaussianBlur(torch.nn.Module):
           non-batched tensor [C, H, W (,D)] 
         """
         if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentbase.GaussianBlur'")
+            logging.debug(f"'fsdeepnet.augmentation.augmentbase.GaussianBlur'")
 
         image = input.get("image", None)
         label = input.get("label", None)
@@ -1107,7 +1107,7 @@ class ResampleVolume(torch.nn.Module):
 
     def forward(self, input, **kwargs):
         if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentbase.ResampleVolume'")
+            logging.debug(f"'fsdeepnet.augmentation.augmentbase.ResampleVolume'")
 
         image = input.get("image", None)
         label = input.get("label", None)
@@ -1258,7 +1258,7 @@ class MimicResolution(torch.nn.Module):
 
     def forward(self, input, **kwargs):
         if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentbase.MimicResolution'")
+            logging.debug(f"'fsdeepnet.augmentation.augmentbase.MimicResolution'")
 
         image = input.get("image", None)
         label = input.get("label", None)
@@ -1271,7 +1271,7 @@ class MimicResolution(torch.nn.Module):
 
         if (not np.random.rand() < self.mimic_probability):
             if (self.verbose):
-                logging.debug(f"'freeseg.augmentation.augmentbase.MimicResolution' - Skipped mimic_probability={self.mimic_probability}")
+                logging.debug(f"'fsdeepnet.augmentation.augmentbase.MimicResolution' - Skipped mimic_probability={self.mimic_probability}")
             return dict(image=image, label=label, prior=prior, geom=geom, crop_idx=None)
 
         self.min_res = voxsize
@@ -1404,7 +1404,7 @@ class RemapLabels(torch.nn.Module):
 
         self.mapping = None
         if (len(self.source_labels) == len(self.dest_labels) and np.all(self.source_labels == self.dest_labels)):
-            logging.info(f"'freeseg.augmentation.augmentbase.RemapLabels': source_labels same as dest_labels")
+            logging.info(f"'fsdeepnet.augmentation.augmentbase.RemapLabels': source_labels same as dest_labels")
             return
 
         # build the mapping from source labels to dest labels        
@@ -1419,7 +1419,7 @@ class RemapLabels(torch.nn.Module):
         """    
 
         if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentbase.RemapLabels'")
+            logging.debug(f"'fsdeepnet.augmentation.augmentbase.RemapLabels'")
 
         image = input.get("image", None)
         label = input.get("label", None)
@@ -1448,7 +1448,7 @@ def CropVolume(volume, crop_idx, verbose=False):
     Crop volumes with given indices
     """    
     if (verbose):
-        logging.debug(f"'freeseg.augmentation.augmentbase.Crop'")
+        logging.debug(f"'fsdeepnet.augmentation.augmentbase.Crop'")
 
     # input volume is non-batched tensor
     vol_shape = torch.tensor(volume.shape[1:], device=volume.device)

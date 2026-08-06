@@ -4,15 +4,15 @@
 
 1. Clone the repo
 ```bash
-git clone https://github.com/freesurfer/freeseg.git <freeseg-repo>
+git clone https://github.com/freesurfer/fsdeepnet.git <fsdeepnet-repo>
 ```
 
-2. Install freeseg package
+2. Install fsdeepnet package
 ```bash
 a. Build and install your Freesurfer with cmake options '-DDISTRIBUTE_FSPYTHON=ON -DFSPYTHON_INSTALL_CUDA=ON'
 b. Source your Freesurfer environment
-c. Install freeseg package
-   cd <freeseg-repo>
+c. Install fsdeepnet package
+   cd <fsdeepnet-repo>
    fspython -m pip install .
 
    * For editable install:  fspython -m pip install --editable .
@@ -21,7 +21,7 @@ c. Install freeseg package
 3. Setup the train/validation/test dataset
 ```bash
 cd tutorials/
-fspython ../scripts/freeseg_create_data_list.py \
+fspython ../scripts/fsdeepnet_create_data_list.py \
 	 -d testdata/dummy_binary/ \
 	 -o configs/dataset_list_dummy_binary.yaml
 ```
@@ -36,7 +36,7 @@ Note: Image/label pairs are split into train/validation/test datasets with defau
 5. Run the training script:
 ```bash
 cd tutorials/
-fspython ../scripts/freeseg_train.py \
+fspython ../scripts/fsdeepnet_train.py \
 	 --config configs/config_dummy_binary.yaml \
 	 --dataset_list_file configs/dataset_list_dummy_binary.yaml \
 	 --ctab configs/dummy_binary.ctab \
@@ -49,7 +49,7 @@ fspython ../scripts/freeseg_train.py \
 6. Run the prediction script to segment any input images
 ```bash
 cd tutorials/
-fspython ../scripts/freeseg_predict.py \
+fspython ../scripts/fsdeepnet_predict.py \
 	 --checkpoint experiment/train.dummy_binary/dice_010.pth \
 	 --dataset_list_file configs/dataset_list_dummy_binary.yaml --cohort test \
 	 --o experiment/predict.testcohort
@@ -74,9 +74,9 @@ fspython ../tests/test_segmentationdataset.py \
 8. Print model summary and parameters
 ```bash
 cd tutorials/
-fspython ../scripts/freeseg_checkmodel.py --config configs/config_dummy_binary.yaml
+fspython ../scripts/fsdeepnet_checkmodel.py --config configs/config_dummy_binary.yaml
 ```
 
 ```bash
-fspython ../scripts/freeseg_checkmodel.py --checkpoint experiment/train.dummy_binary/dice_010.pth
+fspython ../scripts/fsdeepnet_checkmodel.py --checkpoint experiment/train.dummy_binary/dice_010.pth
 ```

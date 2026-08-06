@@ -4,13 +4,13 @@ import sys
 import logging
 import argparse
 
-from freeseg import models
-from freeseg.training import Training
-from freeseg.config import Config
-from freeseg.utils import utility as utils
+from fsdeepnet import models
+from fsdeepnet.training import Training
+from fsdeepnet.config import Config
+from fsdeepnet.utils import utility as utils
 
 """
-Usage: freeseg_train.py 
+Usage: fsdeepnet_train.py 
        --config <config.yaml>
        [--train_output_folder <train_output_folder>]
        [--keep_trainset_in_memory]
@@ -96,7 +96,7 @@ def argument_parse():
     parser.add_argument("--best_model_metric", type=str, default=None, choices=["loss", "dice"], help="Metric for saving the best model (loss or dice)")
     parser.add_argument("--weight_init", type=str, help="How to init network weights, 'zeros' or 'xavier_uniform'")
     parser.add_argument('--vmp', action='store_true', help='Enable printing of vmpeak at the end.')
-    parser.add_argument('--logfile', type=str, help='Set logfile (default is freeseg_train.log)')
+    parser.add_argument('--logfile', type=str, help='Set logfile (default is fsdeepnet_train.log)')
     parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
     parser.add_argument("--verbose", action='store_true', help="Print debug info to stdout")
     parser.add_argument("--no_datasetlist", action='store_true', help="No dataset_list.yaml required")
@@ -130,9 +130,9 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None, wa
     # retrieve data_generator information
     cfg_data_generator = config["training"].pop("data_generator", {})
     if (cfg_data_generator):
-        data_generator = utils.get_class(cfg_data_generator.pop("fn", "freeseg.utils.utility.DataGenerator"))
+        data_generator = utils.get_class(cfg_data_generator.pop("fn", "fsdeepnet.utils.utility.DataGenerator"))
     else:
-        data_generator = utils.get_class("freeseg.utils.utility.DataGenerator")
+        data_generator = utils.get_class("fsdeepnet.utils.utility.DataGenerator")
     cfg_data_generator.update({"device" : config["preprocessing_device"]})
     fn_data_generator = data_generator(train_loader, **cfg_data_generator)
 
@@ -140,7 +140,7 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None, wa
     model_metrics_accuracy = config["training"].pop("model_metrics_accuracy", None)
     dice_hard_fn = None
     if (model_metrics_accuracy is not None):
-        cls_model_metrics_accuracy = utils.get_class(model_metrics_accuracy.pop("class", "freeseg.metrics.DiceDice"))
+        cls_model_metrics_accuracy = utils.get_class(model_metrics_accuracy.pop("class", "fsdeepnet.metrics.DiceDice"))
         # '**' operator unpacks rest of dictionary key/value pairs to keyword arguments
         dice_hard_fn = cls_model_metrics_accuracy(**model_metrics_accuracy)
 
@@ -151,7 +151,7 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None, wa
     model_metrics = config["training"].pop("model_metrics", None)
 
     # create the Training object
-    trainer_cls = utils.get_class(config["training"].get("class", "freeseg.training.Training"))        
+    trainer_cls = utils.get_class(config["training"].get("class", "fsdeepnet.training.Training"))        
     trainer = trainer_cls(dnn=model,
                           wandb_logger=wandb_logger,
                           train_loader=train_loader,
@@ -170,7 +170,7 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None, wa
 
     # train wl2 epochs
     if (wl2_epochs > 0 and wl2_metrics is not None):
-        cls_wl2_metrics = utils.get_class(wl2_metrics.pop("class", "freeseg.metrics.WeightedL2Loss"))
+        cls_wl2_metrics = utils.get_class(wl2_metrics.pop("class", "fsdeepnet.metrics.WeightedL2Loss"))
         if (checkpoint is None):
             mainlogger.info(f"training {wl2_epochs} wl2 epochs: {trainer_cls}, {optimizer_cls}, {cls_wl2_metrics}, lr:{config['training']['pre_train_learning_rate']} ...")
         # '**' operator unpacks rest of dictionary key/value pairs to keyword arguments
@@ -184,7 +184,7 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None, wa
 
     # train dice epochs
     if (dice_epochs > 0 and model_metrics is not None):
-        cls_model_metrics = utils.get_class(model_metrics.pop("class", "freeseg.metrics.DiceLoss"))
+        cls_model_metrics = utils.get_class(model_metrics.pop("class", "fsdeepnet.metrics.DiceLoss"))
         mainlogger.info(f"training {dice_epochs} dice epochs: {trainer_cls}, {optimizer_cls}, {cls_model_metrics}, lr:{config['training']['learning_rate']} ...")
         # '**' operator unpacks dictionary key/value pairs to keyword arguments        
         dice_loss_fn = cls_model_metrics(**model_metrics)

@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 
 
 """
-Usage: freeseg_split_dataset.py
+Usage: fsdeepnet_split_dataset.py
        [--d <data_folder> | --i <dataset.yaml>]
        [--o <output_file>]
        [--ignore_prior]

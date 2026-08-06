@@ -1,6 +1,6 @@
 # Training Guide
 
-This guide provides detailed information about training models with FreeSeg.
+This guide provides detailed information about training models with Fsdeepnet.
 
 ## Table of Contents
 
@@ -53,7 +53,7 @@ Create or edit `config.yaml` (see [CONFIGURATION.md](CONFIGURATION.md) for detai
 ### Step 3: Run Training
 
 ```bash
-fspython scripts/freeseg_train.py \
+fspython scripts/fsdeepnet_train.py \
   --config configs/config.yaml \
   --dataset_list_file data/dataset_list.yaml \  
   --train_output_folder output/training
@@ -63,7 +63,7 @@ fspython scripts/freeseg_train.py \
 
 ## Two-Stage Training
 
-FreeSeg supports a two-stage training approach for better model initialization.
+Fsdeepnet supports a two-stage training approach for better model initialization.
 
 ### Stage 1: Weighted L2 Pre-training
 
@@ -75,7 +75,7 @@ training:
   wl2_epochs: 5
   wl2_gt_target_value: 15
   pre_train_learning_rate: 0.0001
-  wl2_metrics: freeseg.metrics.WeightedL2Loss
+  wl2_metrics: fsdeepnet.metrics.WeightedL2Loss
 ```
 
 ### Stage 2: Dice Loss Training
@@ -87,7 +87,7 @@ training:
 training:
   dice_epochs: 100
   learning_rate: 0.0001
-  model_metrics: freeseg.metrics.DiceLoss
+  model_metrics: fsdeepnet.metrics.DiceLoss
   dice_squared_form: False
 ```
 
@@ -104,7 +104,7 @@ The training automatically proceeds through stages in this order:
 ### Log Files
 
 Training logs are saved to:
-- Default: `freeseg_train.log` in current directory
+- Default: `fsdeepnet_train.log` in current directory
 - Or: Path specified by `--logfile`
 
 **Log contents:**
@@ -172,7 +172,7 @@ Checkpoints contain:
 ### From Checkpoint
 
 ```bash
-fspython scripts/freeseg_train.py \
+fspython scripts/fsdeepnet_train.py \
   --config configs/config.yaml \
   --dataset_list_file data/dataset_list.yaml \  
   --train_output_folder output/training \
@@ -183,7 +183,7 @@ fspython scripts/freeseg_train.py \
 
 View checkpoint contents:
 ```python
-from freeseg.checkpoint import Checkpoint
+from fsdeepnet.checkpoint import Checkpoint
 import torch
 
 checkpoint = torch.load("checkpoints/best_model.pth")
@@ -196,7 +196,7 @@ Checkpoint.print(checkpoint, detail=True)
 ### Basic Training
 
 ```bash
-fspython scripts/freeseg_train.py \
+fspython scripts/fsdeepnet_train.py \
   --config configs/config.yaml \
   --dataset_list_file data/dataset_list.yaml \
   --train_output_folder output/training
@@ -205,7 +205,7 @@ fspython scripts/freeseg_train.py \
 ### Training with Evaluation
 
 ```bash
-fspython scripts/freeseg_train.py \
+fspython scripts/fsdeepnet_train.py \
   --config configs/config.yaml \
   --dataset_list_file data/dataset_list.yaml \  
   --train_output_folder output/training \
@@ -216,7 +216,7 @@ fspython scripts/freeseg_train.py \
 ### Training with Custom Hyperparameters
 
 ```bash
-fspython scripts/freeseg_train.py \
+fspython scripts/fsdeepnet_train.py \
   --config configs/config.yaml \
   --dataset_list_file data/dataset_list.yaml \  
   --train_output_folder output/training \
@@ -230,7 +230,7 @@ fspython scripts/freeseg_train.py \
 ### Resuming Training
 
 ```bash
-fspython scripts/freeseg_train.py \
+fspython scripts/fsdeepnet_train.py \
   --config configs/config.yaml \
   --dataset_list_file data/dataset_list.yaml \
   --train_output_folder output/training \
@@ -240,7 +240,7 @@ fspython scripts/freeseg_train.py \
 ### Training on CPU
 
 ```bash
-fspython scripts/freeseg_train.py \
+fspython scripts/fsdeepnet_train.py \
   --config configs/config.yaml \
   --dataset_list_file data/dataset_list.yaml \  
   --train_output_folder output/training \

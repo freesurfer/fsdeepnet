@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "freeseg"
+name = "fsdeepnet"
 version = "0.1"
 dependencies= [
     #'torch',
@@ -16,11 +16,11 @@ dependencies= [
 ]
 
 [project.scripts]
-freeseg_train = 'freeseg.cli.freeseg_train:main'
-freeseg_predict = 'freeseg.cli.freeseg_predict:main'
-freeseg_evaluate = 'freeseg.cli.freeseg_evaluate:main'
-freeseg_create_data_list = 'freeseg.cli.freeseg_create_data_list:main'
-freeseg_checkpoint = 'freeseg.cli.freeseg_checkpoint:main'
-freeseg_test_dataset = 'freeseg.cli.test_dataset:main'
-freeseg_test_dataloader = 'freeseg.cli.test_dataloader:main'
-freeseg_tf2torch = 'freeseg.cli.tf2torch.loadh5_synthseg:main'
+fsdeepnet_train = 'fsdeepnet.cli.fsdeepnet_train:main'
+fsdeepnet_predict = 'fsdeepnet.cli.fsdeepnet_predict:main'
+fsdeepnet_evaluate = 'fsdeepnet.cli.fsdeepnet_evaluate:main'
+fsdeepnet_create_data_list = 'fsdeepnet.cli.fsdeepnet_create_data_list:main'
+fsdeepnet_checkpoint = 'fsdeepnet.cli.fsdeepnet_checkpoint:main'
+fsdeepnet_test_dataset = 'fsdeepnet.cli.test_dataset:main'
+fsdeepnet_test_dataloader = 'fsdeepnet.cli.test_dataloader:main'
+fsdeepnet_tf2torch = 'fsdeepnet.cli.tf2torch.loadh5_synthseg:main'

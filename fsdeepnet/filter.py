@@ -71,7 +71,7 @@ class Filter:
             radius = [radius] * ndims
 
         assert (ndims == len(radius)), \
-            f"freeseg.filter.Filter.gaussian_kernel(): sigma and radius need to be the same length"
+            f"fsdeepnet.filter.Filter.gaussian_kernel(): sigma and radius need to be the same length"
         
         # generate a range of indices for each dimension
         ranges = [torch.arange(-r, r + 1, device=device) for r in radius]

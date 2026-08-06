@@ -7,10 +7,10 @@ import torch
 #import torch.optim as optim
 #import torch.nn as nn
 
-from freeseg.config import Config
-from freeseg.checkpoint import Checkpoint
-from freeseg.metrics import DiceScore
-from freeseg.utils import utility as utils
+from fsdeepnet.config import Config
+from fsdeepnet.checkpoint import Checkpoint
+from fsdeepnet.metrics import DiceScore
+from fsdeepnet.utils import utility as utils
 
 
 class Training:
@@ -650,11 +650,11 @@ class Training:
                 cfg_preprocess = config["preprocessing"].copy()                
 
             # retrieve and remove 'augmentation_wrapper'
-            augment_classname = cfg_preprocess.pop("class", "freeseg.augmentation.augmentbase.AugmentBase")
+            augment_classname = cfg_preprocess.pop("class", "fsdeepnet.augmentation.augmentbase.AugmentBase")
             if ("Augment2" in augment_classname):
                 logging.info("'augment2.Augment2' is specified in config.")
                 logging.info("Change 'augment2.Augment2' to 'augmentbase.AugmentBase' since augmentations in augment2.Augment2 are now implemented in augmentbase.AugmentBase")
-                augment_classname = "freeseg.augmentation.augmentbase.AugmentBase"
+                augment_classname = "fsdeepnet.augmentation.augmentbase.AugmentBase"
             assert (augment_classname is not None), "Must provide an data augmentation class"
             
             if (device is None):
@@ -669,7 +669,7 @@ class Training:
                                          **cfg_dataset)     # '**' operator unpacks 'dataset' key/value pairs to keyword arguments
 
             # check if augmentations specified are valid
-            from freeseg import augmentation                
+            from fsdeepnet import augmentation                
             augmentation.check_augmentations(augment_obj)
                 
             return augment_obj
@@ -699,7 +699,7 @@ class Training:
 
         ### process dataset attributes
         if (set_dataset_attr and config.get("dataset", None)):
-            dataset_classname = config["dataset"].get("class", "freeseg.datasets.segmentationdataset.SegmentationDataset")
+            dataset_classname = config["dataset"].get("class", "fsdeepnet.datasets.segmentationdataset.SegmentationDataset")
             py_dataset_cls = utils.get_class(dataset_classname)                    
 
             ### retrieve dataset class static method process_dataset_attr(), process and update dataset attributes
@@ -770,7 +770,7 @@ class Training:
         - `model_arch_dict` will be passed to create individual network object
         - the model configurable keywords need to match individual network implementations
         - it is the individual network implementation's responsibility to check their availabilities
-        - `num_channels` and `nb_labels` are not required, they are set here for freeseg.models.unet.UNet
+        - `num_channels` and `nb_labels` are not required, they are set here for fsdeepnet.models.unet.UNet
             to dataset configurables `expected_num_channels` and `len(segmentation_labels)` respectively
             if they are missing from model configurables.
         """
@@ -816,7 +816,7 @@ class Training:
             config["wandb_logger"] = wandb_mode
             config["wandb_dir"] = None
             if (wandb_mode is not None and wandb_mode != "disabled"):
-                from freeseg.wandblogger import WandbLogger
+                from fsdeepnet.wandblogger import WandbLogger
                 wandb_logger = WandbLogger(config, **cfg_wandb)
                 config["wandb_dir"] = wandb_logger.dir
 

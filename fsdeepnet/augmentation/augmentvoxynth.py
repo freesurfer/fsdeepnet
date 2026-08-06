@@ -4,8 +4,8 @@ import numpy as np
 import numpy.random as npr
 import math
 import torch
-from freeseg import voxynth
-from freeseg.augmentation.augmentbase import AugmentBase
+from fsdeepnet import voxynth
+from fsdeepnet.augmentation.augmentbase import AugmentBase
 
 # augmentation wrapper class derived from AugmentBase
 class AugmentVoxynth(AugmentBase):
@@ -53,7 +53,7 @@ class AugmentVoxynth(AugmentBase):
         if (device is None):
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if (verbose):
-            logging.debug(f"'freeseg.augmentation.augmentvoxynth.AugmentVoxynth' constructor")        
+            logging.debug(f"'fsdeepnet.augmentation.augmentvoxynth.AugmentVoxynth' constructor")        
 
         # 2. transforms: save the augmentations to be applied
         self.transforms = transforms
@@ -108,7 +108,7 @@ class BiasFieldCorruption(torch.nn.Module):
     def forward(self, input, **kwargs):
         """Applies bias field augmentation to the image volume."""
         if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentvoxynth.BiasFieldCorruption'")
+            logging.debug(f"'fsdeepnet.augmentation.augmentvoxynth.BiasFieldCorruption'")
 
         image = input.get("image", None)
         label = input.get("label", None)
@@ -154,7 +154,7 @@ class IntensityAugmentation(torch.nn.Module):
     def forward(self, input, **kwargs):
         """Applies blurring and resampling to the image volume."""
         if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentvoxynth.IntensityAugmentation'")
+            logging.debug(f"'fsdeepnet.augmentation.augmentvoxynth.IntensityAugmentation'")
 
         image = input.get("image", None)
         label = input.get("label", None)
@@ -232,7 +232,7 @@ class BiasFieldCorruptionAndIntensityAugmentation(torch.nn.Module):
     def forward(self, input, **kwargs):
         """Applies blurring and resampling to the image volume."""
         if (self.verbose):
-            logging.debug(f"'freeseg.augmentation.augmentvoxynth.BiasFieldCorruptionAndIntensityAugmentation'")
+            logging.debug(f"'fsdeepnet.augmentation.augmentvoxynth.BiasFieldCorruptionAndIntensityAugmentation'")
 
         image = input.get("image", None)
         label = input.get("label", None)

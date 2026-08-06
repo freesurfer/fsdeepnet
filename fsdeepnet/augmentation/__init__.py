@@ -17,7 +17,7 @@ def apply_augmentations(augment_obj,
     if (orig_fpath is not None and output_dir is not None):
         import os
         import numpy as np
-        from freeseg.utils import utility as utils
+        from fsdeepnet.utils import utility as utils
 
         volumeprefix = os.path.basename(orig_fpath)
         for fext in ['.nii.gz', '.nii', '.mgz']:

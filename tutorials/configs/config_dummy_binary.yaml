@@ -1,10 +1,10 @@
 dataset:
-  dataset_classname: freeseg.datasets.segmentationdataset.SegmentationDataset
+  dataset_classname: fsdeepnet.datasets.segmentationdataset.SegmentationDataset
   segmentation_labels: [0, 1]
   expected_num_channels: 1
 
 model:
-  name: freeseg.models.unet.UNet
+  name: fsdeepnet.models.unet.UNet
   nb_levels: 3
   nb_features: 24 
   feat_mult: 2
@@ -21,7 +21,7 @@ model:
   upsample_interpolation: linear
 
 preprocessing:
-  augmentation_class: freeseg.augmentation.augmentbase.AugmentBase
+  augmentation_class: fsdeepnet.augmentation.augmentbase.AugmentBase
   crop_size: [64, 64, 64]
   augmentations:
     - spatialdeformation:
@@ -54,8 +54,8 @@ training:
   learning_rate: 0.0001
   pre_train_learning_rate: 0.0001
   optimizer: torch.optim.Adam
-  wl2_metrics: freeseg.metrics.WeightedL2Loss
-  model_metrics: freeseg.metrics.DiceLoss
+  wl2_metrics: fsdeepnet.metrics.WeightedL2Loss
+  model_metrics: fsdeepnet.metrics.DiceLoss
   perform_evaluation: True
   best_model_metric: dice
 

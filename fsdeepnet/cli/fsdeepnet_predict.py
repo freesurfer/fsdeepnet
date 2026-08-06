@@ -8,10 +8,10 @@ import torch
 import argparse
 import yaml
 
-from freeseg.utils import utility as utils
+from fsdeepnet.utils import utility as utils
 
 description = """
-Usage: freeseg_predict.py 
+Usage: fsdeepnet_predict.py 
        [--i <image_path> | --dataset_list_file <dataset.yaml> --cohort <train|validation|test>]
        --o  <output_segmentations>
        --checkpoint <checkpoint>
@@ -43,7 +43,7 @@ def main():
     args = argument_parse()
     
     # setup and configure root and main logger
-    logfile = args.logfile if (args.logfile is not None) else os.path.join(os.getcwd(), "freeseg_predict.log")
+    logfile = args.logfile if (args.logfile is not None) else os.path.join(os.getcwd(), "fsdeepnet_predict.log")
     utils.config_logger(logfile=logfile, mode='w')
     mainlogger = logging.getLogger(__name__)
     mainlogger.addHandler(logging.StreamHandler())
@@ -94,7 +94,7 @@ def main():
     path_gt = args.gt
     path_priors = args.prior
     if ((args.dataset_list_file is not None)):
-        from freeseg.config import Config
+        from fsdeepnet.config import Config
 
         # --label <> needs to specified separately, pointing to a directory
         dataset_dict = Config.load_dataset_list(args.dataset_list_file)
@@ -183,7 +183,7 @@ def argument_parse():
     parser.add_argument("--segmentation_names", type=str, help="Path to npy containing segmentation names corresponding to segmentation labels")
     parser.add_argument("--write_posteriors", action='store_true', help="Save the label posteriors.")
     parser.add_argument("--vol", type=str, help="Output for calculated label volumes.")
-    parser.add_argument('--logfile', type=str, help="Set logfile (default is ./freeseg_predict.log)")
+    parser.add_argument('--logfile', type=str, help="Set logfile (default is ./fsdeepnet_predict.log)")
     parser.add_argument("--cpu", action='store_true', help="Run on CPU.")
     parser.add_argument("--threads", type=int, help="Number of threads to run on CPU, default is pytorch determined")
     parser.add_argument("--debug", action='store_true', help="Output volumes for debugging.")
@@ -201,7 +201,7 @@ def argument_parse():
 
 def predict(path_images, out_segmentations, checkpoint, args, path_priors=None, codenames=None,
             path_gt=None, addctab=True, device=None, keepgeom=False, segmentation_names=None,):
-    from freeseg.prediction import Prediction
+    from fsdeepnet.prediction import Prediction
     
     prediction = Prediction(device, ctab=args.ctab, topology_classes=args.topology_classes, debug=args.debug, debug_feat=args.debug_feat, gc=args.gc)
     prediction.build_model(checkpoint, parcellation_checkpoint=args.parc, flip=args.flip, smooth_posteriors=args.smooth_posteriors, smooth_sigma=args.smooth_sigma)

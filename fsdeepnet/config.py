@@ -8,7 +8,7 @@ import numpy as np
 import shutil
 from functools import partial
 
-from freeseg.utils import utility as utils
+from fsdeepnet.utils import utility as utils
 
 class Config:
     @staticmethod
@@ -158,7 +158,7 @@ class Config:
     @staticmethod
     # update the input config with commandline user options and default config.dataloader parameters
     # NOTES: need to first check if the argument is available because
-    #        update(), process() is shared between freeseg_train.py,
+    #        update(), process() is shared between fsdeepnet_train.py,
     #        test_dataloader.py, test_segmentationdataset.py that have different argument set
     def update(config, args):
         # backward compatibility - handle config.yaml w/o 'dataloader' section

@@ -6,9 +6,9 @@ import numpy as np
 import torch
 import surfa as sf
 
-from freeseg.checkpoint import Checkpoint
-from freeseg.utils import utility as utils
-from freeseg.augmentation import augmentbase
+from fsdeepnet.checkpoint import Checkpoint
+from fsdeepnet.utils import utility as utils
+from fsdeepnet.augmentation import augmentbase
 
 class Prediction:
     """
@@ -435,7 +435,7 @@ class Prediction:
         # evaluate
         if (path_gt is not None):
             # calculate hard-dice between saved segmentations and their ground truth
-            from freeseg.evaluation import Evaluation
+            from fsdeepnet.evaluation import Evaluation
 
             path_dice = os.path.join(os.path.dirname(out_segmentations[0]), 'dices.npy')
 

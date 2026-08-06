@@ -294,7 +294,7 @@ class UNet(nn.Module):
             if (self.norm is not None):
                 x = decoder[idx](x) # batch/instance norm
         
-        # Classification layern (Compute likelihood prediction)
+        # Classification layer (Compute likelihood prediction)
         x1 = x = self.classifier(x)
 
         """

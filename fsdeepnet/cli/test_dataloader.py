@@ -4,9 +4,9 @@ import sys
 import logging
 import argparse
 
-from freeseg.utils import utility as utils
-from freeseg.training import Training
-from freeseg.config import Config
+from fsdeepnet.utils import utility as utils
+from fsdeepnet.training import Training
+from fsdeepnet.config import Config
 
 """
 Usage: test_dataloader.py 
@@ -48,9 +48,9 @@ def main():
     # retrieve data_generator information
     cfg_data_generator = config["training"].pop("data_generator", {})
     if (cfg_data_generator):
-        data_generator = utils.get_class(cfg_data_generator.pop("fn", "freeseg.utils.utility.DataGenerator"))
+        data_generator = utils.get_class(cfg_data_generator.pop("fn", "fsdeepnet.utils.utility.DataGenerator"))
     else:
-        data_generator = utils.get_class("freeseg.utils.utility.DataGenerator")
+        data_generator = utils.get_class("fsdeepnet.utils.utility.DataGenerator")
     cfg_data_generator.update({"device" : config["preprocessing_device"]})
     input_generator = data_generator(train_loader, **cfg_data_generator)
     

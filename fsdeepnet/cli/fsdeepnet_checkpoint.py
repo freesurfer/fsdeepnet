@@ -7,14 +7,14 @@ import numpy
 import torch
 import argparse
 
-from freeseg import models
-from freeseg.config import Config
-from freeseg.training import Training
-from freeseg.checkpoint import Checkpoint
-from freeseg.utils import utility as utils
+from fsdeepnet import models
+from fsdeepnet.config import Config
+from fsdeepnet.training import Training
+from fsdeepnet.checkpoint import Checkpoint
+from fsdeepnet.utils import utility as utils
 
 description = """
-Usage: freeseg_checkpoint.py 
+Usage: fsdeepnet_checkpoint.py 
        --config <config.yaml> | --checkpoint <checkpoint> [ [--info [--detail] [--report_type] [--nkeys <n>] [--keys <>] ]
                                                             [--weights <model_state_key>:weight_outdir>]
                                                             [--load_weights]
@@ -50,33 +50,33 @@ Usage: freeseg_checkpoint.py
              rename the checkpoint top level dictionary keywords
 
 Example 1: retrieve checkpoint top level information
-       fspython freeseg_checkpoint.py --checkpoint orig.pth --info
+       fspython fsdeepnet_checkpoint.py --checkpoint orig.pth --info
 
 Example 2: retrieve information of 30 layers of model_state_dict
-       fspython freeseg_checkpoint.py --checkpoint orig.pth --info --detail --keys model_state_dict --nkey 30
+       fspython fsdeepnet_checkpoint.py --checkpoint orig.pth --info --detail --keys model_state_dict --nkey 30
 
 Example 3: save trainable parameters only
-        fspython freeseg_checkpoint.py --checkpoint orig.pth --weights model_state_dict:weight_dir
+        fspython fsdeepnet_checkpoint.py --checkpoint orig.pth --weights model_state_dict:weight_dir
 
 Example 4: rename 'model_state' to 'model_state_dict'
-       fspython freeseg_checkpoint.py --checkpoint orig.pth --rename model_state:model_state_dict --saveas new.pth
+       fspython fsdeepnet_checkpoint.py --checkpoint orig.pth --rename model_state:model_state_dict --saveas new.pth
 
 Example 5: strip 'optimizer_state'
-       fspython freeseg_checkpoint.py --checkpoint orig.pth --strip optimizer_state --saveas new.pth
+       fspython fsdeepnet_checkpoint.py --checkpoint orig.pth --strip optimizer_state --saveas new.pth
 
 Example 6: prefix model state layer
-       fspython freeseg_checkpoint.py --checkpoint orig.pth --prefix-model_layer unet3d. --saveas new.pth
+       fspython fsdeepnet_checkpoint.py --checkpoint orig.pth --prefix-model_layer unet3d. --saveas new.pth
 
 Example 7: replace model state layer
-       fspython freeseg_checkpoint.py --checkpoint orig.pth --replace-model_layer unet3d:unet --saveas new.pth
+       fspython fsdeepnet_checkpoint.py --checkpoint orig.pth --replace-model_layer unet3d:unet --saveas new.pth
 
 Example 8: update checkpoint
-       fspython freeseg_checkpoint.py --checkpoint orig.pth
+       fspython fsdeepnet_checkpoint.py --checkpoint orig.pth
          --update topology_classes:topological_classes.npy segmentation_names:segmentation_names.npy
          --saveas new.pth
 
 Example 9: update checkpoint 'train_dataset_dict' and 'model_arch_dict' using information from config.yaml
-       fspython freeseg_checkpoint.py --checkpoint orig.pth --update config:config --saveas new.pth
+       fspython fsdeepnet_checkpoint.py --checkpoint orig.pth --update config:config --saveas new.pth
 """
 
 # Configure logging settings

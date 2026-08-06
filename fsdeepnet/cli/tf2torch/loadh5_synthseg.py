@@ -5,15 +5,15 @@ import h5py
 import numpy as np
 import torch
 
-from freeseg import models
-from freeseg.config import Config
-from freeseg.checkpoint import Checkpoint
-from freeseg.training import Training
+from fsdeepnet import models
+from fsdeepnet.config import Config
+from fsdeepnet.checkpoint import Checkpoint
+from fsdeepnet.training import Training
 
 """
 Usage: fspython loadh5_synthseg.py 
          --tf_model <tensorflow h5 model file>
-         --preview | --config <freeseg model config> --model_layer_mapping <tf-pytoch model layer mapping> --torch_model_saveas <converted pytorch pth model file>
+         --preview | --config <fsdeepnet model config> --model_layer_mapping <tf-pytoch model layer mapping> --torch_model_saveas <converted pytorch pth model file>
 Example:
   loadh5_synthseg.py --tf_model /usr/local/freesurfer/8.0.0/models/synthseg_2.0.h5
                      --config   tests/tf2torch/synthseg_config.yaml 

@@ -2,7 +2,7 @@ import sys
 import re
 
 """
-The script extracts training/validation loss and average dice from given freeseg_train.log for each epoch.
+The script extracts training/validation loss and average dice from given fsdeepnet_train.log for each epoch.
 The extracted training loss and average dice are sent to stdout.
 
 Example of log entry:

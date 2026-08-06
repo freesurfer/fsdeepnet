@@ -6,11 +6,11 @@ import logging
 import numpy as np
 import argparse
 
-from freeseg.utils import utility as utils
-from freeseg.evaluation import Evaluation
+from fsdeepnet.utils import utility as utils
+from fsdeepnet.evaluation import Evaluation
 
 """
-Usage: freeseg_evaluate.py 
+Usage: fsdeepnet_evaluate.py 
        --gt <ground_truth>
        --seg <segmentation>
        [--segmentation_labels <segmentation_labels.npy>]
@@ -23,7 +23,7 @@ def main():
     args = argument_parse()
 
     # setup and configure root and main logger
-    logfile = args.logfile if (args.logfile is not None) else os.path.join(os.getcwd(), "freeseg_evaluate.log")
+    logfile = args.logfile if (args.logfile is not None) else os.path.join(os.getcwd(), "fsdeepnet_evaluate.log")
     utils.config_logger(logfile=logfile, mode='w')
     mainlogger = logging.getLogger(__name__)
     mainlogger.addHandler(logging.StreamHandler())
@@ -60,7 +60,7 @@ def argument_parse():
     parser.add_argument("--gt", type=str, required=True, help="Path to ground truth (folder) for dice evaluation.")
     parser.add_argument("--seg", type=str, required=True, help="Path to segmentation (folder) for dice evaluation.")
     parser.add_argument("--path_dice", type=str, help="Path to dice scores output.")
-    parser.add_argument('--logfile', type=str, help='Set logfile (default is ./freeseg_evaluate.log)')
+    parser.add_argument('--logfile', type=str, help='Set logfile (default is ./fsdeepnet_evaluate.log)')
 
     # parse commandline
     args = parser.parse_args()

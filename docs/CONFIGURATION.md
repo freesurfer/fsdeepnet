@@ -1,6 +1,6 @@
 # Configuration Guide
 
-This guide explains how to configure FreeSeg for training.
+This guide explains how to configure Fsdeepnet for training.
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@ This guide explains how to configure FreeSeg for training.
 
 ## Configuration File Structure
 
-FreeSeg uses YAML configuration files to specify all training parameters.
+Fsdeepnet uses YAML configuration files to specify all training parameters.
 
 ### Basic Structure
 
@@ -53,7 +53,7 @@ See `configs/config.yaml` and `configs/synthseg_config.yaml` for complete exampl
 ```yaml
 dataset:
   # torch.utils.data.Dataset class
-  class: freeseg.datasets.segmentationdataset.SegmentationDataset
+  class: fsdeepnet.datasets.segmentationdataset.SegmentationDataset
   
   # the dataset list YAML file (can also be specified with '--dataset_list_file <dataset.yaml>' command line option)
   dataset_list_file: /path/to/dataset_list.yaml
@@ -100,7 +100,7 @@ dataset:
 ```
 **Note**:
 - Specify any configurables that need to be recorded in the checkpoint `train_dataset_dict`.
-- The configurables are processed in the static method `process_dataset_attr()` of the `torch.utils.data.Dataset` class specified in dataset `class`, ex. 'freeseg.datasets.segmentationdataset.SegmentationDataset.process_dataset_attr()'.
+- The configurables are processed in the static method `process_dataset_attr()` of the `torch.utils.data.Dataset` class specified in dataset `class`, ex. 'fsdeepnet.datasets.segmentationdataset.SegmentationDataset.process_dataset_attr()'.
 
 ### Dataset List File
 
@@ -137,7 +137,7 @@ test:
 
 ```yaml
 model:
-  class: freeseg.models.unet.UNet   # torch.nn.Module class
+  class: fsdeepnet.models.unet.UNet   # torch.nn.Module class
   nb_levels: 3                     # number of U-Net levels (encoder/decoder depth)
   nb_features: 24                  # base number of features
   feat_mult: 2                     # feature multiplier per level
@@ -160,7 +160,7 @@ model:
 - Required configurables: `name`, `ndims`, and `nb_levels`.
 - The `model` configurables will be passed to create individual network object. The keywords need to match individual network implementations.
 - It is the individual network implementation's responsibility to check their availabilities.
-- `num_channels` and `nb_labels` are not required. They are set in Training.setup() for `freeseg.models.unet.UNet` to dataset configurables `expected_num_channels` and `len(segmentation_labels)` respectively if they are missing from model configurables.
+- `num_channels` and `nb_labels` are not required. They are set in Training.setup() for `fsdeepnet.models.unet.UNet` to dataset configurables `expected_num_channels` and `len(segmentation_labels)` respectively if they are missing from model configurables.
 ---
 
 ## Preprocessing Configuration
@@ -170,8 +170,8 @@ model:
 ```yaml
 preprocessing:
   # augmentation wrapper class
-  # alternative: freeseg.augmentation.augmentvoxynth.AugmentVoxynth
-  class: freeseg.augmentation.augmentbase.AugmentBase
+  # alternative: fsdeepnet.augmentation.augmentvoxynth.AugmentVoxynth
+  class: fsdeepnet.augmentation.augmentbase.AugmentBase
   
   # constrained by the U-Net architecture
   # must be divisible by `2^(nb_levels)`
@@ -333,9 +333,9 @@ preprocessing:
 
 ```yaml
 training:
-  class: freeseg.training.Training   # the trainer class
+  class: fsdeepnet.training.Training   # the trainer class
   data_generator:
-    fn: freeseg.utils.utility.DataGenerator
+    fn: fsdeepnet.utils.utility.DataGenerator
     return_priors: True
   batch_size: 1                              # number of training samples passed through network per training step
   deterministic: False                       # whether to do deterministic training
@@ -348,7 +348,7 @@ training:
 
 ### Two-Stage Training
 
-FreeSeg supports two-stage training:
+Fsdeepnet supports two-stage training:
 
 #### Stage 1: Weighted L2 Pre-training
 
@@ -358,7 +358,7 @@ training:
   wl2_gt_target_value: 15
   pre_train_learning_rate: 0.0001
   wl2_metrics:
-    class: freeseg.metrics.WeightedL2Loss
+    class: fsdeepnet.metrics.WeightedL2Loss
     gt_target_value: 15
 ```
 
@@ -378,7 +378,7 @@ training:
   dice_epochs: 100
   learning_rate: 0.0001
   model_metrics:
-    class: freeseg.metrics.DiceLoss
+    class: fsdeepnet.metrics.DiceLoss
     dice_type: soft
     dice_squared_form: False  
 ```
@@ -436,12 +436,12 @@ evaluation:
 
 ## Training Script Command-Line Arguments
 
-Most configuration parameters can be overridden via `scripts/freeseg_train.py` command-line arguments.
+Most configuration parameters can be overridden via `scripts/fsdeepnet_train.py` command-line arguments.
 
 **Example:**
 
 ```bash
-fspython scripts/freeseg_train.py \
+fspython scripts/fsdeepnet_train.py \
   --config configs/config.yaml \
   --dataset_list_file data/dataset_list.yaml \
   --train_output_folder output/training \

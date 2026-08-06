@@ -1,6 +1,6 @@
 # Architecture Documentation
 
-This document describes the architecture and design of FreeSeg.
+This document describes the architecture and design of Fsdeepnet.
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ This document describes the architecture and design of FreeSeg.
 
 ## System Overview
 
-FreeSeg is a PyTorch-based deep learning framework, specifically designed for FreeSurfer-adjacent models. The system is modular and extensible, supporting various architectures, augmentations, and training strategies.
+Fsdeepnet is a PyTorch-based deep learning framework, specifically designed for FreeSurfer-adjacent models. The system is modular and extensible, supporting various architectures, augmentations, and training strategies.
 
 ### Key Components
 
@@ -38,7 +38,7 @@ FreeSeg is a PyTorch-based deep learning framework, specifically designed for Fr
 #### Core Modules
 
 ```
-freeseg/
+fsdeepnet/
   |-- __init__.py          # Package initialization
   |-- config.py            # Configuration management
   |-- training.py          # Training class
@@ -52,7 +52,7 @@ freeseg/
 #### Model Modules
 
 ```
-freeseg/models/
+fsdeepnet/models/
   |-- __init__.py
   |-- unet.py              # U-Net architecture
 ```
@@ -60,7 +60,7 @@ freeseg/models/
 #### Dataset Modules
 
 ```
-freeseg/datasets/
+fsdeepnet/datasets/
   |-- __init__.py
   |-- segmentationdataset.py  # Segmentation dataset
 ```
@@ -68,7 +68,7 @@ freeseg/datasets/
 #### Augmentation Modules
 
 ```
-freeseg/augmentation/
+fsdeepnet/augmentation/
   |-- __init__.py
   |-- augmentbase.py      # Base augmentation class
   |-- augmentvoxynth.py   # Voxynth augmentation class
@@ -77,7 +77,7 @@ freeseg/augmentation/
 #### Utility Modules
 
 ```
-freeseg/utils/
+fsdeepnet/utils/
   |-- __init__.py
   |-- utility.py          # Utility functions
 ```
@@ -86,7 +86,7 @@ freeseg/utils/
 **Notes**: Modified from Voxynth implementation https://github.com/dalcalab/voxynth/
 
 ```
-freeseg/voxynth/
+fsdeepnet/voxynth/
   |-- __init__.py
   |-- augment.py          # Voxynth augmentations
   |-- filter.py           # Filtering
@@ -129,7 +129,7 @@ freeseg/voxynth/
 
 ### Overview
 
-FreeSeg implements a 3D/2D U-Net architecture with the following features:
+Fsdeepnet implements a 3D/2D U-Net architecture with the following features:
 
 - **Encoder-Decoder Structure**: Symmetric encoder and decoder paths
 - **Skip Connections**: Feature concatenation (not addition) between encoder and decoder
@@ -177,7 +177,7 @@ Example U-Net with `ndim=3`, `nb_levels=5`, `nb_features=24`, `nb_conv_per_level
 
 Augmentations are applied in the order they are specified in the configuration file.
 
-- **`freeseg.augmentation.augmentbase`**
+- **`fsdeepnet.augmentation.augmentbase`**
   - **`AugmentBase`**: base augmentation wrapper class
   - **Individual augmentation classes**
     - **`SpatialDeformation`**: Affine + non-linear spatial transformations
@@ -191,7 +191,7 @@ Augmentations are applied in the order they are specified in the configuration f
     - **`MimicResolution`**: Resolution mimicking
     - **`RemapLabels`**: Label remapping
     - **`SampleConditionalGMM`**: Conditional intensity image generation using Gaussian Mixture Models
-- **`freeseg.augmentation.augmentvoxynth`**
+- **`fsdeepnet.augmentation.augmentvoxynth`**
   - **`AugmentVoxynth`**: derived augementation wrapper class `AugmentVoxynth` → `AugmentBase`
   - **Individaul augmentation classes** (implemented using Voxynth library https://github.com/dalcalab/voxynth/)
     - **`BiasFieldCorruption`**: MRI bias field corruption
@@ -217,7 +217,7 @@ Augmentations are applied in the order they are specified in the configuration f
 
 ### Training Components
 
-**Training Class** (`freeseg.training.Training`)
+**Training Class** (`fsdeepnet.training.Training`)
 
 - **Model Management**: Model initialization, checkpointing
 - **Optimization**: Optimizer setup
@@ -228,7 +228,7 @@ Augmentations are applied in the order they are specified in the configuration f
 
 ### Checkpoint System
 
-**Checkpoint Class** (`freeseg.checkpoint.Checkpoint`)
+**Checkpoint Class** (`fsdeepnet.checkpoint.Checkpoint`)
 
 Checkpoints contain:
 - Model state dictionary
@@ -281,7 +281,7 @@ Output Segmentation
 
 ### Prediction Class
 
-**Prediction Class** (`freeseg.prediction.Prediction`)
+**Prediction Class** (`fsdeepnet.prediction.Prediction`)
 
 - **`__init__`**: Class constructor
 - **`build_model`**: Load and assemble models
@@ -322,7 +322,7 @@ Output Segmentation
 
 ### Adding New Models
 
-- Create model class: can be either a complete implementation or a wrapper class providing the interface between Freeseg and the network implementation.
+- Create model class: can be either a complete implementation or a wrapper class providing the interface between Fsdeepnet and the network implementation.
 - Implement required methods
   - **`__init__(self, model_arch_dict)`**: takes dict `model_arch_dict` as input. Required `model_arch_dict` keywords: `nb_levels` and `ndims`.
     ```
@@ -340,7 +340,7 @@ Output Segmentation
     **Notes**:
     - `model_arch_dict` is taken from model configurables.
     - `ndims` and `nb_levels` are required.
-    - `num_channels` and `nb_labels` are not required. They are set in Training.setup() for `freeseg.models.unet.UNet` to dataset configurables `expected_num_channels` and `len(segmentation_labels)` respectively if they are missing from model configurables.
+    - `num_channels` and `nb_labels` are not required. They are set in Training.setup() for `fsdeepnet.models.unet.UNet` to dataset configurables `expected_num_channels` and `len(segmentation_labels)` respectively if they are missing from model configurables.
     - It is the individual network implementation's responsibility to check their availabilities.
      
   - **`_setdefault_arch_dict(self)`**: set network defaults in `self._model_arch_dict`to ensure the default values are recorded in checkpoints.
@@ -362,7 +362,7 @@ Output Segmentation
                self._model_arch_dict[k] = model_arch_dict[k]
     ```
   - **`forward(self, x, **kwargs)`**: torch.nn.Module forward method \
-    **Notes**: The function needs to return a list to train with freeseg.training.Training class.
+    **Notes**: The function needs to return a list to train with fsdeepnet.training.Training class.
 - Implement required property
   - **`arch_dict`**: getter method for instance variable `self._model_arch_dict`
     ```
@@ -374,10 +374,10 @@ Output Segmentation
 ### Adding New Augmentations
 
 - Create augmentation wrapper class
-  - (Optional) Inherit from `freeseg.augmentation.augmentbase.AugmentBase`
+  - (Optional) Inherit from `fsdeepnet.augmentation.augmentbase.AugmentBase`
   - Implement **`def __init__(self, hp, transforms, crop_size=None, augmentation_dir=None, device=None, **kwargs)`**
     ```
-    from freeseg.augmentation.augmentbase import AugmentBase
+    from fsdeepnet.augmentation.augmentbase import AugmentBase
 
     # augmentation wrapper class derived from AugmentBase
     class AugmentWrapper(AugmentBase):
@@ -394,7 +394,7 @@ Output Segmentation
             # remove duplicates
             self.valid_augmentations = list(set(self.valid_augmentations))
 
-            # 2. output_dir: output directory used in freeseg.augmentation.apply_augmentations() to save augmented volumes for debugging
+            # 2. output_dir: output directory used in fsdeepnet.augmentation.apply_augmentations() to save augmented volumes for debugging
             # this variable is inherit from base class, set self.output_dir if not inherited from base class
             # self.output_dir = augmentation_dir
 	
@@ -410,15 +410,15 @@ Output Segmentation
 
     ```
   - **Notes**:
-    - The wrapper class instance will be created in `freeseg.training.Training.setup()`.
-    - It is optional to inherit from `freeseg.augmentation.augmentbase.AugmentBase`.    
+    - The wrapper class instance will be created in `fsdeepnet.training.Training.setup()`.
+    - It is optional to inherit from `fsdeepnet.augmentation.augmentbase.AugmentBase`.    
     - The constructor arguments:
       - required position arguments: `hp` and `transforms`
       - required keyword arguments:  `crop_size`, `augmentation_dir`,  and `device`
       - optional keyword arguments:  can be added as needed. The key/value pairs will be from both `dataset` and `preprocessing` configurables with same names.    
     - Keep augmentation instances in lower cases. They need to match items in list `valid_augmentations`.
     - The dict `hp` passed to each augmentation class is from the corresponding augmentation hyperparameter section in the config.yaml.
-    - The augmentations are applied through `freeseg.augmentation.apply_augmentations()` call from a `torch.utils.data.Dataset` instance in the order that they are specified in config.yaml.
+    - The augmentations are applied through `fsdeepnet.augmentation.apply_augmentations()` call from a `torch.utils.data.Dataset` instance in the order that they are specified in config.yaml.
 - Implement individual augmentation class: The augmentation classes inherit `torch.nn.Module`.
   - **example**:
   ```
@@ -501,7 +501,7 @@ Output Segmentation
             return index, augmented_image_tensor, onehot_augmented_label_tensor
     ```
     - **Note**:
-      - Augmentations are applied in this method calling `freeseg.augmentation.apply_augmentations()`.
+      - Augmentations are applied in this method calling `fsdeepnet.augmentation.apply_augmentations()`.
       - `tuple` is returned containing `index`, `image_tensor`, and `onehot_label_tensor`.
 - Implement required property
   - **profile**: getter method for self.dataset_profile

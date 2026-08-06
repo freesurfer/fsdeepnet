@@ -1,5 +1,5 @@
 dataset:
-  dataset_classname: freeseg.datasets.segmentationdataset.SegmentationDataset
+  dataset_classname: fsdeepnet.datasets.segmentationdataset.SegmentationDataset
   generation_labels: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_charm_choroid_lesions_csf.npy
   generation_classes: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_classes_charm_choroid_lesions_gm_csf.npy
   segmentation_labels: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/segmentation_charm_choroid_lesions_csf.npy
@@ -15,7 +15,7 @@ dataloader:
   prefetch_factor: 2
 
 model:
-  name: freeseg.models.unet.UNet
+  name: fsdeepnet.models.unet.UNet
   nb_levels: 5
   nb_features: 24 
   feat_mult: 2
@@ -34,7 +34,7 @@ model:
   skip_connect: encoder    # norm or encoder
 
 preprocessing:
-  augmentation_class: freeseg.augmentation.augmentbase.AugmentBase   # or freeseg.augmentation.augmentvoxynth.AugmentVoxynth
+  augmentation_class: fsdeepnet.augmentation.augmentbase.AugmentBase   # or fsdeepnet.augmentation.augmentvoxynth.AugmentVoxynth
   sampling_hyperparameters: True
   verbose: False
   crop_size: [160, 160, 160]
@@ -66,7 +66,7 @@ preprocessing:
         #bias_field_generation_method: blur   # this is for augmentvoxynth.biasfieldcorruption only, it is either "blur" or "upsample"
         bias_field_scale: 0.025
     - intensityaugmentation:
-        clip_values: [0, 300]  # this is only for freeseg.augmentation.augmentbase.AugmentBase
+        clip_values: [0, 300]  # this is only for fsdeepnet.augmentation.augmentbase.AugmentBase
         normalize: True
         added_noise_probability: 0.95
         added_noise_max_sigma: 0
@@ -81,7 +81,7 @@ preprocessing:
     - remaplabels:
 
 training:
-  trainer_class: freeseg.training.Training
+  trainer_class: fsdeepnet.training.Training
   batch_size: 1
   deterministic: False
   report_moving_avg: True
@@ -93,8 +93,8 @@ training:
   learning_rate: 0.0001
   pre_train_learning_rate: 0.0001
   optimizer: torch.optim.Adam
-  wl2_metrics: freeseg.metrics.WeightedL2Loss
-  model_metrics: freeseg.metrics.DiceLoss
+  wl2_metrics: fsdeepnet.metrics.WeightedL2Loss
+  model_metrics: fsdeepnet.metrics.DiceLoss
   write_tensorboard_summary: False  # whether to output tensorboard logs
   perform_evaluation: False         # whether to perform evaluation after each epoch
   best_model_metric: dice           # metric to pick best model when perform_evaluation=True  

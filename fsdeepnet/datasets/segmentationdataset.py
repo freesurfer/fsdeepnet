@@ -3,9 +3,9 @@ import logging
 import numpy as np
 import torch
 
-from freeseg import augmentation
-from freeseg.utils import utility as utils
-from freeseg.config import Config
+from fsdeepnet import augmentation
+from fsdeepnet.utils import utility as utils
+from fsdeepnet.config import Config
 
 class SegmentationDataset(torch.utils.data.Dataset):
     def __init__(self,
@@ -180,7 +180,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
                     index=index
                 )
 
-            # freeseg.utils.remap_labels() and freeseg.utils.onehot() expect batched tensor [N, 1, H, W(, D)]
+            # fsdeepnet.utils.remap_labels() and fsdeepnet.utils.onehot() expect batched tensor [N, 1, H, W(, D)]
             # add batch axis before calling remap_labels() and onehot()
             augmented_label_tensor = augmented_label_tensor.int().unsqueeze(0)
             onehot_augmented_label_tensor = utils.remap_labels(augmented_label_tensor, self.label_mapping)
@@ -194,7 +194,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
 
             return index, augmented_image_tensor, onehot_augmented_label_tensor, augmented_priors_tensor
         else:
-            # freeseg.utils.remap_labels() and freeseg.utils.onehot() expect batched tensor [N, 1, H, W(, D)]
+            # fsdeepnet.utils.remap_labels() and fsdeepnet.utils.onehot() expect batched tensor [N, 1, H, W(, D)]
             # add batch axis before calling remap_labels() and onehot()
             onehot_label_tensor = utils.remap_labels(label_tensor.int().unsqueeze(0), self.label_mapping)
             onehot_label_tensor = utils.onehot(onehot_label_tensor, num_classes=self.num_classes, device=self.device)
