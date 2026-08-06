@@ -3,9 +3,10 @@ import setuptools
 setuptools.setup(
     name = "fsdeepnet",
     version = "0.1",
-    description = ("A generic deep-learning pipeline to accompany freesurfer adjacent models."),
+    description = ("A generic deep-learning pytorch pipeline and freesurfer pre-trained models."),
     url = "https://github.com/freesurfer/fsdeepnet",
     packages=setuptools.find_packages(),
+    #python_requires='==3.9',
 )
 
 
@@ -64,4 +65,32 @@ fsdeepnet/
 #              b. make their fspython wrappers in $FREESURFER_HOME/bin/
 # 3. fsdeepnet.voxynth is only temporary until we get our changes into their git repo
 #    make voxynth an install_requires, pip install from its git repo
+"""
+
+
+"""
+To publish package on testpypi (need separated account for pypi):
+(https://packaging.python.org/en/latest/guides/using-testpypi/)
+(https://packaging.python.org/en/latest/tutorials/packaging-projects/)
+(https://setuptools.pypa.io/en/latest/userguide/quickstart.html)
+1. using testpypi
+   - create an account on testpypi
+   - create API token
+   - create ~/.pypirc with the following line:
+     [testpypi]
+       username = __token__
+       password = <api-token>
+     * the <api-token> is prefixed with 'pypi-'
+2. build distribution artifacts
+   - python -m pip install build  # install build package
+   - python -m build .            # build source and built distributions
+     python -m build --sdist .    # build only the source distribution
+     python -m build --wheel .    # build only the built distribution
+     * check 'Requires-Python': unzip -p dist/*.whl */METADATA | grep "Requires-Python"
+3. upload the distribution to testpypi
+   - python -m pip install twine  # install twine package
+   - python -m twine upload --verbose --repository testpypi dist/*
+     * upload dist/fsdeepnet-0.1-py3-none-any.whl and fsdeepnet-0.1.tar.gz
+4. install from testpypi
+   python -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple fsdeepnet
 """

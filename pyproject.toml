@@ -4,6 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fsdeepnet"
+description = 'Generic deep-learning pytorch pipeline and freesurfer pre-trained models.'
 version = "0.1"
 dependencies= [
     #'torch',
