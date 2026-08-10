@@ -284,8 +284,16 @@ def update_checkpoint(checkpoint, saveas, config, toupdates, stripkeys, renameke
             dict_update.update({"train_dataset_dict" : checkpoint.train_dataset_dict})
         #
         elif (key == "model_class"):
-            checkpoint.model_arch_dict["name"] = value
+            for k in ("name", "class"):
+                if (k in checkpoint.model_arch_dict):
+                    checkpoint.model_arch_dict[k] = value
             dict_update.update({"model_arch_dict" : checkpoint.model_arch_dict})
+        #
+        elif (key == "dataset_class"):
+            for k in ("name", "class"):
+                if (k in checkpoint.train_dataset_dict):
+                    checkpoint.train_dataset_dict[k] = value
+            dict_update.update({"train_dataset_dict" : checkpoint.train_dataset_dict})
         #
         elif (key == "config"):
             logging.info("update model_arch_dict and train_dataset_dict")
