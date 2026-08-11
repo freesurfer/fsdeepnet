@@ -1,0 +1,253 @@
+dataset:
+  parcellation_labels: /usr/local/freesurfer/8.0.0/models/synthseg_parcellation_labels.npy
+  parcellation_names: /usr/local/freesurfer/8.0.0/models/synthseg_parcellation_names.npy
+
+model:
+  class: fsdeepnet.models.unet.UNet
+  nb_levels: 5
+  nb_features: 24  # first level convolution features
+  out_channels: 69 # number of network output features
+  feat_mult: 2
+  nb_conv_per_level: 2
+  norm: batch  # or instance
+  track_running_stats: True
+  activation: elu
+  ndims: 3
+  in_channels: 3  # number of network input features
+  conv_size: 3
+  pool_size: 2
+  use_residuals: False
+  refine_conv: False
+  final_pred_activation: softmax
+  weight_init: xavier_uniform  # or zeros
+  upsample_interpolation: nearest  # linear or nearest
+  skip_connect: encoder    # norm or encoder
+
+preprocessing:
+  #class: fsdeepnet.augmentation.augmentbase.AugmentBase   # or fsdeepnet.augmentation.augmentvoxynth.AugmentVoxynth
+  #sampling_hp: True
+  #verbose: False
+  #augmentation_dir: /path/to-save-augmented-data
+  crop_size: [160, 160, 160]
+
+training:
+  class: fsdeepnet.training.Training
+  data_generator:
+    fn: fsdeepnet.utils.utility.DataGenerator
+    return_priors: True
+  batch_size: 1
+  deterministic: False
+  report_moving_avg: True
+  wl2_epochs: 10
+  dice_epochs: 300
+  steps_per_epoch: 1000
+  learning_rate: 0.0001
+  pre_train_learning_rate: 0.0001
+  optimizer:
+    class: torch.optim.Adam
+  wl2_metrics:
+    class: fsdeepnet.metrics.WeightedL2Loss
+    gt_target_value: 5    
+  model_metrics:
+    class: fsdeepnet.metrics.DiceLoss
+    dice_type: soft
+    dice_squared_form: True    
+  model_metrics_accuracy:
+    class: fsdeepnet.metrics.DiceScore
+    dice_type: hard
+    dice_squared_form: True
+  write_tensorboard_summary: False  # whether to output tensorboard logs
+  perform_evaluation: False         # whether to perform evaluation after each epoch
+  best_model_metric: dice           # metric to pick best model when perform_evaluation=True  
+  wandb:
+    mode: disabled  # online, offline, disabled
+    project: wandb_project_name
+    name: wandb_run_name
+    #dir: /path/wandb # the local directory where W&B stores run data and logs (defaults to ./wandb)
+    watch_log_freq: 10  
+  
+
+evaluation:
+  batch_size: 1
+
+
+# parcellation label/name pairs:
+# 0000 Background
+# 1001 ctx-lh-bankssts
+# 1002 ctx-lh-caudalanteriorcingulate
+# 1003 ctx-lh-caudalmiddlefrontal
+# 1005 ctx-lh-cuneus
+# 1006 ctx-lh-entorhinal
+# 1007 ctx-lh-fusiform
+# 1008 ctx-lh-inferiorparietal
+# 1009 ctx-lh-inferiortemporal
+# 1010 ctx-lh-isthmuscingulate
+# 1011 ctx-lh-lateraloccipital
+# 1012 ctx-lh-lateralorbitofrontal
+# 1013 ctx-lh-lingual
+# 1014 ctx-lh-medialorbitofrontal
+# 1015 ctx-lh-middletemporal
+# 1016 ctx-lh-parahippocampal
+# 1017 ctx-lh-paracentral
+# 1018 ctx-lh-parsopercularis
+# 1019 ctx-lh-parsorbitalis
+# 1020 ctx-lh-parstriangularis
+# 1021 ctx-lh-pericalcarine
+# 1022 ctx-lh-postcentral
+# 1023 ctx-lh-posteriorcingulate
+# 1024 ctx-lh-precentral
+# 1025 ctx-lh-precuneus
+# 1026 ctx-lh-rostralanteriorcingulate
+# 1027 ctx-lh-rostralmiddlefrontal
+# 1028 ctx-lh-superiorfrontal
+# 1029 ctx-lh-superiorparietal
+# 1030 ctx-lh-superiortemporal
+# 1031 ctx-lh-supramarginal
+# 1032 ctx-lh-frontalpole
+# 1033 ctx-lh-temporalpole
+# 1034 ctx-lh-transversetemporal
+# 1035 ctx-lh-insula
+# 2001 ctx-rh-bankssts
+# 2002 ctx-rh-caudalanteriorcingulate
+# 2003 ctx-rh-caudalmiddlefrontal
+# 2005 ctx-rh-cuneus
+# 2006 ctx-rh-entorhinal
+# 2007 ctx-rh-fusiform
+# 2008 ctx-rh-inferiorparietal
+# 2009 ctx-rh-inferiortemporal
+# 2010 ctx-rh-isthmuscingulate
+# 2011 ctx-rh-lateraloccipital
+# 2012 ctx-rh-lateralorbitofrontal
+# 2013 ctx-rh-lingual
+# 2014 ctx-rh-medialorbitofrontal
+# 2015 ctx-rh-middletemporal
+# 2016 ctx-rh-parahippocampal
+# 2017 ctx-rh-paracentral
+# 2018 ctx-rh-parsopercularis
+# 2019 ctx-rh-parsorbitalis
+# 2020 ctx-rh-parstriangularis
+# 2021 ctx-rh-pericalcarine
+# 2022 ctx-rh-postcentral
+# 2023 ctx-rh-posteriorcingulate
+# 2024 ctx-rh-precentral
+# 2025 ctx-rh-precuneus
+# 2026 ctx-rh-rostralanteriorcingulate
+# 2027 ctx-rh-rostralmiddlefrontal
+# 2028 ctx-rh-superiorfrontal
+# 2029 ctx-rh-superiorparietal
+# 2030 ctx-rh-superiortemporal
+# 2031 ctx-rh-supramarginal
+# 2032 ctx-rh-frontalpole
+# 2033 ctx-rh-temporalpole
+# 2034 ctx-rh-transversetemporal
+# 2035 ctx-rh-insula
+#
+#
+# n_neutral_labels = 19
+# [ 0,  14,  15,  16,  24,  72,  85, 502, 506, 507, 508, 509, 511, 512, 514, 515, 516, 530, 531 ]
+#
+# left right corresponding labels
+# [ 2,  3,  4,  5,  7,  8, 10, 11, 12, 13, 17, 18, 25, 26, 28, 30, 136, 137,
+#  41, 42, 43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 57, 58, 60, 62, 163, 164 ]
+#
+# generation labels to segmenation labels mapping
+# generation   neutral [  0,  14,  15,  16,  24,  72,  85, 502, 506, 507, 508, 509, 511, 512, 514, 515, 516, 530, 531,
+# segmentation neutral [  0,  14,  15,  16,  24,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+# class                [  0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,   3,  13,  14,  15,   6,   4,
+#
+# generation   left       2,   3,   4,   5,   7,   8,  10,  11,  12,  13,  17,  18,  25,  26,  28,  30, 136, 137,
+# segmentation left       2,   3,   4,   5,   7,   8,  10,  11,  12,  13,  17,  18,   2,  26,  28,   0,   4,   5,
+# class                  16,  17,  18,  18,  19,  20,  21,  22,  23,  24,  25,  25,  26,  27,  28,  29,  30,  30,
+#
+# generation   right     41,  42,  43,  44,  46,  47,  49,  50,  51,  52,  53,  54,  57,  58,  60,  62, 163, 164 ]
+# segmentation right     41,  42,  43,  44,  46,  47,  49,  50,  51,  52,  53,  54,  41,  58,  60,   0,  43,  44 ]
+# class                  31,  32,  33,  33,  34,  35,  36,  37,  38,  39,  40,  40,  41,  42,  43,  44,  45,  45 ]
+#
+# sorted unique segmentation labels
+# [ 0,  2,  3,  4,  5,  7,  8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 24, 26, 28, 41, 42, 43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 58, 60 ]
+#
+# index ID  topo  gmm  name
+# =====================================================
+#   0   0   0     0    background
+#   1   2   4    16    left cerebral white matter
+#   2   3   4    17    left cerebral cortex
+#   3   4   4    18    left lateral ventricle
+#   4   5   4    18    left inferior lateral ventricle
+#   5   7   5    19    left cerebellum white matter
+#   6   8   5    20    left cerebellum cortex
+#   7  10   6    21    left thalamus
+#   8  11   7    22    left caudate
+#   9  12   8    23    left putamen
+#  10  13   9    24    left pallidum
+#  11  14   1     1    3rd ventricle
+#  12  15   2     2    4th ventricle
+#  13  16   3     3    brain-stem
+#  14  17  10    25    left hippocampus
+#  15  18  11    25    left amygdala
+#  16  24   0     4    csf
+#  17  26  12    27    left accumbens area
+#  18  28  13    28    left ventral DC
+#  19  41  14    31    right cerebral white matter
+#  20  42  14    32    right cerebral cortex
+#  21  43  14    33    right lateral ventricle
+#  22  44  14    33    right inferior lateral ventricle
+#  23  46  15    34    right cerebellum white matter
+#  24  47  15    35    right cerebellum cortex
+#  25  49  16    36    right thalamus
+#  26  50  17    37    right caudate
+#  27  51  18    38    right putamen
+#  28  52  19    39    right pallidum
+#  29  53  20    40    right hippocampus
+#  30  54  21    40    right amygdala
+#  31  58  22    42    right accumbens area
+#  32  60  23    43    right ventral DC
+# 
+#path_generation_labels = '/autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_charm_choroid_lesions_csf.npy'
+#"""
+#     array([  0,  14,  15,  16,  24,  72,  85, 502, 506, 507, 508, 509, 511,
+#            512, 514, 515, 516, 530, 531,   2,   3,   4,   5,   7,   8,  10,
+#             11,  12,  13,  17,  18,  25,  26,  28,  30, 136, 137,  41,  42,
+#             43,  44,  46,  47,  49,  50,  51,  52,  53,  54,  57,  58,  60,
+#             62, 163, 164], dtype=int32)
+#"""
+#n_neutral_labels = 19
+#path_segmentation_labels = '/autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/segmentation_charm_choroid_lesions_csf.npy'
+#"""
+#     array([  0,  14,  15,  16,  24,   0,   0,   0,   0,   0,   0,   0,   0,
+#              0,   0,   0,   0,   0,   0,   2,   3,   4,   5,   7,   8,  10,
+#             11,  12,  13,  17,  18,   2,  26,  28,   0,   4,   5,  41,  42,
+#             43,  44,  46,  47,  49,  50,  51,  52,  53,  54,  41,  58,  60,
+#              0,  43,  44], dtype=int32)
+#"""
+#left_right_corresponding: [2, 41, 3, 42, 4, 43, 5, 44, 7, 46, 8, 47, 10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54, 25, 57, 26, 58, 28, 60, 30, 62, 136, 163, 137, 164]
+#
+# GMM sampling
+#prior_distributions = 'uniform'
+#prior_means = [0, 255]  # None  default [25, 255] ???
+#prior_stds  = [0, 35]   # None  default [5, 25]   ???
+#path_generation_classes = '/autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_classes_charm_choroid_lesions_gm_csf.npy'
+#"""
+#     array([  0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,
+#              3,  13,  14,  15,   6,   4,  16,  17,  18,  18,  19,  20,  21,
+#             22,  23,  24,  25,  25,  26,  27,  28,  29,  30,  30,  31,  32, 
+#             33,  33,  34,  35,  36,  37,  38,  39,  40,  40,  41,  42,  43,
+#             44,  45,  45])
+#"""
+#
+# TOPOLOGY CLASSES = '/usr/local/freesurfer/8.0.0/models/synthseg_topological_classes_2.0.npy'
+#     array([  0,   1,   2,   3,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+#              0,   0,   0,   0,   0,   0,   4,   4,   4,   4,   5,   5,   6,
+#              7,   8,   9,  10,  11,   4,  12,  13,   0,   4,   4,  14,  14,
+#             14,  14,  15,  15,  16,  17,  18,  19,  20,  21,  14,  22,  23,
+#              0,  14,  14])
+#
+# shape and resolution of the outputs
+#target_res = None
+#output_shape = 160
+#n_channels = 1
+#
+#
+#labels_segmentation = '/usr/local/freesurfer/8.0.0/models/synthseg_segmentation_labels_2.0.npy'
+#names_segmentation_labels = '/usr/local/freesurfer/8.0.0/models/synthseg_segmentation_names_2.0.npy'
+#topology_classes = '/usr/local/freesurfer/8.0.0/models/synthseg_topological_classes_2.0.npy'
+#

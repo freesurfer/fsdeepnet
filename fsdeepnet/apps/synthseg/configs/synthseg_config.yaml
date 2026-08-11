@@ -1,0 +1,32 @@
+dataset:
+  #class: fsdeepnet.datasets.segmentationdataset.SegmentationDataset
+  generation_labels: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_charm_choroid_lesions_csf.npy
+  generation_classes: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/generation_classes_charm_choroid_lesions_gm_csf.npy
+  segmentation_labels: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/segmentation_charm_choroid_lesions_csf.npy
+  segmentation_names: /autofs/space/azura_003/users/synthseg-training/synthseg/numpy_vectors/segmentation_names_lut_2.0.npy
+  topology_classes: /usr/local/freesurfer/8.0.0/models/synthseg_topological_classes_2.0.npy
+  left_right_corresponding: [2, 41, 3, 42, 4, 43, 5, 44, 7, 46, 8, 47, 10, 49, 11, 50, 12, 51, 13, 52, 17, 53, 18, 54, 25, 57, 26, 58, 28, 60, 30, 62, 136, 163, 137, 164]
+  expected_num_channels: 1
+  target_res: 1.0
+  #label_lookup: /space/metropolis/1/users/yh887/trainings/re-eval.freeseg/lut.txt
+
+model:
+  class: fsdeepnet.models.unet.UNet
+  num_channels: 1
+  nb_labels: 33
+  nb_levels: 5
+  nb_features: 24
+  feat_mult: 2
+  nb_conv_per_level: 2
+  norm: batch  # or instance
+  track_running_stats: True
+  activation: elu
+  ndims: 3
+  conv_size: 3
+  pool_size: 2
+  use_residuals: False
+  refine_conv: False
+  final_pred_activation: softmax
+  weight_init: xavier_uniform  # or zeros
+  upsample_interpolation: nearest  # ??? linear or nearest
+  skip_connect: encoder    # norm or encoder
