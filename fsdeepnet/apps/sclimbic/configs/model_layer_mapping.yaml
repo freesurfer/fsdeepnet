@@ -1,0 +1,55 @@
+# tensorflow-pytorch model layer mapping (3-level UNet, track_running_stats=True)
+
+# encoder
+unet_conv_downarm_0_0/unet_conv_downarm_0_0/kernel:0  : encoder.0.0.convs.0.0.weight 
+unet_conv_downarm_0_0/unet_conv_downarm_0_0/bias:0    : encoder.0.0.convs.0.0.bias 
+unet_conv_downarm_0_1/unet_conv_downarm_0_1/kernel:0  : encoder.0.0.convs.1.0.weight 
+unet_conv_downarm_0_1/unet_conv_downarm_0_1/bias:0    : encoder.0.0.convs.1.0.bias 
+unet_bn_down_0/unet_bn_down_0/gamma:0                 : encoder.0.1.weight 
+unet_bn_down_0/unet_bn_down_0/beta:0                  : encoder.0.1.bias
+unet_bn_down_0/unet_bn_down_0/moving_mean:0           : encoder.0.1.running_mean
+unet_bn_down_0/unet_bn_down_0/moving_variance:0       : encoder.0.1.running_var
+
+# encoder
+unet_conv_downarm_1_0/unet_conv_downarm_1_0/kernel:0  : encoder.1.0.convs.0.0.weight 
+unet_conv_downarm_1_0/unet_conv_downarm_1_0/bias:0    : encoder.1.0.convs.0.0.bias 
+unet_conv_downarm_1_1/unet_conv_downarm_1_1/kernel:0  : encoder.1.0.convs.1.0.weight 
+unet_conv_downarm_1_1/unet_conv_downarm_1_1/bias:0    : encoder.1.0.convs.1.0.bias 
+unet_bn_down_1/unet_bn_down_1/gamma:0                 : encoder.1.1.weight 
+unet_bn_down_1/unet_bn_down_1/beta:0                  : encoder.1.1.bias
+unet_bn_down_1/unet_bn_down_1/moving_mean:0           : encoder.1.1.running_mean
+unet_bn_down_1/unet_bn_down_1/moving_variance:0       : encoder.1.1.running_var
+
+# bottleneck
+unet_conv_downarm_2_0/unet_conv_downarm_2_0/kernel:0  : bottleneck.0.convs.0.0.weight 
+unet_conv_downarm_2_0/unet_conv_downarm_2_0/bias:0    : bottleneck.0.convs.0.0.bias 
+unet_conv_downarm_2_1/unet_conv_downarm_2_1/kernel:0  : bottleneck.0.convs.1.0.weight 
+unet_conv_downarm_2_1/unet_conv_downarm_2_1/bias:0    : bottleneck.0.convs.1.0.bias 
+unet_bn_down_2/unet_bn_down_2/gamma:0                 : bottleneck.1.weight 
+unet_bn_down_2/unet_bn_down_2/beta:0                  : bottleneck.1.bias
+unet_bn_down_2/unet_bn_down_2/moving_mean:0           : bottleneck.1.running_mean
+unet_bn_down_2/unet_bn_down_2/moving_variance:0       : bottleneck.1.running_var
+
+# decoder
+"unet_conv_uparm_3_0/unet_conv_uparm_3_0/kernel:0"      : "decoder.0.1.convs.0.0.weight" 
+"unet_conv_uparm_3_0/unet_conv_uparm_3_0/bias:0"        : "decoder.0.1.convs.0.0.bias" 
+"unet_conv_uparm_3_1/unet_conv_uparm_3_1/kernel:0"      : "decoder.0.1.convs.1.0.weight" 
+"unet_conv_uparm_3_1/unet_conv_uparm_3_1/bias:0"        : "decoder.0.1.convs.1.0.bias" 
+"unet_bn_up_0/unet_bn_up_0/gamma:0"                     : "decoder.0.2.weight" 
+"unet_bn_up_0/unet_bn_up_0/beta:0"                      : "decoder.0.2.bias"
+"unet_bn_up_0/unet_bn_up_0/moving_mean:0"               : "decoder.0.2.running_mean"
+"unet_bn_up_0/unet_bn_up_0/moving_variance:0"           : "decoder.0.2.running_var"  
+
+# decoder
+"unet_conv_uparm_4_0/unet_conv_uparm_4_0/kernel:0"      : "decoder.1.1.convs.0.0.weight" 
+"unet_conv_uparm_4_0/unet_conv_uparm_4_0/bias:0"        : "decoder.1.1.convs.0.0.bias" 
+"unet_conv_uparm_4_1/unet_conv_uparm_4_1/kernel:0"      : "decoder.1.1.convs.1.0.weight" 
+"unet_conv_uparm_4_1/unet_conv_uparm_4_1/bias:0"        : "decoder.1.1.convs.1.0.bias" 
+"unet_bn_up_1/unet_bn_up_1/gamma:0"                     : "decoder.1.2.weight" 
+"unet_bn_up_1/unet_bn_up_1/beta:0"                      : "decoder.1.2.bias"
+"unet_bn_up_1/unet_bn_up_1/moving_mean:0"               : "decoder.1.2.running_mean"
+"unet_bn_up_1/unet_bn_up_1/moving_variance:0"           : "decoder.1.2.running_var"
+
+# classifier
+"unet_likelihood/unet_likelihood/kernel:0"              : "classifier.weight" 
+"unet_likelihood/unet_likelihood/bias:0"                : "classifier.bias"

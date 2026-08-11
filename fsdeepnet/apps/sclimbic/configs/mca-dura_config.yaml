@@ -1,0 +1,20 @@
+model:
+  class: fsdeepnet.models.unet.UNet
+  num_channels: 1
+  nb_labels: 2
+  nb_levels: 3
+  nb_features: 24
+  feat_mult: 2
+  nb_conv_per_level: 2
+  norm: batch  # or instance
+  track_running_stats: True
+  activation: elu
+  ndims: 3
+  conv_size: 3
+  pool_size: 2
+  use_residuals: False
+  refine_conv: False
+  final_pred_activation: softmax
+  weight_init: xavier_uniform  # or zeros
+  upsample_interpolation: nearest  # ??? linear or nearest
+  skip_connect: encoder    # norm or encoder
