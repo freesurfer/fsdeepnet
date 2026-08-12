@@ -5,7 +5,7 @@
 export FREESURFER_HOME=<freesurfer+fsdeepnet env>
 source $FREESURFER_HOME/SetUpFreeSurfer.sh fs+fsdeepnet
 
-export tf2toch=../../../cli/tf2torch/loadh5_synthseg.py
+export tf2toch=../../../cli/fsdeepnet_tf2torch.py
 mkdir pretrained
 cd configs
 ```
@@ -20,6 +20,8 @@ fspython $tf2torch --tf_model $FREESURFER_HOME/models/claustrum_seg_20250616.h5 
 
 3. run prediction
 ```bash
-fspython ../../../cli/fsdeepent_predict.py --i <involcrop> --o <seg> --threads <> 
-	 --checkpoint <pt_model> --nokeepgeom --keep_biggest_component --use_topology_classes --smooth_posteriors --resamplefirst --logfile <fsdeepnetlog>
+fspython ../../../cli/fsdeepnet_predict.py --i <involcrop> --o <seg> --threads <> \
+	 --checkpoint <pt.claustrum_seg_20250616.pth> --nokeepgeom \
+	 --keep_biggest_component --use_topology_classes --smooth_posteriors \
+	 --resamplefirst --logfile <fsdeepnetlog>
 ```

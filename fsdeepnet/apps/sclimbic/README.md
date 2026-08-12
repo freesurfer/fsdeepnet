@@ -3,9 +3,9 @@
 1. source Freesurfer environment
 ```bash
 export FREESURFER_HOME=<freesurfer+fsdeepnet env>
-source $FREESURFER_HOME/SetUpFreeSurfer.sh REL-8.2.0
+source $FREESURFER_HOME/SetUpFreeSurfer.sh fs+fsdeepnet
 
-export tf2toch=../../../cli/tf2torch/loadh5_synthseg.py
+export tf2toch=../../../cli/fsdeepnet_tf2torch.py
 mkdir pretrained
 cd configs
 ```
