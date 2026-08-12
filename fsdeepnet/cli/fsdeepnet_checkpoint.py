@@ -21,7 +21,7 @@ Usage: fsdeepnet_checkpoint.py
                                                             [--saveas <> 
                                                               [--strip <dictkey1 dictkey2 ...>]
                                                               [--rename <fromkey1:tokey1 fromkey2:tokey2 ...>]
-                                                              [--update label_lookup:<> segmentation_names:<> topology_classes:<> target_res:<> model_class:<> config:config]
+                                                              [--update label_lookup:<> segmentation_names:<> topology_classes:<> target_res:<> model_class:<> dataset_class:<> config:config]
                                                               [--prefix-model_layer <prefix>]
                                                               [--replace-model_layer <from:to>] ] ]
        [--ndims <n>]
@@ -37,7 +37,7 @@ Usage: fsdeepnet_checkpoint.py
        4. Options to update pre-trained model: 
           a) '--strip <dictkey1 dictkey2 ...>': strip <dictkey> from checkpoint
              <dictkey> needs to match dict keywords in checkpoint
-          b) '--update label_lookup:<> segmentation_names:<> topology_classes:<> target_res:<> model_class:<> config:config'
+          b) '--update label_lookup:<> segmentation_names:<> topology_classes:<> target_res:<> model_class:<> dataset_class:<> config:config'
              update pre-trained model with given key:value pairs
              if key:value=='config:config', both train_dataset_dict and model_arch_dict are updated using the config.yaml
           c) '--prefix-model_layer <prefix>'
@@ -77,6 +77,11 @@ Example 8: update checkpoint
 
 Example 9: update checkpoint 'train_dataset_dict' and 'model_arch_dict' using information from config.yaml
        fspython fsdeepnet_checkpoint.py --checkpoint orig.pth --update config:config --saveas new.pth
+
+Example 10: update checkpoint model class and dataset class names
+       fspython fsdeepnet_checkpoint.py --checkpoint freeseg-trained-model.pth
+         --update model_class:fsdeepnet.models.unet.UNet dataset_class:fsdeepnet.datasets.segmentationdataset.SegmentationDataset
+         --saveas updated-model.pth
 """
 
 # Configure logging settings
