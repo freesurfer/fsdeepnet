@@ -5,7 +5,7 @@
 export FREESURFER_HOME=<freesurfer+fsdeepnet env>
 source $FREESURFER_HOME/SetUpFreeSurfer.sh fs+fsdeepnet
 
-export tf2toch=../../../cli/fsdeepnet_tf2torch.py
+export tf2torch=../../../cli/fsdeepnet_tf2torch.py
 mkdir pretrained
 cd configs
 ```
