@@ -1,4 +1,4 @@
-# Convert Claustrum tensorflow models to pytorch
+# Convert Freesurfer Claustrum tensorflow models to pytorch
 
 1. source Freesurfer environment
 ```bash

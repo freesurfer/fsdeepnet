@@ -25,7 +25,7 @@ source $FREESURFER_HOME/SetUpFreeSurfer.sh fs+fsdeepnet
 mkdir pretrained
 ```
 
-## 4. Integrate pre-trained pytorch model
+## 4. Integrate Freesurfer synthstrip pytorch model
 - update checkpoint with model_arch_dict and train_dataset_dict information from configs/synthstrip_config.yaml
 - strip 'optimizer_state_dict' from checkpoint
 ```bash

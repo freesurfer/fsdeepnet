@@ -1,4 +1,4 @@
-# Convert sclimbic tensorflow models to pytorch
+# Convert Freesurfer Sclimbic tensorflow models to pytorch
 
 1. source Freesurfer environment
 ```bash

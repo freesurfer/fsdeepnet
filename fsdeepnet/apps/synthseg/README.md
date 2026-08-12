@@ -1,4 +1,4 @@
-# Convert SynthSeg tensorflow models to pytorch
+# Convert Freesurfer SynthSeg tensorflow models to pytorch
 
 1. source Freesurfer environment
 ```bash
