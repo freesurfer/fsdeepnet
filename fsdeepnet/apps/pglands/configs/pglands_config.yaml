@@ -1,0 +1,20 @@
+dataset:
+  class: fsdeepnet.datasets.segmentationdataset.SegmentationDataset
+  segmentation_labels: [0, 883, 900, 903, 904]  # required
+  segmentation_names: ['Unknown', 'Pituitary-Ant', 'Pineal', 'Pituitary-Post', 'Infundibulum']
+  expected_num_channels: 1      # required
+
+model:
+  class: fsdeepnet.apps.pglands.models.pglands_unet.UNet
+  out_channels: 5               # required, number of segmentation_labels
+  nb_levels: 4                  # required
+  ndims: 3                      # required
+  n_starting_features: 24 
+  n_convs_per_block: 2
+  normalization_type: Instance  # case-sensitive
+  activation_function: ELU      # case-sensitive
+  conv_sz: 3
+  pool_sz: 2
+  pooling_type: MaxPool         # case-sensitive
+  residuals: False
+  skip: True
