@@ -1,0 +1,13 @@
+dataset:
+  dataset_classname: fsdeepnet.datasets.segmentationdataset.SegmentationDataset
+
+model:
+  class: fsdeepnet.apps.synthstrip.models.synthstrip_unet.UNet
+  ndims: 3
+  nb_features: 16
+  nb_levels: 7
+  feat_mult: 2
+  max_features: 64
+  nb_conv_per_level: 2
+  max_pool: 2
+  return_mask: False
