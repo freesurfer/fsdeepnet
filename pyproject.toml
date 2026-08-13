@@ -7,7 +7,7 @@ name = "fsdeepnet"
 description = 'Generic deep-learning pytorch pipeline and freesurfer pre-trained models.'
 version = "0.1"
 dependencies= [
-    'torch',
+    'torch>=2.2.2',
     'torchvision',
     'h5py',
     'psutil',
