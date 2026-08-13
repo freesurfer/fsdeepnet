@@ -26,11 +26,13 @@ mkdir pretrained
 
 ## 4. Integrate Freesurfer pglands pytorch model
 - update checkpoint with model_arch_dict and train_dataset_dict information from config.yaml
+- rename model_state:model_state_dict
 - strip optimizer_state from checkpoint
 ```bash
   fspython ../../cli/fsdeepnet_checkpoint.py \
   	   --checkpoint $FREESURFER_HOME/models/pglands_seg/pglands_seg.pth \
   	   --update config:config --config configs/pglands_config.yaml \
+	   --rename model_state:model_state_dict \	   
 	   --strip optimizer_state \
 	   --saveas pretrained/fsdeepnet.pglands_seg.pth
 ```
@@ -42,5 +44,7 @@ mkdir pretrained
 ```bash
    mkdir tests
    cd tests
-   fspython ../cli/pglands_seg.py ...
+   fspython ../cli/pglands_seg.py -i bert.orig.mgz --o fsdeepnet.pglands_seg.mgz --model ../pretrained/fsdeepnet.pglands_seg.pth
 ```
+* notes: Comparing to Freesurfer `mri_pglands_seg` run, `apps/pglands/cli/pglands_seg.py` makes extra call to `fs-synthmorph-reg --i /usr/local/freesurfer/rocky8_x86_64/subjects/bert/mri/nu.mgz --o transforms/mni152 --mni-out-res 1.0mm --mni-targ-res 1.0mm --no-crop --pituitary --affine-only
+mri_synthmorph apply -m nearest transforms/mni152/reg.targ_to_invol.lta /autofs/cluster/scratch_wednesday//yh887/freesurfer.install.py39+fsdeepnet.final/models/pglands_seg/mni152_label_template.mgz mni152_label_template.nu.mgz`

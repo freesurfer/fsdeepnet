@@ -307,7 +307,7 @@ class PGlandsSegmenter:
         assert checkpoint.model_arch_dict is not None, "Model architecture information not available."
         assert checkpoint.train_dataset_dict is not None, "Training dataset information not available."
 
-        the_model_name = checkpoint.model_arch_dict.get("name", None)
+        the_model_name = checkpoint.model_arch_dict.get("class", None)
         assert the_model_name is not None, "Model name is not available."
 
         model_class = utils.get_class(the_model_name)
