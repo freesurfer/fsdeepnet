@@ -298,6 +298,7 @@ class PGlandsSegmenter:
         default_model = os.path.join(module_dir,'pglands_seg.pth')
         model_path = default_model if model_path is None else model_path
 
+        """
         ### FSdeepnet integration
         from fsdeepnet.checkpoint import Checkpoint
         from fsdeepnet.utils import utility as utils
@@ -314,6 +315,9 @@ class PGlandsSegmenter:
         self.model = model_class(checkpoint.model_arch_dict).to(self.device)
         self.model.load_state_dict(checkpoint.model_state_dict)
         ### End of FSdeepnet integration
+        """
+        from fsdeepnet.utils import utility as utils
+        self.model = utils.load_pretrained(model_path, self.device)
         
         # Initialize QA dataset (if necessary)
         self.qa_dataset = self.QAdataset() if write_qas else None            

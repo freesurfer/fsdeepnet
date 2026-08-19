@@ -406,6 +406,26 @@ def mask_volume(volume, mask):
     return torch.tensor(new_volume[None, ...])
 
 
+def load_pretrained(model_path, device=None, model_eval=True):
+    from fsdeepnet.checkpoint import Checkpoint
+
+    checkpoint = Checkpoint()
+    checkpoint.load(model_path, device=device)
+    assert checkpoint.model_arch_dict is not None, "Model architecture information not available."
+    assert checkpoint.train_dataset_dict is not None, "Training dataset information not available."
+
+    the_model_name = checkpoint.model_arch_dict.get("class", None)
+    assert the_model_name is not None, "Model name is not available."
+
+    model_class = get_class(the_model_name)
+    model = model_class(checkpoint.model_arch_dict).to(device)
+    model.load_state_dict(checkpoint.model_state_dict)
+    if (model_eval):
+        model.eval()
+
+    return model
+   
+
 # ================================================================================================
 #                                        Lab2Im Utilities
 # ================================================================================================

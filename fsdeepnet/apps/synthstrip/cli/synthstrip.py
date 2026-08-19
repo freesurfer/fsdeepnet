@@ -243,6 +243,7 @@ class ConvBlock(nn.Module):
         return out
 
 
+"""
 def fsdeepnet_StripModel(model_path, device):
     from fsdeepnet.checkpoint import Checkpoint
     from fsdeepnet.utils import utility as utils
@@ -261,6 +262,7 @@ def fsdeepnet_StripModel(model_path, device):
     model.eval()
 
     return model
+"""
 
 
 # load model weights
@@ -279,7 +281,8 @@ else:
     else:
         modelfile = os.path.join(fshome, 'models', f'synthstrip.{version}.pt')
 
-model = fsdeepnet_StripModel(modelfile, device)
+from fsdeepnet.utils import utility as utils
+model = utils.load_pretrained(modelfile, device)
 
 # load input volume
 image = sf.load_volume(args.image)
