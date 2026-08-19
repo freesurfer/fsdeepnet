@@ -407,6 +407,7 @@ class LimbicSegmenter:
         # build and load model
         print(f'inshape {self.inshape} features {nfeatures}')
 
+        """
         ### fsdeepnet integration
         from fsdeepnet.checkpoint import Checkpoint
         from fsdeepnet.utils import utility as utils
@@ -426,7 +427,10 @@ class LimbicSegmenter:
         self.model.load_state_dict(checkpoint.model_state_dict)
         self.model.eval()
         print("Done loading weights -----------------------")
-        ### End of fsdeepnet integration            
+        ### End of fsdeepnet integration    
+        """
+        from fsdeepnet.utils import utility as utils
+        self.model = utils.load_pretrained(model_file, self.device)       
 
     def reset_timer(self):
         """

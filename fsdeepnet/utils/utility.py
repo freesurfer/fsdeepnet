@@ -419,9 +419,12 @@ def load_pretrained(model_path, device=None, model_eval=True):
 
     model_class = get_class(the_model_name)
     model = model_class(checkpoint.model_arch_dict).to(device)
+
+    print(f"Loading weights from {model_path} -----------------------")
     model.load_state_dict(checkpoint.model_state_dict)
     if (model_eval):
         model.eval()
+    print("Done loading weights -----------------------")
 
     return model
    
