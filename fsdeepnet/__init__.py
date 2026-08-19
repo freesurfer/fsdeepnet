@@ -15,3 +15,5 @@ from .augmentation import augmentbase
 from .augmentation import augmentvoxynth
 
 from .utils import utility
+
+from . import apps

@@ -19,6 +19,7 @@ Usage: fsdeepnet_checkpoint.py
                                                             [--weights <model_state_key>:weight_outdir>]
                                                             [--load_weights]
                                                             [--saveas <> 
+                                                              [--download]
                                                               [--strip <dictkey1 dictkey2 ...>]
                                                               [--rename <fromkey1:tokey1 fromkey2:tokey2 ...>]
                                                               [--update label_lookup:<> segmentation_names:<> topology_classes:<> target_res:<> model_class:<> dataset_class:<> config:config]
@@ -82,6 +83,9 @@ Example 10: update checkpoint model class and dataset class names
        fspython fsdeepnet_checkpoint.py --checkpoint freeseg-trained-model.pth
          --update model_class:fsdeepnet.models.unet.UNet dataset_class:fsdeepnet.datasets.segmentationdataset.SegmentationDataset
          --saveas updated-model.pth
+
+Example 11: download pretrained model from location defined in fsdeepnet.apps.PRETRAINED_URLS
+       fspython fsdeepnet_checkpoint.py --checkpoint sclimbic.fsm+ad.t1.nstd00-50.nstd32-50.pth --saveas path-to-save-pretrained.pth
 """
 
 # Configure logging settings
@@ -104,19 +108,25 @@ def main():
         args.update is not None or \
         args.prefix_model_layer is not None or \
         args.replace_model_layer is not None):
-      update = True
+        update = True
+    elif (args.download):
+        download = True
 
     # check command line options
     if (args.config is None and args.checkpoint is None):
         logging.error("[ERROR] Use '--config <>' to create the network, or '--checkpoint <>' to load a pre-trained network")
         sys.exit(1)
-    if (info or update):
+    if (info or update or download):
         assert (args.checkpoint is not None), f"Use '--checkpoint <>' to load a pre-trained network"
     if (args.update is not None and "config:config" in args.update):
         assert (args.config is not None), f"Specify '--config <>' for '--update {args.update}'"
         set_dataset_attr = True
-    if (update):
+    if (update or download):
         assert (args.saveas is not None), f"Specify path to save new checkpoint as '--saveas <>'"
+
+    if (download):
+        download_pretrained(args.checkpoint, args.saveas)
+        sys.exit(0)
 
     if (args.cpu):
         os.environ["CUDA_VISIBLE_DEVICES"]=""
@@ -171,7 +181,7 @@ def main():
     if (update):
         update_checkpoint(checkpoint, args.saveas, config, args.update, args.strip, args.rename, args.prefix_model_layer, args.replace_model_layer)
 
-    if (info or update or (args.weights is not None and args.input_shape is None)):
+    if (info or update or download or (args.weights is not None and args.input_shape is None)):
         sys.exit(0)
 
     # create the network from config or re-construct it from pre-trained model
@@ -225,6 +235,7 @@ def argument_parse(description=None):
     parser.add_argument("--keys", nargs="+", type=str, help="List of dict keys to report, only works with '--detail'")
     parser.add_argument("--weights", type=str, help="Save trainable parameters in given checkpoint, <model_state_key:weight_outdir>")
     parser.add_argument("--load_weights", action='store_true', help="Load weights from given checkpoint")
+    parser.add_argument("--download", action='store_true', help="Download '--checkpoint <>' from predefined location")
     parser.add_argument("--strip", nargs="+", type=str, help="Strip dict keys from checkpoint")
     parser.add_argument("--rename", nargs="+", type=str, help="Rename checkpoint top level dictionary keywords, <fromkey1:tokey1 fromkey2:tokey2 ...>")
     parser.add_argument("--prefix-model_layer", type=str, help="Prepend 'prefix' to each model state layer name")
@@ -308,6 +319,13 @@ def update_checkpoint(checkpoint, saveas, config, toupdates, stripkeys, renameke
 
     logging.info(f"save updated checkpoint as {saveas}")
     checkpoint.save(saveas, dict_update)
+
+
+def download_pretrained(checkpoint, saveas):
+    # download the pretrained to 'saveas'
+    from fsdeepnet.apps import PRETRAINED_URLS
+    torch.hub.download_url_to_file(PRETRAINED_URLS[checkpoint], saveas, progress=True)
+    print(f"Downloaded {PRETRAINED_URLS[checkpoint]} to {saveas}")
 
         
 # execute script
