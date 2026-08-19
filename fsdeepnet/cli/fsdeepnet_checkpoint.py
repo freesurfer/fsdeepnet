@@ -324,7 +324,10 @@ def update_checkpoint(checkpoint, saveas, config, toupdates, stripkeys, renameke
 def download_pretrained(checkpoint, saveas):
     # download the pretrained to 'saveas'
     from fsdeepnet.apps import PRETRAINED_URLS
-    torch.hub.download_url_to_file(PRETRAINED_URLS[checkpoint], saveas, progress=True)
+    download_url = PRETRAINED_URLS.get(checkpoint, None)
+    assert (download_url is not None), f"No downloading url found for '{checkpoint}'"
+
+    torch.hub.download_url_to_file(download_url, saveas, progress=True)
     print(f"Downloaded {PRETRAINED_URLS[checkpoint]} to {saveas}")
 
         
