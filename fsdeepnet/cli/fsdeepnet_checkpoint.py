@@ -102,7 +102,7 @@ def main():
 
     set_dataset_attr = False
     info = True if (args.info) else False
-    update = False
+    update, download = False, False
     if (args.rename is not None or \
         args.strip is not None or \
         args.update is not None or \
