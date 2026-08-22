@@ -5,6 +5,10 @@ PRETRAINED_URLS = {
     'sclimbic.fsm+ad.t1.nstd00-50.nstd32-50.pth' : 'https://github.com/freesurfer/fsdeepnet/raw/main/fsdeepnet/apps/sclimbic/pretrained/sclimbic.fsm+ad.t1.nstd00-50.nstd32-50.pth',
     'vsinus.no-sp.m.all.nstd10-070.pth'          : 'https://github.com/freesurfer/fsdeepnet/raw/main/fsdeepnet/apps/sclimbic/pretrained/vsinus.no-sp.m.all.nstd10-070.pth',
 
+
+    # LCN ftp site: https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/
+    # Internal Martinos directory: /autofs/cluster/lcnpublic/dist
+
     #'claustrum_seg_20250616.pth'
 
     #'synthstrip.1.pth'

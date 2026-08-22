@@ -72,7 +72,7 @@ def main():
     parser.add_argument('--exclude', type=int, nargs='+', default=[], help='List of label IDs to exclude in any output stats files.')
     parser.add_argument('--keep_ac', action='store_true', help='Explicitly keep anterior commissure in the volume/qa files.')
     parser.add_argument('--vox-count-volumes', action='store_true', help='Use discrete voxel count for label volumes.')
-    parser.add_argument('--pt_model', required=True, help='Alternative model weights to load.')
+    parser.add_argument('--model', required=True, help='Alternative model weights to load.')
     parser.add_argument('--ctab', help='Alternative color lookup table to embed in segmentation. Must be minimal, including 0, and sorted.')
     parser.add_argument('--population-stats', help='Alternative population volume stats for QA output.')
     parser.add_argument('--debug', action='store_true', help='Enable debug logging.')
@@ -145,7 +145,7 @@ def main():
     pt.set_num_threads(args.threads)          # set the number of threads used for intraop parallelism on CPU
     pt.set_num_interop_threads(args.threads)  # set the number of threads used for interop parallelism on CPU    
 
-    model_file = args.pt_model
+    model_file = args.model
 
     percentile = args.percentile
     if args.sevenT:
