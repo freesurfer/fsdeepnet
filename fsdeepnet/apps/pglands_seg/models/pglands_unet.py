@@ -2,7 +2,7 @@ import logging
 import torch
 import torch.nn as nn
 
-from fsdeepnet.apps.pglands.models.unet3d import UNet3D
+from fsdeepnet.apps.pglands_seg.models.unet3d import UNet3D
 
 __unetver__ = 1
 

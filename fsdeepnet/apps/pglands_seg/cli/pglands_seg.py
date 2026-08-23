@@ -185,7 +185,7 @@ def _define_args(parser):
                         'override the default syntax, and will apply the '
                         'transform to all subjects.')
     parser.add_argument('--model', type=str, 
-                        default=os.path.join(default_path, 'pglands_seg.pth'),
+                        default='pglands_seg.pth',
                         help='Path to trained model; default is '
                         'pglands_seg.pth')
     parser.add_argument('--outbase', type=str, default='pglands',
@@ -295,8 +295,8 @@ class PGlandsSegmenter:
             else default_template
 
         # Set up trained model
-        default_model = os.path.join(module_dir,'pglands_seg.pth')
-        model_path = default_model if model_path is None else model_path
+        #default_model = os.path.join(os.environ.get('FREESURFER_HOME_FSPYTHON'), "models/fsdeepnet",'pglands_seg.pth')
+        #model_path = default_model if model_path is None else model_path
 
         """
         ### FSdeepnet integration

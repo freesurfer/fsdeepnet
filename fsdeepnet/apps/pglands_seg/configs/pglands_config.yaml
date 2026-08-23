@@ -5,7 +5,7 @@ dataset:
   expected_num_channels: 1      # required
 
 model:
-  class: fsdeepnet.apps.pglands.models.pglands_unet.UNet
+  class: fsdeepnet.apps.pglands_seg.models.pglands_unet.UNet
   out_channels: 5               # required, number of segmentation_labels
   nb_levels: 4                  # required
   ndims: 3                      # required
