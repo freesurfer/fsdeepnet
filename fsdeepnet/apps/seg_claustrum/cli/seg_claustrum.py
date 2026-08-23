@@ -30,8 +30,9 @@ def main():
                 sys.argv[index] = "--write_posteriors"
                 sys.argv.pop(index+1)
 
-    # pass default model name only
-    sys.argv.extend(["--checkpoint", "claustrum_seg_20250616.pth"])
+    # pass default model, name only
+    if ("--checkpoint" not in sys.argv):
+        sys.argv.extend(["--checkpoint", "claustrum_seg_20250616.pth"])
 
     outdir = None
     if ("--o" in sys.argv):

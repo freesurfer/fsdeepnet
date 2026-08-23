@@ -109,7 +109,7 @@ class Prediction:
             path of the trained model
         """
         
-        assert os.path.isfile(model_checkpoint), "The provided model path %s does not exist." % model_checkpoint
+        #assert os.path.isfile(model_checkpoint), "The provided model path %s does not exist." % model_checkpoint
 
         # Load the Trained Segmentation Model
         checkpoint = Checkpoint()
@@ -189,7 +189,7 @@ class Prediction:
 
 
     def load_parcellation_model(self, model_checkpoint):
-        assert os.path.isfile(model_checkpoint), "The provided model path %s does not exist." % model_checkpoint
+        #assert os.path.isfile(model_checkpoint), "The provided model path %s does not exist." % model_checkpoint
 
         # Load the Trained Parcellation Model
         checkpoint = Checkpoint()

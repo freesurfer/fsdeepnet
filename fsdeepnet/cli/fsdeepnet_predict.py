@@ -48,11 +48,13 @@ def main():
     mainlogger = logging.getLogger(__name__)
     mainlogger.addHandler(logging.StreamHandler())
 
+    """
     checkpoint = args.checkpoint    
     if (checkpoint is not None):
         if not os.path.isfile(checkpoint):
             mainlogger.error('ERROR: file does not exist: %s' % checkpoint)
             sys.exit(1)
+    """
                           
     # print the command
     cmd = ' '.join(sys.argv)
@@ -134,7 +136,7 @@ def main():
     segmentation_names = None
     if (args.segmentation_names is not None):    
         segmentation_names=np.load(args.segmentation_names)
-    predict(path_images, args.o, checkpoint, args,
+    predict(path_images, args.o, args.checkpoint, args,
             path_priors=path_priors,
             codenames=codenames,
             path_gt=path_gt,

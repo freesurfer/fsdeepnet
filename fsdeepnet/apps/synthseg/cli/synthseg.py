@@ -33,6 +33,11 @@ def main():
             elif (arg == "--keepgeom" or arg == "--addctab"):
                 sys.argv.pop(index)
 
+    # pass default model, name only
+    if ("--checkpoint" not in sys.argv):
+        sys.argv.append("--checkpoint")
+        sys.argv.append("synthseg_2.0.pth")
+
     # - add the following arguments:
     #     --keep_biggest_component, --smooth_posteriors, --use_topology_classes, --flip
     sys.argv.append("--keep_biggest_component")
