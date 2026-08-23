@@ -83,13 +83,13 @@ def main():
 
     if ((args.i is not None) and (args.dataset_list_file is not None)):
         mainlogger.error("Options --i <image_path> and --dataset_list_file <dataset.yaml> are mutually exclusive")
-        return
+        return 1
 
     assert ((args.i is not None) or (args.dataset_list_file is not None)), \
         "Use --i or --dataset_list_file to specify images to segment"
     if ((args.dataset_list_file is not None) and (args.cohort is None)):
         mainlogger.error("Use --cohort <train|validation|test> which dataset to segment")
-        return
+        return 1
 
     codenames = None
     path_images = args.i
@@ -104,7 +104,7 @@ def main():
         dataset = Config.retrieve_dataset_cohorts(dataset_dict, args.cohort)
         if (not dataset):
             mainlogger.info("Empty cohort, nothing to do.")
-            return
+            return 1
 
         # 'label_filepath' is optional in the dataset.yaml
         # no dices evaluation will be performed if no 'label_filepath' specified
@@ -152,6 +152,7 @@ def main():
         mainlogger.info(f"VmPeak: {vmpeak}") 
 
     mainlogger.info("Done!")
+    return 0
     
 
 def argument_parse():
