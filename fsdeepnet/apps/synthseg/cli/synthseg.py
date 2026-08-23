@@ -47,7 +47,17 @@ def main():
         sys.argv.append("--flip")
 
     from fsdeepnet.cli.fsdeepnet_predict import main as fsdeepnet_predict_main
-    sys.exit(fsdeepnet_predict_main())
+    retcode = fsdeepnet_predict_main()
+    if (retcode == 0):
+        print('\nIf you use this tool in a publication, please cite:')
+        print('SynthSeg: Segmentation of brain MRI scans of any contrast and resolution without retraining')
+        print('B. Billot, D.N. Greve, O. Puonti, A. Thielscher, K. Van Leemput, B. Fischl, A.V. Dalca, J.E. Iglesias')
+        print('Medical Image Analysis, 2023.')
+        if ("--parc" in sys.argv):
+            print('Robust machine learning segmentation for large-scale analysis of heterogeneous clinical brain MRI datasets')
+            print('B. Billot, M. Colin, Y. Cheng, S.E. Arnold, S. Das, J.E. Iglesias')
+            print('PNAS, 2023.')
+    sys.exit(retcode)
 
 
 # execute script

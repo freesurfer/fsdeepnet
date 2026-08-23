@@ -118,7 +118,11 @@ def main():
     # Loop through images
     for idx in range(n_images):
         segmenter(idx)
-        
+
+    print('\nIf you use this tool in a publication, please cite:')
+    print('Automated Segmentation of the Pituitary and Pineal Glands');
+    print('Larson, KL, Augustinack, JC, Mora, J, Shahzade, D, Rapalino, O, Fischl, B, Greve, DN.')
+    print('Human Brain Mapping 46, no. 15: e70384. 10.1002/hbm.70384. https://doi.org/10.1002/hbm.70384')   
     
 
 #------------------------------------------------------------------------------

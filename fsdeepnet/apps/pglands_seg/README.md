@@ -48,3 +48,11 @@ mkdir pretrained
 ```
 * notes: Comparing to Freesurfer `mri_pglands_seg` run, `apps/pglands/cli/pglands_seg.py` makes extra call to `fs-synthmorph-reg --i /usr/local/freesurfer/rocky8_x86_64/subjects/bert/mri/nu.mgz --o transforms/mni152 --mni-out-res 1.0mm --mni-targ-res 1.0mm --no-crop --pituitary --affine-only
 mri_synthmorph apply -m nearest transforms/mni152/reg.targ_to_invol.lta /autofs/cluster/scratch_wednesday//yh887/freesurfer.install.py39+fsdeepnet.final/models/pglands_seg/mni152_label_template.mgz mni152_label_template.nu.mgz`
+
+---
+# References
+
+- **Automated Segmentation of the Pituitary and Pineal Glands** \
+Larson, KL, Augustinack, JC, Mora, J, Shahzade, D, Rapalino, O, Fischl, B, Greve, DN. \
+Human Brain Mapping 46, no. 15: e70384. 10.1002/hbm.70384. \
+[article](https://doi.org/10.1002/hbm.70384)

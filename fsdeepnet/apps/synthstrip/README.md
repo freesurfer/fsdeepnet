@@ -45,3 +45,11 @@ mkdir pretrained
    cd tests
    fspython ../cli/synthstrip.py --threads 2 -i bert.orig.mgz -o fsdeepnet.synthstrip.mgz --model ../pretrained/fsdeepnet.synthstrip.1.pth
 ```
+
+---
+# References
+
+- **SynthStrip: Skull-Stripping for Any Brain Image** \
+A Hoopes, JS Mora, AV Dalca, B Fischl, M Hoffmann \
+NeuroImage 206 (2022), 119474 \
+[ [article](https://doi.org/10.1016/j.neuroimage.2022.119474) | [Website](https://synthstrip.io) ]

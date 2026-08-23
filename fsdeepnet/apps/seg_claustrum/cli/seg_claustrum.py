@@ -52,7 +52,13 @@ def main():
     sys.argv.extend(extra_args)
 
     from fsdeepnet.cli.fsdeepnet_predict import main as fsdeepnet_predict_main
-    sys.exit(fsdeepnet_predict_main())
+    retcode = fsdeepnet_predict_main()
+    if (retcode == 0):
+        print('\nIf you use this tool in a publication, please cite:')
+        print('A Constrast-Agnostic Method for Ultra-High Resolution Claustrum Segmentation')
+        print('Mauri, C., Fritz, R., Mora, J., Billot, B., Iglesias, J.E., Van Leemput, K., Augustinack, J., Greve, D.N.')
+        print('Human Brain Mapping 46.12 (2025): e70303.')
+    sys.exit(retcode)
 
 
 # execute script
