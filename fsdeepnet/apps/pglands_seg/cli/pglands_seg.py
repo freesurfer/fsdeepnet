@@ -298,30 +298,8 @@ class PGlandsSegmenter:
         self.label_template_path = template_path if template_path is not None \
             else default_template
 
-        # Set up trained model
-        #default_model = os.path.join(os.environ.get('FREESURFER_HOME_FSPYTHON'), "models/fsdeepnet",'pglands_seg.pth')
-        #model_path = default_model if model_path is None else model_path
-
-        """
-        ### FSdeepnet integration
-        from fsdeepnet.checkpoint import Checkpoint
         from fsdeepnet.utils import utility as utils
-
-        checkpoint = Checkpoint()
-        checkpoint.load(model_path, device=self.device)
-        assert checkpoint.model_arch_dict is not None, "Model architecture information not available."
-        assert checkpoint.train_dataset_dict is not None, "Training dataset information not available."
-
-        the_model_name = checkpoint.model_arch_dict.get("class", None)
-        assert the_model_name is not None, "Model name is not available."
-
-        model_class = utils.get_class(the_model_name)
-        self.model = model_class(checkpoint.model_arch_dict).to(self.device)
-        self.model.load_state_dict(checkpoint.model_state_dict)
-        ### End of FSdeepnet integration
-        """
-        from fsdeepnet.utils import utility as utils
-        self.model = utils.load_pretrained(model_path, self.device)
+        self.model, _ = utils.load_pretrained(model_path, device=self.device)
         
         # Initialize QA dataset (if necessary)
         self.qa_dataset = self.QAdataset() if write_qas else None            

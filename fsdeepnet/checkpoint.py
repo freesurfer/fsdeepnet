@@ -54,6 +54,9 @@ class Checkpoint:
         if ((optimizer is not None) and (self._dict['optimizer_state_dict'] is not None)):
             optimizer.load_state_dict(self._dict['optimizer_state_dict'])  # Load optimizer state
 
+        # return the final resolved model_path
+        return model_path
+    
         """
         start_epoch = self._dict['epoch'] + 1  # Resume from the next epoch
         metric_type = self._dict.get('metric_type', None)

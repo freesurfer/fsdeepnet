@@ -407,30 +407,8 @@ class LimbicSegmenter:
         # build and load model
         print(f'inshape {self.inshape} features {nfeatures}')
 
-        """
-        ### fsdeepnet integration
-        from fsdeepnet.checkpoint import Checkpoint
         from fsdeepnet.utils import utility as utils
-
-        checkpoint = Checkpoint()
-        checkpoint.load(model_file, device=self.device)
-        assert checkpoint.model_arch_dict is not None, "Model architecture information not available."
-        #assert checkpoint.train_dataset_dict is not None, "Training dataset information not available."
-
-        the_model_name = checkpoint.model_arch_dict.get("class", None)
-        assert the_model_name is not None, "Model name is not available."
-
-        model_class = utils.get_class(the_model_name)
-        self.model = model_class(checkpoint.model_arch_dict).to(self.device)
-        #print(f'  {self.model.layers[0].input_shape[0]}')
-        print(f"Loading weights from {model_file} -----------------------")
-        self.model.load_state_dict(checkpoint.model_state_dict)
-        self.model.eval()
-        print("Done loading weights -----------------------")
-        ### End of fsdeepnet integration    
-        """
-        from fsdeepnet.utils import utility as utils
-        self.model = utils.load_pretrained(model_file, self.device)       
+        self.model, _ = utils.load_pretrained(model_file, device=self.device)       
 
     def reset_timer(self):
         """

@@ -129,7 +129,7 @@ else:
         modelfile = f'synthstrip.{version}.pth'
 
 from fsdeepnet.utils import utility as utils
-model = utils.load_pretrained(modelfile, device)
+model, _ = utils.load_pretrained(modelfile, device=device)
 
 # load input volume
 image = sf.load_volume(args.image)

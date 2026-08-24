@@ -410,7 +410,7 @@ def load_pretrained(model_path, device=None, model_eval=True):
     from fsdeepnet.checkpoint import Checkpoint
 
     checkpoint = Checkpoint()
-    checkpoint.load(model_path, device=device)
+    model_path = checkpoint.load(model_path, device=device)
     assert checkpoint.model_arch_dict is not None, "Model architecture information not available."
     assert checkpoint.train_dataset_dict is not None, "Training dataset information not available."
 
@@ -426,7 +426,7 @@ def load_pretrained(model_path, device=None, model_eval=True):
         model.eval()
     print("Done loading weights -----------------------")
 
-    return model
+    return model, checkpoint
    
 
 # ================================================================================================

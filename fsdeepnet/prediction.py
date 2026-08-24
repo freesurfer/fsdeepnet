@@ -111,7 +111,9 @@ class Prediction:
         
         #assert os.path.isfile(model_checkpoint), "The provided model path %s does not exist." % model_checkpoint
 
-        # Load the Trained Segmentation Model
+        # Load the Pretrained Segmentation Model
+        segmentation_model, checkpoint = utils.load_pretrained(model_checkpoint, device=self._device)
+        """
         checkpoint = Checkpoint()
         checkpoint.load(model_checkpoint, device=self._device)
         assert checkpoint.model_arch_dict is not None, "Model architecture information not available."
@@ -122,6 +124,7 @@ class Prediction:
 
         model_class = utils.get_class(the_model_name)
         segmentation_model = model_class(checkpoint.model_arch_dict).to(self._device)
+        """
 
         self._nb_levels = checkpoint.model_arch_dict["nb_levels"]
         self._ndims = checkpoint.model_arch_dict["ndims"]
@@ -182,8 +185,8 @@ class Prediction:
                     import surfa as sf
                     self._label_lookup = sf.load_label_lookup(self._label_lookup)
 
-        segmentation_model.load_state_dict(checkpoint.model_state_dict)
-        segmentation_model.eval()
+        #segmentation_model.load_state_dict(checkpoint.model_state_dict)
+        #segmentation_model.eval()
 
         return segmentation_model
 
@@ -191,7 +194,9 @@ class Prediction:
     def load_parcellation_model(self, model_checkpoint):
         #assert os.path.isfile(model_checkpoint), "The provided model path %s does not exist." % model_checkpoint
 
-        # Load the Trained Parcellation Model
+        # Load the Pretrained Parcellation Model
+        parcellation_model, checkpoint = utils.load_pretrained(model_checkpoint, device=self._device)
+        """
         checkpoint = Checkpoint()
         checkpoint.load(model_checkpoint, device=self._device)
         assert checkpoint.model_arch_dict is not None, "Model architecture information not available."
@@ -202,6 +207,7 @@ class Prediction:
 
         model_class = utils.get_class(the_model_name)
         parcellation_model = model_class(checkpoint.model_arch_dict).to(self._device)
+        """
 
         ###
         self._labels_parcellation = checkpoint.train_dataset_dict.get("parcellation_labels", None)
@@ -231,8 +237,8 @@ class Prediction:
         assert self._inverse_parcellation_label_mapping is not None, "inverse_parcellation_label_mapping information not available."
         ###
 
-        parcellation_model.load_state_dict(checkpoint.model_state_dict)
-        parcellation_model.eval()
+        #parcellation_model.load_state_dict(checkpoint.model_state_dict)
+        #parcellation_model.eval()
 
         return parcellation_model
 
