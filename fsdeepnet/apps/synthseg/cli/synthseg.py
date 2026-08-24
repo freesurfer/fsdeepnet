@@ -37,6 +37,9 @@ def main():
     if ("--checkpoint" not in sys.argv):
         sys.argv.append("--checkpoint")
         sys.argv.append("synthseg_2.0.pth")
+    # "--parc" in freesurfer is boolean, in fsdeepent takes an argument
+    if ("--parc" in sys.argv):
+        sys.argv.append("synthseg_parc_2.0.pth")
 
     # - add the following arguments:
     #     --keep_biggest_component, --smooth_posteriors, --use_topology_classes, --flip
