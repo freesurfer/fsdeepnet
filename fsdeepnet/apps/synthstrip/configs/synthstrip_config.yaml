@@ -1,6 +1,3 @@
-dataset:
-  class: fsdeepnet.datasets.segmentationdataset.SegmentationDataset
-
 model:
   class: fsdeepnet.apps.synthstrip.models.synthstrip_unet.UNet
   ndims: 3

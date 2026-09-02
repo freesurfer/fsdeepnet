@@ -412,7 +412,7 @@ def load_pretrained(model_path, device=None, model_eval=True):
     checkpoint = Checkpoint()
     model_path = checkpoint.load(model_path, device=device)
     assert checkpoint.model_arch_dict is not None, "Model architecture information not available."
-    assert checkpoint.train_dataset_dict is not None, "Training dataset information not available."
+    #assert checkpoint.train_dataset_dict is not None, "Training dataset information not available."
 
     the_model_name = checkpoint.model_arch_dict.get("class", None)
     assert the_model_name is not None, "Model name is not available."

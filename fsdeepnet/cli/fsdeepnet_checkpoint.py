@@ -118,9 +118,11 @@ def main():
         sys.exit(1)
     if (info or update or download):
         assert (args.checkpoint is not None), f"Use '--checkpoint <>' to load a pre-trained network"
+    """
     if (args.update is not None and "config:config" in args.update):
         assert (args.config is not None), f"Specify '--config <>' for '--update {args.update}'"
         set_dataset_attr = True
+    """
     if (update or download):
         assert (args.saveas is not None), f"Specify path to save new checkpoint as '--saveas <>'"
 
@@ -136,6 +138,8 @@ def main():
     config = None
     if (args.config is not None):
         config = Config.process(args, logger=logging, require_train_outfolder=False, require_dataset_list=False, assert_dimensions=False)
+        if ("dataset" in config):
+            set_dataset_attr = True
         config, _, _, model_arch_dict, _, _, _, _ = Training.setup(config, preload_dataset=False, create_train_dataset=False, create_loader=False, create_model=False, set_dataset_attr=set_dataset_attr)
 
     # load pre-trained model
@@ -313,8 +317,9 @@ def update_checkpoint(checkpoint, saveas, config, toupdates, stripkeys, renameke
         #
         elif (key == "config"):
             logging.info("update model_arch_dict and train_dataset_dict")
-            dict_update.update({"model_arch_dict" : config["model"],
-                                "train_dataset_dict" : config["dataset"]})
+            dict_update.update({"model_arch_dict" : config["model"]})
+            if ("dataset" in config):
+                dict_update.update({"train_dataset_dict" : config["dataset"]})
         #
 
     logging.info(f"save updated checkpoint as {saveas}")

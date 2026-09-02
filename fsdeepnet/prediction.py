@@ -113,6 +113,7 @@ class Prediction:
 
         # Load the Pretrained Segmentation Model
         segmentation_model, checkpoint = utils.load_pretrained(model_checkpoint, device=self._device)
+        assert checkpoint.train_dataset_dict is not None, "Training dataset information not available."
         """
         checkpoint = Checkpoint()
         checkpoint.load(model_checkpoint, device=self._device)
@@ -196,6 +197,7 @@ class Prediction:
 
         # Load the Pretrained Parcellation Model
         parcellation_model, checkpoint = utils.load_pretrained(model_checkpoint, device=self._device)
+        assert checkpoint.train_dataset_dict is not None, "Training dataset information not available."
         """
         checkpoint = Checkpoint()
         checkpoint.load(model_checkpoint, device=self._device)
