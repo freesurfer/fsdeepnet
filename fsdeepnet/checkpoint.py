@@ -32,20 +32,20 @@ class Checkpoint:
         if (os.path.exists(checkpoint)):
             model_path = checkpoint
         elif ("FREESURFER_HOME" in os.environ):
-            model_path = os.path.join(os.environ["FREESURFER_HOME"], "models/fsdeepnet", checkpoint)
+            model_path = os.path.join(os.environ["FREESURFER_HOME"], "models/fsdeepnet", os.path.basename(checkpoint))
 
-        if (not os.path.exists(model_path)):
-            assert ("FSDEEPNET_PRETRAINED_DOWNLOAD" in os.environ), f"checkpoint '{checkpoint}' not found locally, set environment variable 'FSDEEPNET_PRETRAINED_DOWNLOAD' to download the pretrained model"
-
-            model_path = os.path.join(os.environ["FSDEEPNET_PRETRAINED_DOWNLOAD"], checkpoint)
             if (not os.path.exists(model_path)):
-                # download the pretrained to os.environ["FSDEEPNET_PRETRAINED_DOWNLOAD"] directory
-                from fsdeepnet.apps import PRETRAINED_URLS
-                download_url = PRETRAINED_URLS.get(checkpoint, None)
-                assert (download_url is not None), f"No downloading url found for '{checkpoint}'"
+                assert ("FSDEEPNET_PRETRAINED_DOWNLOAD" in os.environ), f"checkpoint '{model_path}' not found locally, set environment variable 'FSDEEPNET_PRETRAINED_DOWNLOAD' to download the pretrained model"
 
-                torch.hub.download_url_to_file(download_url, model_path, progress=True)
-                assert (os.path.exists(model_path)), "Couldn't find the pretrained model!"
+                model_path = os.path.join(os.environ["FSDEEPNET_PRETRAINED_DOWNLOAD"], os.path.basename(checkpoint))
+                if (not os.path.exists(model_path)):
+                    # download the pretrained to os.environ["FSDEEPNET_PRETRAINED_DOWNLOAD"] directory
+                    from fsdeepnet.apps import PRETRAINED_URLS
+                    download_url = PRETRAINED_URLS.get(checkpoint, None)
+                    assert (download_url is not None), f"No downloading url found for '{checkpoint}'"
+
+                    torch.hub.download_url_to_file(download_url, model_path, progress=True)
+                    assert (os.path.exists(model_path)), "Couldn't find the pretrained model!"
 
         self._dict = torch.load(model_path, map_location=device, weights_only=False)  # Load the saved checkpoint
 
