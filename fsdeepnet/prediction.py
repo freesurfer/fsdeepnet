@@ -262,7 +262,7 @@ class Prediction:
                 # Can't call numpy() on Tensor that requires grad. Use tensor.detach().numpy() instead
                 if (output.ndim == 4):  # 2D
                     output = output.unsqueeze(-1)
-                np.save(layer_output, output.permute(2, 3, 4, 1, 0).cpu().detach().numpy())
+                np.save(layer_output, output.permute(2, 3, 4, 1, 0).detach().cpu().numpy())
             else:
                 logging.info(f"{self._curr_codename} {m_key} outputs {type(output)}")
 
@@ -606,7 +606,7 @@ class Prediction:
                 np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_mask_largest_connected_component.npy"), posteriors_mask.squeeze(0).astype(np.float32))
             posteriors_mask = np.stack([posteriors_mask] * tmp_posteriors.shape[1], axis=1)  # [B, C, H, W (,D)]
             # set posteriors outside the mask to zero            
-            tmp_posteriors = utils.mask_volume(tmp_posteriors.cpu().detach().numpy(), posteriors_mask)
+            tmp_posteriors = utils.mask_volume(tmp_posteriors.detach().cpu().numpy(), posteriors_mask)
             # update non-background posteriors
             posteriors_seg[:, 1:, ...] = tmp_posteriors
 
@@ -614,7 +614,7 @@ class Prediction:
             logging.info("Prediction.postprocess(): set posteriors outside the largest connected component of each topological class to zero")
             # get posteriors mask above the threshold
             posteriors_mask = posteriors_seg > 0.25
-            tmp_posteriors = posteriors_seg.detach().numpy()
+            tmp_posteriors = posteriors_seg.detach().cpu().numpy()
             # reset posteriors to zero outside the largest connected component of each non-background topological class
             for topology_class in np.unique(self._topology_classes)[1:]:
                 # self._topology_classes corresponds to unique sorted labels
@@ -623,7 +623,7 @@ class Prediction:
                 # obtain mask from posteriors channels belonging to the same topological class
                 tmp_mask = torch.any(posteriors_mask[:, tmp_topology_indices, ...], dim=1)  # [B, H, W (,D)]
                 # get largest connected component of the mask
-                tmp_mask = utils.get_largest_connected_component(tmp_mask.detach().numpy())  # [B, H, W (,D)]
+                tmp_mask = utils.get_largest_connected_component(tmp_mask.detach().cpu().numpy())  # [B, H, W (,D)]
                 if (self._debug):
                     np.save(os.path.join(self._out_debug_dir, f"{self._curr_codename}_mask_topology_classs{topology_class}.npy"), tmp_mask.squeeze(0).astype(np.float32))
                 # apply the mask to each posteriors channel belonging to the same topological class
@@ -664,7 +664,7 @@ class Prediction:
             # preset background label posteriors to all 1 (the background label includes white matter)
             posteriors_parc[:, 0, ...] = torch.ones_like(posteriors_parc[:, 0, ...])
             # apply parcellation mask to background label posteriors, set posteriors outside the mask to 0
-            posteriors_parc[:, 0, ...] = utils.mask_volume(posteriors_parc[:, 0, ...].clone().cpu().detach().numpy(), (parcellation_mask.numpy() < 0.1))
+            posteriors_parc[:, 0, ...] = utils.mask_volume(posteriors_parc[:, 0, ...].clone().detach().cpu().numpy(), (parcellation_mask.numpy() < 0.1))
             # normalize posteriors
             posteriors_parc /= torch.sum(posteriors_parc, axis=1).unsqueeze(1)
             
@@ -697,7 +697,7 @@ class Prediction:
             # skip background
             if (posteriors_seg.is_cuda):
                 posteriors_seg = posteriors_seg.cpu()
-            volumes = np.sum(posteriors_seg.detach().numpy()[:, 1:, ...], tuple(range(2, 2+len(posteriors_seg.shape[2:]))))
+            volumes = np.sum(posteriors_seg.detach().cpu().numpy()[:, 1:, ...], tuple(range(2, 2+len(posteriors_seg.shape[2:]))))
             volumes = volumes.squeeze(0)
             tiv = np.array([np.sum(volumes)])  # sum up all volumes except background
             volumes = np.around(volumes * np.prod(target_im_res), 3)            
