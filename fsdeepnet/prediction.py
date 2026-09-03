@@ -830,7 +830,7 @@ class Prediction:
         labels_seg_processed = []
 
         # create left-right flipped posterior channels
-        self._posterior_flipped_indices = np.arange(self._num_labels)
+        self._posterior_flipped_indices = np.arange(self._num_labels, dtype=np.int32)
         for (posterior_channel, unique_idx) in enumerate(self._unique_idx_seg):
             if (len(labels_seg_processed) == self._num_labels):
                 break
@@ -852,7 +852,7 @@ class Prediction:
                 #print(f"flip left-right label ({label:02d}, {other_label:02d}) posterior channels {posterior_channel:2d} <=> {other_posterior_channel:2d}")                
 
         # save the indices as list
-        self._posterior_flipped_indices = list(self._posterior_flipped_indices)
+        self._posterior_flipped_indices = self._posterior_flipped_indices.tolist()
         logging.info(f"posteriors channel indices with left-right flipped labels: {self._posterior_flipped_indices}")
 
 
