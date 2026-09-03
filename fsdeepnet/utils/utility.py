@@ -51,19 +51,25 @@ def load_framedimage(file_path, orientation=None, device=None, ndims=3):
 
 
 def save_framedimage(framedimage_tensor, output_file, original_framedimage=None, geom=None, orientation=None,
-                     labels=None, onehotencoded=False, dtype=None, resample=False, method='nearest', target_im_geom=None):
+                     labels=None, onehotencoded=False, dtype=None, resample=False, method='nearest'):
     """
     Save the augmented framedimage to a file.
     input tensor is non-batched [C, H, W (,D)] (ndims = tensor.ndim - 1)
+
+    The original input image space information is given in both 'original_framedimage' and 'orientation'.
+    'original_framedimage' has the same orientation as 'geom'. They might have different voxsizes and dimensions.
+    The image needs to processed in the following order:
+        1. create sf.Volume in 'geom' space
+        2. resample image to 'original_framedimage' space if resample=True
+        3. reorient image to 'orientation'
     
     Args:
         framedimage_tensor (torch.Tensor): Augmented framedimage tensor, non-batched [C, H, W(, D)]
-        original_framedimage: Original loaded framedimage (surfa.Volume).
+        original_framedimage: The target framedimage to resample to (surfa.Volume).
         output_file (str): Path to the output file.
         geom: The surfa.ImageGeometry for the input framedimage_tensor
         resample: Whether to resample to original_framedimage space
         method: resampling method if resample=True
-        target_im_geom: If resample=False, it is the surfa.ImageGeometry for the saved image
     """
     # the input tensor is non-batched [C, H, W(, D)], move C to the last axis, C >= 1
     tensor_cpu = framedimage_tensor.cpu().movedim(0, -1)
@@ -80,21 +86,22 @@ def save_framedimage(framedimage_tensor, output_file, original_framedimage=None,
     other image/label is output as [H, W, (D,) C]
     """
     if (original_framedimage is not None):
+        # create sf.Volume in 'geom' space
         geom = geom if (geom is not None) else original_framedimage.geom
         if (ndims == 2 and onehotencoded):
             surfa_image = sf.Slice(np_image.squeeze(), geometry=geom, labels=labels, metadata=original_framedimage.metadata)
         else:
             surfa_image = sf.Volume(np_image.squeeze(), geometry=geom, labels=labels, metadata=original_framedimage.metadata)
 
-        # surfa.image.framed.reorient() is not yet implemented for 2D data
-        if (ndims == 3 and orientation is not None):
-            surfa_image = surfa_image.reorient(orientation, copy=False, inplace=True)
-        # put the image into target_im_geom space
-        if (target_im_geom is not None):
-            surfa_image = surfa_image.new(surfa_image.data, geometry=target_im_geom)            
-        # resample to original input image space
+        # resample to the given 'original_framedimage' space
+        # it should have the same orientation as 'geom'. they might have different voxsizes and dimensions
         if (resample):
             surfa_image = surfa_image.resample_like(original_framedimage.geom, method=method)
+
+        # surfa.image.framed.reorient() is not yet implemented for 2D data
+        # reorient to the given 'orientation'
+        if (ndims == 3 and orientation is not None):
+            surfa_image = surfa_image.reorient(orientation, copy=False, inplace=True)           
     else:
         orientation = "RAS" if (orientation is None) else orientation
         rotation_matrix = sf.transform.orientation.orientation_to_rotation_matrix(orientation)

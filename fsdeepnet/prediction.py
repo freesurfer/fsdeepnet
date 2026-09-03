@@ -383,10 +383,10 @@ class Prediction:
             # align prediction back to original orientation, original geom (if keepgeom is True)
             resample = True if (self._keepgeom) else False
             utils.save_framedimage(segmentation, out_segmentations[i],
-                        geom=preprocessed_im_geom,
-                        original_framedimage=sfimage,
+                        geom=preprocessed_im_geom,     # geom for segmentation, same orientation as sfimage, they might have different voxsizes and dimensions
+                        original_framedimage=sfimage,  # sfimage in 'RAS' not original input orientation
                         dtype=np.int32 if (posteriors_parc is not None) else None,
-                        orientation=orig_ori,
+                        orientation=orig_ori,          # original input orientation
                         labels=label_lookup if (addctab) else None,
                         resample=resample, method='nearest')
             logging.info(f"output segmentation {out_segmentations[i]}")
