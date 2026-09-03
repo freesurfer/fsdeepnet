@@ -85,7 +85,7 @@ Example 10: update checkpoint model class and dataset class names
          --saveas updated-model.pth
 
 Example 11: download pretrained model from location defined in fsdeepnet.apps.PRETRAINED_URLS
-       fspython fsdeepnet_checkpoint.py --checkpoint sclimbic.fsm+ad.t1.nstd00-50.nstd32-50.pth --saveas path-to-save-pretrained.pth
+       fspython fsdeepnet_checkpoint.py --checkpoint sclimbic.fsm+ad.t1.nstd00-50.nstd32-50.pth --download --saveas path-to-save-pretrained.pth
 """
 
 # Configure logging settings
@@ -329,11 +329,13 @@ def update_checkpoint(checkpoint, saveas, config, toupdates, stripkeys, renameke
 def download_pretrained(checkpoint, saveas):
     # download the pretrained to 'saveas'
     from fsdeepnet.apps import PRETRAINED_URLS
+
+    print(f"retrieving checkpoint '{checkpoint}' downloading url ...")
     download_url = PRETRAINED_URLS.get(checkpoint, None)
     assert (download_url is not None), f"No downloading url found for '{checkpoint}'"
 
+    print(f"Downloading {download_url} to {saveas} ...")
     torch.hub.download_url_to_file(download_url, saveas, progress=True)
-    print(f"Downloaded {PRETRAINED_URLS[checkpoint]} to {saveas}")
 
         
 # execute script
