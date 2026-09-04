@@ -304,9 +304,11 @@ def update_checkpoint(checkpoint, saveas, config, toupdates, stripkeys, renameke
             dict_update.update({"train_dataset_dict" : checkpoint.train_dataset_dict})
         #
         elif (key == "model_class"):
-            for k in ("name", "class"):
-                if (k in checkpoint.model_arch_dict):
-                    checkpoint.model_arch_dict[k] = value
+            # rename model_arch_dict key 'name' to 'class'
+            if ("name" in checkpoint.model_arch_dict):
+                # remove 'name', the model class is now saved in 'class'
+                checkpoint.model_arch_dict.pop("name")
+            checkpoint.model_arch_dict["class"] = value
             dict_update.update({"model_arch_dict" : checkpoint.model_arch_dict})
         #
         elif (key == "dataset_class"):
