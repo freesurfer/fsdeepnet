@@ -41,13 +41,15 @@ def main():
     if ("--parc" in sys.argv):
         sys.argv.append("synthseg_parc_2.0.pth")
 
-    # - add the following arguments:
+    # - add the following arguments if they are not in sys.argv:
     #     --keep_biggest_component, --smooth_posteriors, --use_topology_classes, --flip
-    sys.argv.append("--keep_biggest_component")
-    sys.argv.append("--smooth_posteriors")
+    for opt in ["--keep_biggest_component", "--smooth_posteriors"]:
+        if (opt not in sys.argv):
+            sys.argv.append(opt)
     if ("--fast" not in sys.argv):
-        sys.argv.append("--use_topology_classes")
-        sys.argv.append("--flip")
+        for opt in ["--use_topology_classes", "--flip"]:
+            if (opt not in sys.argv):
+                sys.argv.append(opt)
 
     from fsdeepnet.cli.fsdeepnet_predict import main as fsdeepnet_predict_main
     retcode = fsdeepnet_predict_main()
