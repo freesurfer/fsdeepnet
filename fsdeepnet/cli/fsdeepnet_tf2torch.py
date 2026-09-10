@@ -3,12 +3,6 @@ import logging
 import argparse
 import h5py
 import numpy as np
-import torch
-
-from fsdeepnet import models
-from fsdeepnet.config import Config
-from fsdeepnet.checkpoint import Checkpoint
-from fsdeepnet.training import Training
 
 """
 Usage: fspython loadh5_synthseg.py 
@@ -130,6 +124,7 @@ keys_model_state_dict = {
 }
 """
 keys_model_state_dict = None
+pt = None # delay import torch
 
 
 # Configure logging settings
@@ -153,7 +148,7 @@ def main():
 
                 numpy_array = np.zeros(obj.shape, dtype=obj.dtype)
                 obj.read_direct(numpy_array)
-                torch_tensor = torch.tensor(numpy_array)
+                torch_tensor = pt.tensor(numpy_array)
                 if (torch_tensor.ndim == 5):
                     torch_tensor = torch_tensor.permute(4, 3, 0, 1, 2)
                 model_state_dict[dict_key] = torch_tensor
@@ -166,6 +161,14 @@ def main():
         with h5py.File(tf_model_file, 'r') as f:
             f.visititems(preview_hdf5)
         sys.exit(0)
+
+    global pt
+    import torch as pt
+
+    from fsdeepnet import models
+    from fsdeepnet.config import Config
+    from fsdeepnet.checkpoint import Checkpoint
+    from fsdeepnet.training import Training
 
     assert (args.config is not None and args.model_layer_mapping is not None and args.torch_model_saveas is not None), \
         "'--config <>', '--model_layer_mapping <>', and '--torch_model_saveas <>'are required to convert tensorflow model"

@@ -1,12 +1,9 @@
 import os
 import logging
-import glob
-from time import time
 import numpy as np
 import torch
 import surfa as sf
 
-from fsdeepnet.checkpoint import Checkpoint
 from fsdeepnet.utils import utility as utils
 from fsdeepnet.augmentation import augmentbase
 
@@ -523,7 +520,7 @@ class Prediction:
 
             # apply CentroidCrop if label image is available
             if (path_labels is not None):
-                apply_cropping = CentroidCrop(self._crop_size, device=self._device)
+                apply_cropping = augmentbase.CentroidCrop(self._crop_size, device=self._device)
                 sflabel, label_tensor, _ = utils.load_framedimage(path_labels[idx], orientation="RAS", device=self._device, ndims=self._ndims)
                 assert (label_tensor.shape == image_tensor.shape), \
                     f"image and label need to be in the same shape. label {path_labels[idx]} has shape {label_tensor.shape}, image {path_images[idx]} has shape {image_tensor.shape}"
@@ -720,6 +717,8 @@ class Prediction:
                 path_labels = os.path.abspath(path_labels)
             if (path_priors is not None):
                 path_priors = os.path.abspath(path_priors)
+
+        import glob
 
         convert_single = False
         # expand image/label into list

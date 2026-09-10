@@ -1,13 +1,8 @@
 import os
-import importlib
 import logging
-import subprocess
-import random
-import platform
 import numpy as np
 import surfa as sf
 import torch
-import yaml
 
 
 def load_framedimage(file_path, orientation=None, device=None, ndims=3):
@@ -252,6 +247,8 @@ def DataGenerator(dataloader, device=None, return_priors=True, **kwargs):
 # https://pytorch.org/docs/stable/notes/randomness.html
 # ??? todo: for multi-process dataloader, use worker_init_fn() and generator to preserve reproducibility
 def set_deterministic_training(seed=42):
+    import random
+
     logging.info("set deterministic training")
     logging.info("\tSet Random Seed")
     random.seed(seed)
@@ -279,6 +276,7 @@ def print_vm_peak():
     """
     Return the VM peak of the running process. This is only available on linux platforms.
     """
+    import platform
     if platform.system() != 'Linux':
         return None
 
@@ -297,6 +295,7 @@ def print_vm_peak():
 
 
 def gpu_report(gpu_index):
+    import subprocess
     result = subprocess.run(["nvidia-smi", "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu", "--format=csv,noheader"], capture_output=True, text=True)
     result = result.stdout.splitlines()[gpu_index]
     index, name, utilization, mem_used, mem_total, temp = result.split(",")
@@ -337,6 +336,7 @@ def get_class(qualified_class_name):
     
     class_name = qualified_class_name.split('.')[-1]
 
+    import importlib
     py_module = importlib.import_module(module)
     py_class = getattr(py_module, class_name, None)
     assert (py_class is not None), f"Couldn't get attr '{class_name}' from {py_module}"

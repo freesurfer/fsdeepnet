@@ -1,11 +1,8 @@
 import logging
 import numpy as np
-import numpy.random as npr
 import math
 import torch
-from fsdeepnet import voxynth
 from fsdeepnet.utils import utility as utils
-from fsdeepnet.filter import Filter
 
 # augmentation wrapper class
 class AugmentBase:
@@ -165,7 +162,7 @@ class SpatialDeformation(torch.nn.Module):
         self.warp_perlin_method = hp.get("warp_perlin_method", "upsample")
 
         assert (self.warp_generation_method in ["gaussian", "perlin"]), \
-            f"warp_generation_method '{warp_generation_method}' is not supported. The options are either 'gaussian' or 'perlin'"
+            f"warp_generation_method '{self.warp_generation_method}' is not supported. The options are either 'gaussian' or 'perlin'"
         
         # for warp_generation_method == 'perlin'
         self.warp_smoothing_range = hp.get("warp_smoothing_range", [10, 20])
@@ -186,6 +183,8 @@ class SpatialDeformation(torch.nn.Module):
         label = input.get("label", None)
         prior = input.get("prior", None)
         geom = input.get("geom", None)
+
+        from fsdeepnet import voxynth
 
         """
         trf and aff_matrix are the same transform
@@ -901,6 +900,7 @@ class SampleConditionalGMM(torch.nn.Module):
 
         # the following is taken from SynthSeg.model_inputs.build_model_inputs()
         # https://github.com/BBillot/SynthSeg/blob/master/SynthSeg/model_inputs.py#L142C1-L149C1
+        import numpy.random as npr
         random_coef = npr.uniform()
         if random_coef > 0.95:   # reset the background to 0 in 5% of cases
             means[0] = 0
@@ -1063,6 +1063,8 @@ class GaussianBlur(torch.nn.Module):
         groups = in_channels
         out_channels = in_channels
         nfilters = int(out_channels/groups)
+
+        from fsdeepnet.filter import Filter
 
         gaussian_filter = Filter.gaussian_kernel(sigma, max_sigma=self.max_sigma, truncate=self.truncate, radius=self.radius, device=self.device)
         gaussian_filter = gaussian_filter[None, None, :]  # add out_channels and nfilters dimension

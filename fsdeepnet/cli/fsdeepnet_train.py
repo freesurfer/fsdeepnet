@@ -4,11 +4,6 @@ import sys
 import logging
 import argparse
 
-from fsdeepnet import models
-from fsdeepnet.training import Training
-from fsdeepnet.config import Config
-from fsdeepnet.utils import utility as utils
-
 """
 Usage: fsdeepnet_train.py 
        --config <config.yaml>
@@ -41,15 +36,14 @@ mainlogger.addHandler(logging.StreamHandler())
 def main():
     args = argument_parse()
 
+    from fsdeepnet.training import Training
+    from fsdeepnet.config import Config
+
     config = Config.process(args, logger=mainlogger, require_dataset_list=(not args.no_datasetlist))
     config, train_loader, validation_loader, _, model, optimizer_cls, _, wandb_logger = Training.setup(config, preload_dataset=args.preload)
     Config.print(config, mainlogger)
 
     train(config, train_loader, model, optimizer_cls, validation_loader=validation_loader, wandb_logger=wandb_logger)
-
-    # check memory usage
-    if (config["vmp"]):
-        utils.print_vm_peak()
 
     mainlogger.info("Done!")
                        
@@ -112,6 +106,9 @@ def argument_parse():
 
 
 def train(config, train_loader, model, optimizer_cls, validation_loader=None, wandb_logger=None):
+    from fsdeepnet import models
+    from fsdeepnet.utils import utility as utils
+
     # print model_arch_dict
     model_arch_dict = model.arch_dict
     models.model_arch(model_arch_dict, logger=mainlogger)
@@ -197,6 +194,10 @@ def train(config, train_loader, model, optimizer_cls, validation_loader=None, wa
         
     if (wandb_logger is not None):
         wandb_logger.finish()
+
+    # check memory usage
+    if (config["vmp"]):
+        utils.print_vm_peak()
 
 
 # execute script

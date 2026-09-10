@@ -1,5 +1,3 @@
-from .unet import UNet
-
 import logging
 
 def model_print(model, logger=logging):

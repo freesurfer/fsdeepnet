@@ -5,7 +5,6 @@ import torch
 
 from fsdeepnet import augmentation
 from fsdeepnet.utils import utility as utils
-from fsdeepnet.config import Config
 
 class SegmentationDataset(torch.utils.data.Dataset):
     def __init__(self,
@@ -32,6 +31,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
         # create an empty dictionary for processed dataset profile
         self.dataset_profile = {}
 
+        from fsdeepnet.config import Config
         dataset_list = Config.load_dataset_list(dataset_list_file)
         dataset_dict = Config.retrieve_dataset_cohorts(dataset_list, cohort)
 

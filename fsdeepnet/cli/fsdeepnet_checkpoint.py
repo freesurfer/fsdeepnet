@@ -3,15 +3,10 @@
 import os
 import logging
 import sys
-import numpy
-import torch
 import argparse
 
-from fsdeepnet import models
-from fsdeepnet.config import Config
-from fsdeepnet.training import Training
-from fsdeepnet.checkpoint import Checkpoint
-from fsdeepnet.utils import utility as utils
+# delay import torch
+pt = None
 
 description = """
 Usage: fsdeepnet_checkpoint.py 
@@ -126,13 +121,22 @@ def main():
     if (update or download):
         assert (args.saveas is not None), f"Specify path to save new checkpoint as '--saveas <>'"
 
+    global pt
+    import torch as pt
+    
     if (download):
         download_pretrained(args.checkpoint, args.saveas)
         sys.exit(0)
 
+    from fsdeepnet import models
+    from fsdeepnet.config import Config
+    from fsdeepnet.training import Training
+    from fsdeepnet.checkpoint import Checkpoint
+    from fsdeepnet.utils import utility as utils
+
     if (args.cpu):
         os.environ["CUDA_VISIBLE_DEVICES"]=""
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device =  pt.device("cuda" if  pt.cuda.is_available() else "cpu")
 
     # load config file
     config = None
@@ -337,7 +341,7 @@ def download_pretrained(checkpoint, saveas):
     assert (download_url is not None), f"No downloading url found for '{checkpoint}'"
 
     print(f"Downloading {download_url} to {saveas} ...")
-    torch.hub.download_url_to_file(download_url, saveas, progress=True)
+    pt.hub.download_url_to_file(download_url, saveas, progress=True)
 
         
 # execute script

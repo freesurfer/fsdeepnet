@@ -1,14 +1,10 @@
 #!/usr/bin/env python
 
 import os
-import logging
 import sys
-import numpy as np
-import torch
+import logging
 import argparse
-import yaml
 
-from fsdeepnet.utils import utility as utils
 
 description = """
 Usage: fsdeepnet_predict.py 
@@ -41,7 +37,9 @@ Usage: fsdeepnet_predict.py
 
 def main():
     args = argument_parse()
-    
+
+    from fsdeepnet.utils import utility as utils
+
     # setup and configure root and main logger
     logfile = args.logfile if (args.logfile is not None) else os.path.join(os.getcwd(), "fsdeepnet_predict.log")
     utils.config_logger(logfile=logfile, mode='w')
@@ -63,11 +61,14 @@ def main():
     mainlogger.info("CWD: " + os.getcwd())
     mainlogger.info("CMD: " + "\n\t--".join(cmdopts))
 
+    # delay import
+    import torch
+
     if (args.cpu):
         os.environ["CUDA_VISIBLE_DEVICES"]=""
         
-        import psutil 
-        num_cpu_cores = psutil.cpu_count(logical = False)
+        from psutil import cpu_count
+        num_cpu_cores = cpu_count(logical = False)
         mainlogger.info("")
         mainlogger.info(f"physical CPU cores: {num_cpu_cores}")
         if (args.threads is not None):
@@ -135,6 +136,7 @@ def main():
 
     segmentation_names = None
     if (args.segmentation_names is not None):    
+        import numpy as np
         segmentation_names=np.load(args.segmentation_names)
     predict(path_images, args.o, args.checkpoint, args,
             path_priors=path_priors,
