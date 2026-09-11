@@ -3,21 +3,10 @@
 import os
 import time
 import sys
-import platform
-import csv
-import glob
-import tempfile
-import shutil
-import platform
 import argparse
-import numpy as np
-import surfa as sf
-import scipy.ndimage
 
-
-# defer pytorch import until we need it (for faster command-line parsing)
-pt = None
-
+# defer numpy, surfa, scipy.ndimage, pytorch import until we need it (for faster command-line parsing)
+np, sf, ndi, pt = None, None, None, None
 
 description = """
 Segment subcortical limbic structures.
@@ -100,6 +89,15 @@ def main():
     # parse commandline
     args = parser.parse_args()
 
+    # defer importing until after parsing
+    import csv
+    import glob
+    global np, sf, ndi, pt
+    import numpy as np
+    import surfa as sf
+    import scipy.ndimage as ndi
+    import torch as pt
+
     # a few sanity checks on the command-line inputs
     if args.i is None and args.s is None:
         sf.system.fatal('Input image(s) or subject(s) to segment must be provided with the --i or --s flags.')
@@ -130,9 +128,6 @@ def main():
     if cuda_device is None or cuda_device == '-1':
         os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # hide gpu
 
-    # defer pytorch importing until after parsing
-    global pt
-    import torch as pt
     if pt.cuda.is_available():
         device = pt.device("cuda")
         print('Using GPU device', cuda_device)
@@ -536,7 +531,7 @@ class LimbicSegmenter:
         dilate_struct = build_binary_structure(1, 3)
         for label in range(1, len(self.labels)):
             cropped_pred_label = posteriors.data[..., label]
-            label_mask = scipy.ndimage.binary_dilation(cropped_seg.data == label, dilate_struct)
+            label_mask = ndi.binary_dilation(cropped_seg.data == label, dilate_struct)
             cropped_pred_label[np.logical_not(label_mask)] = 0
             posteriors[..., label] = cropped_pred_label
 
@@ -656,6 +651,9 @@ def compute_etiv_from_scratch(image):
     talairach space. This will slow down processing substantially.
     """
 
+    import tempfile
+    import shutil
+
     # make a temporary directory for the intermediate outputs
     tmpdir = tempfile.mkdtemp()
     norm = os.path.join(tmpdir, 'nu.mgz')
@@ -694,6 +692,7 @@ def print_vm_peak():
     Print the VM peak of the running process. This is only available
     on linux platforms.
     """
+    import platform
     if platform.system() != 'Linux':
         return
     procstat = os.path.join('/proc', str(os.getpid()), 'status')
@@ -716,7 +715,7 @@ def build_binary_structure(connectivity, n_dims):
     dist = np.ones(shape)
     center = tuple([tuple([int(s / 2)]) for s in shape])
     dist[center] = 0
-    dist = scipy.ndimage.distance_transform_edt(dist)
+    dist = ndi.distance_transform_edt(dist)
     struct = (dist <= connectivity) * 1
     return struct
 

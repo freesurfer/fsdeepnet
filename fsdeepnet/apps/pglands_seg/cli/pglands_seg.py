@@ -1,21 +1,12 @@
 #!/usr/bin/env python
 
-import time
 import os
-import shutil
-import time
 import sys
-import random
 import argparse
-import glob
 from typing import List, Optional
 
-from math import prod
-from scipy import ndimage
-
 import torch
-import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 
 import numpy as np
 
@@ -341,6 +332,8 @@ class PGlandsSegmenter:
         Estimate eTIV from input lta talairach transform. If lta does not 
         exist, calculate from scratch (will increase run time).
         """
+        import shutil
+
         if not os.path.isfile(lta):
             print(f'Computing talairach transform ({lta}) to measure eTIV for '
                   'volume stats analysis (this should take about 3 minutes)')
@@ -674,7 +667,9 @@ def get_filenames(mode:str='normal',              # FS or normal
     talaff = 'talairach.xfm.lta' if talaff is None else talaff
     mniaff = 'reg.targ_to_invol.lta' if mniaff is None else mniaff
     qawarp = 'warp.to.mni152.1.0mm.1.0mm.nii.gz' if qawarp is None else qawarp
-    
+
+    import glob
+
     ##
     if mode == 'FS':
         # Set SUBJECTS_DIR
@@ -994,6 +989,8 @@ def largest_connected_component(x, vals=None, bgval=0):
     Extracts the largest connected components for each foreground label in a 
     multi-label image
     """
+    from scipy import ndimage
+
     x = x.cpu().numpy() if torch.is_tensor(x) else x
     vals = np.unique(x) if vals is None else vals
     vals = [i for i in vals if i != bgval]
@@ -1047,6 +1044,8 @@ def robust_norm(x,                   # input tensor
                 min_perc:float=0.,   # minimum % to clip intensities
                 max_perc:float=0.95  # maximum % to clip intensities
 ):
+    from math import prod
+    
     # Get sizes
     full_sz = x.shape
     n_vox = prod([sz for sz in full_sz])
