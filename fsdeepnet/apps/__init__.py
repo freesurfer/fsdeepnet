@@ -1,26 +1,21 @@
 PRETRAINED_URLS = {
 
-    # either of the url specification works
-    # - 'https://github.com/freesurfer/fsdeepnet/raw/main/fsdeepnet/apps/sclimbic_seg/pretrained/entowm.fsm31.t1.nstd00-30.nstd21-108.pth'
-    # - 'https://raw.githubusercontent.com/freesurfer/fsdeepnet/main/fsdeepnet/apps/sclimbic_seg/pretrained/entowm.fsm31.t1.nstd00-30.nstd21-108.pth'
-    #'entowm.fsm31.t1.nstd00-30.nstd21-108.pth'   : 'https://github.com/freesurfer/fsdeepnet/raw/main/fsdeepnet/apps/sclimbic_seg/pretrained/entowm.fsm31.t1.nstd00-30.nstd21-108.pth',
-    'entowm.fsm31.t1.nstd00-30.nstd21-108.pth'    : 'https://raw.githubusercontent.com/freesurfer/fsdeepnet/main/fsdeepnet/apps/sclimbic_seg/pretrained/entowm.fsm31.t1.nstd00-30.nstd21-108.pth',
-    'mca-dura.both-lh.nstd21.fhs.pth'             : 'https://github.com/freesurfer/fsdeepnet/raw/main/fsdeepnet/apps/sclimbic_seg/pretrained/mca-dura.both-lh.nstd21.fhs.pth',
-    'sclimbic.fsm+ad.t1.nstd00-50.nstd32-50.pth'  : 'https://github.com/freesurfer/fsdeepnet/raw/main/fsdeepnet/apps/sclimbic_seg/pretrained/sclimbic.fsm+ad.t1.nstd00-50.nstd32-50.pth',
-    'vsinus.no-sp.m.all.nstd10-070.pth'           : 'https://github.com/freesurfer/fsdeepnet/raw/main/fsdeepnet/apps/sclimbic_seg/pretrained/vsinus.no-sp.m.all.nstd10-070.pth',
-
-
     # LCN ftp site: https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/
     # Internal Martinos directory: /autofs/cluster/lcnpublic/dist
 
-    #'claustrum_seg_20250616.pth'
+    'entowm.fsm31.t1.nstd00-30.nstd21-108.pth'    : 'https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/fsdeepnet-models/entowm.fsm31.t1.nstd00-30.nstd21-108.pth',
+    'mca-dura.both-lh.nstd21.fhs.pth'             : 'https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/fsdeepnet-models/mca-dura.both-lh.nstd21.fhs.pth',
+    'sclimbic.fsm+ad.t1.nstd00-50.nstd32-50.pth'  : 'https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/fsdeepnet-models/sclimbic.fsm+ad.t1.nstd00-50.nstd32-50.pth',
+    'vsinus.no-sp.m.all.nstd10-070.pth'           : 'https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/fsdeepnet-models/vsinus.no-sp.m.all.nstd10-070.pth',
 
-    #'synthstrip.1.pth'
-    #'synthstrip.nocsf.1.pth'
+    'claustrum_seg_20250616.pth'                  : 'https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/fsdeepnet-models/claustrum_seg_20250616.pth',
 
-    #'synthseg_2.0.pth'
-    #'synthseg_parc_2.0.h5.pth'
+    'synthstrip.1.pth'                            : 'https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/fsdeepnet-models/synthstrip.1.pth',
+    'synthstrip.nocsf.1.pth'                      : 'https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/fsdeepnet-models/synthstrip.nocsf.1.pth',
 
-    #'pglands_seg.pth'
+    'synthseg_2.0.pth'                            : 'https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/fsdeepnet-models/synthseg_2.0.pth',
+    'synthseg_parc_2.0.pth'                    : 'https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/fsdeepnet-models/synthseg_parc_2.0.pth',
+
+    'pglands_seg.pth'                             : 'https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/fsdeepnet-models/pglands_seg.pth',
 
 }
