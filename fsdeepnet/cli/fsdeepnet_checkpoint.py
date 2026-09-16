@@ -336,12 +336,24 @@ def download_pretrained(checkpoint, saveas):
     # download the pretrained to 'saveas'
     from fsdeepnet.apps import PRETRAINED_URLS
 
-    print(f"retrieving checkpoint '{checkpoint}' downloading url ...")
-    download_url = PRETRAINED_URLS.get(checkpoint, None)
-    assert (download_url is not None), f"No downloading url found for '{checkpoint}'"
+    if (checkpoint == "all"):
+        todownload = list(PRETRAINED_URLS.keys())
+        # 'saveas' is expected to be a directory
+        os.makedirs(saveas, exist_ok=True)
+    else:
+        todownload = [checkpoint]
 
-    print(f"Downloading {download_url} to {saveas} ...")
-    pt.hub.download_url_to_file(download_url, saveas, progress=True)
+    for model_file in todownload:
+        print(f"retrieving checkpoint '{model_file}' downloading url ...")
+        download_url = PRETRAINED_URLS.get(model_file, None)
+
+        if (download_url is None):
+            print(f"No downloading url found for '{model_file}'")
+            continue
+
+        dest = os.path.join(saveas, model_file) if (os.path.isdir(saveas)) else saveas
+        print(f"Downloading {download_url} to {dest} ...")
+        pt.hub.download_url_to_file(download_url, dest, progress=True)
 
         
 # execute script
