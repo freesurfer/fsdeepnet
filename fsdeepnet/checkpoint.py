@@ -32,7 +32,7 @@ class Checkpoint:
         if (os.path.exists(checkpoint)):
             model_path = checkpoint
         elif ("FREESURFER_HOME" in os.environ):
-            model_path = os.path.join(os.environ["FREESURFER_HOME"], "models/fsdeepnet", os.path.basename(checkpoint))
+            model_path = os.path.join(os.environ["FREESURFER_HOME"], "fsdeepnet_models", os.path.basename(checkpoint))
 
             if (not os.path.exists(model_path)):
                 assert ("FSDEEPNET_PRETRAINED_DOWNLOAD" in os.environ), f"checkpoint '{model_path}' not found locally, set environment variable 'FSDEEPNET_PRETRAINED_DOWNLOAD' to download the pretrained model"
