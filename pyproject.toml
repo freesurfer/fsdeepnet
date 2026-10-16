@@ -12,7 +12,8 @@ dependencies= [
     'h5py',
     'psutil',
     'wandb',
-    'surfa@git+https://github.com/freesurfer/surfa.git@master',
+    'surfa @ https://github.com/jnolan14/surfa/releases/download/v0.7.0rc4/surfa-0.7.0.tar.gz#sha256=9adbd75c17ee5970bf68bf25927b2bd45fd0a29fcb3dd5f7fe7cc243e5347213'
+    #'surfa@git+https://github.com/freesurfer/surfa.git@master',
     #'PyQt5',  # for matplotlib
     #'pynvml',
     #'voxynth@git+https://github.com/dalcalab/voxynth.git@main'
