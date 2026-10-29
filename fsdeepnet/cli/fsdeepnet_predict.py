@@ -40,8 +40,13 @@ def main():
 
     from fsdeepnet.utils import utility as utils
 
+    # '--i <>' and '--o <>' need to be both directories or single files
+    logdir = os.path.abspath(args.o)      # assume both '--i <>' and '--o <>' are directories
+    if (not os.path.isdir(args.i)):
+        logdir = os.path.dirname(logdir)  # get the directory name
+    
     # setup and configure root and main logger
-    logfile = args.logfile if (args.logfile is not None) else os.path.join(os.getcwd(), "fsdeepnet_predict.log")
+    logfile = args.logfile if (args.logfile is not None) else os.path.join(logdir, "fsdeepnet_predict.log")
     utils.config_logger(logfile=logfile, mode='w')
     mainlogger = logging.getLogger(__name__)
     mainlogger.addHandler(logging.StreamHandler())
