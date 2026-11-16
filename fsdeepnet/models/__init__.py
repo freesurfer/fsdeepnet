@@ -155,3 +155,74 @@ def model_arch(arch_dict, logger=logging):
     for k in arch_dict.keys():
         logger.info(f"    {k}: {arch_dict[k]}")
     logger.info("")
+
+
+def update_arch_dict(func):
+    """
+    Class-method decorator that saves every argument provided to the
+    method plus the default values as a dictionary in 'self.arch_dict'.
+
+    'self.arch_dict' is retrieved and saved in model weight files for
+    automatically reconstructing the network at testing time without
+    having to manually specify the architecture configuration.
+    """
+
+    import inspect
+    import functools
+
+    argspec = inspect.getfullargspec(func)
+
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        def fullname(o):
+            klass = o.__class__
+            module = klass.__module__
+            return module + '.' + klass.__qualname__
+
+        self.arch_dict = {}
+
+        # hidden model configurable
+        kw_debug = "debug_arch_dict"
+        debug = kwargs[kw_debug] if (kw_debug in kwargs) else False
+
+        # save the default values
+        if argspec.defaults:
+            for attr, val in zip(reversed(argspec.args), reversed(argspec.defaults)):
+                self.arch_dict[attr] = val
+                if (debug):
+                    print(f"[ARCH_DEBUG] defaults \t\t{attr}={val}")
+
+        # save positional args
+        for attr, val in zip(argspec.args[1:], args):
+            self.arch_dict[attr] = val
+            if (debug):
+                print(f"[ARCH_DEBUG] positional \t{attr}={val}")
+
+        # update user defined keyword args only if they are in the func signature
+        for attr in argspec.args[1:]:
+            if (attr in kwargs):
+                val = kwargs[attr]
+                self.arch_dict[attr] = val
+                if (debug):
+                    print(f"[ARCH_DEBUG] user kwarg \t{attr}={val}")
+
+        # save fully qualified class name
+        kw = "class"
+        if (kw in kwargs):
+            self.arch_dict[kw] = kwargs[kw]
+            if (debug):
+                print(f"[ARCH_DEBUG] class name \t{kw}={kwargs[kw]} (kwargs)")
+        else:
+            full_qualified = fullname(self)
+            self.arch_dict[kw] = full_qualified
+            if (debug):
+                print(f"[ARCH_DEBUG] class name \t{kw}={full_qualified} (fullname)")
+
+        if (debug):
+            print("")
+            for attr, val in self.arch_dict.items():
+                print(f"[ARCH_DEBUG] {attr} = {val}")
+            print("")
+
+        return func(self, *args, **kwargs)
+    return wrapper
