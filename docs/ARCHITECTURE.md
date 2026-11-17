@@ -322,54 +322,36 @@ Output Segmentation
 
 ### Adding New Models
 
-- Create model class: can be either a complete implementation or a wrapper class providing the interface between Fsdeepnet and the network implementation.
-- Implement required methods
-  - **`__init__(self, model_arch_dict)`**: takes dict `model_arch_dict` as input. Required `model_arch_dict` keywords: `nb_levels` and `ndims`.
-    ```
-       def __init__(self, model_arch_dict):
-           self._model_arch_dict = {}
-        
-           # set network defaults
-           self._setdefault_arch_dict()
-           # update network parameters with user input
-           self._update_arch_dict(model_arch_dict)
+Steps to integrate model class into FSdeepnet
+  1. import decarator update_arch_dict()
+  2. apply decorator update_arch_dict to class constructor __init__()
+  3. make sure class constructor __init__() has **kwargs in the signature to catch any unwanted keyworded arguments
 
-           ...
+     Example:
+     ```
+      import torch
+      import torch.nn as nn
 
-    ```
-    **Notes**:
-    - `model_arch_dict` is taken from model configurables.
-    - `ndims` and `nb_levels` are required.
-    - `num_channels` and `nb_labels` are not required. They are set in Training.setup() for `fsdeepnet.models.unet.UNet` to dataset configurables `expected_num_channels` and `len(segmentation_labels)` respectively if they are missing from model configurables.
-    - It is the individual network implementation's responsibility to check their availabilities.
-     
-  - **`_setdefault_arch_dict(self)`**: set network defaults in `self._model_arch_dict`to ensure the default values are recorded in checkpoints.
-    ```
-        def _setdefault_arch_dict(self):
-            self._model_arch_dict["num_channels"] = 1   # number of network input channels
-            self._model_arch_dict["nb_labels"] = 33     # number of network output features
-            self._model_arch_dict["nb_levels"] = 5      # number of enc/dec levels
-            self._model_arch_dict["ndims"] = 3          # number of spatial dims.
+      from fsdeepnet.models import update_arch_dict
 
+      class ModelClass(nn.Module):
+          @update_arch_dict
+          def __init__(self,
+                      ...
+                      **kwargs
+                      ):
             ...
-	    
-    ```
-  - **`_update_arch_dict(self, model_arch_dict)`**: update network parameters `self._model_arch_dict` with user input
-    ```
-       def _update_arch_dict(self, model_arch_dict):
-           # update self._model_arch_dict
-           for k in (model_arch_dict.keys()):
-               self._model_arch_dict[k] = model_arch_dict[k]
-    ```
-  - **`forward(self, x, **kwargs)`**: torch.nn.Module forward method \
-    **Notes**: The function needs to return a list to train with fsdeepnet.training.Training class.
-- Implement required property
-  - **`arch_dict`**: getter method for instance variable `self._model_arch_dict`
-    ```
-       @property
-       def arch_dict(self):
-           return self._model_arch_dict   
-    ```
+
+          def forward(self, x, **kwargs):
+            ...
+     ```
+     **Notes**:
+      - The listed keyworded arguments for class constructor __init__() need to match the `model` configurables in config yaml.
+        Avoid the positional arguments depending on input images in class constructor __init__() arguments.
+      - The `forward` method needs to return a list to train with fsdeepnet.training.Training class.
+      - The `update_arch_dict` decorator saves every argument provided to the constructor plus the default values as a dictionary in 'self.arch_dict'.
+        'self.arch_dict' is retrieved and saved in model weight files for automatically reconstructing the network at testing time without having to
+        manually specify the architecture configuration.
 
 ### Adding New Augmentations
 

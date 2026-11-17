@@ -425,7 +425,8 @@ def load_pretrained(model_path, device=None, model_eval=True):
     assert the_model_name is not None, "Model name is not available."
 
     model_class = get_class(the_model_name)
-    model = model_class(checkpoint.model_arch_dict).to(device)
+    # for backward compatibility, pass both 'model_arch_dict' and unpacking it to kwargs
+    model = model_class(model_arch_dict=checkpoint.model_arch_dict, **checkpoint.model_arch_dict).to(device)
 
     print(f"Loading weights from {model_path} -----------------------")
     model.load_state_dict(checkpoint.model_state_dict)

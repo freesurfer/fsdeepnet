@@ -84,34 +84,34 @@ class ConvBlock(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, model_arch_dict):
+    def __init__(self, model_arch_dict=None, **kwargs):
 
-        self._model_arch_dict = {}
+        self.arch_dict = {}
 
         # set network defaults
         self._setdefault_arch_dict()
         # update network parameters with user input
         self._update_arch_dict(model_arch_dict)
 
-        num_channels = self._model_arch_dict["num_channels"]
-        ndims = self._model_arch_dict["ndims"]
-        nb_features = self._model_arch_dict["nb_features"]
-        nb_levels = self._model_arch_dict["nb_levels"]
-        nb_labels = self._model_arch_dict["nb_labels"]
-        feat_mult = self._model_arch_dict["feat_mult"]
-        conv_size = self._model_arch_dict["conv_size"]
-        pool_size = self._model_arch_dict["pool_size"]
-        nb_conv_per_level = self._model_arch_dict["nb_conv_per_level"]
-        use_residuals = self._model_arch_dict["use_residuals"]
-        norm = self._model_arch_dict["norm"]
-        activation = self._model_arch_dict["activation"]
-        add_priors = self._model_arch_dict["add_priors"]
-        refine_conv = self._model_arch_dict["refine_conv"]
-        final_pred_activation = self._model_arch_dict["final_pred_activation"]
-        weight_init = self._model_arch_dict["weight_init"]
-        track_running_stats = self._model_arch_dict["track_running_stats"]
-        upsample_interpolation = self._model_arch_dict["upsample_interpolation"]
-        skip_connect = self._model_arch_dict["skip_connect"]
+        num_channels = self.arch_dict["num_channels"]
+        ndims = self.arch_dict["ndims"]
+        nb_features = self.arch_dict["nb_features"]
+        nb_levels = self.arch_dict["nb_levels"]
+        nb_labels = self.arch_dict["nb_labels"]
+        feat_mult = self.arch_dict["feat_mult"]
+        conv_size = self.arch_dict["conv_size"]
+        pool_size = self.arch_dict["pool_size"]
+        nb_conv_per_level = self.arch_dict["nb_conv_per_level"]
+        use_residuals = self.arch_dict["use_residuals"]
+        norm = self.arch_dict["norm"]
+        activation = self.arch_dict["activation"]
+        add_priors = self.arch_dict["add_priors"]
+        refine_conv = self.arch_dict["refine_conv"]
+        final_pred_activation = self.arch_dict["final_pred_activation"]
+        weight_init = self.arch_dict["weight_init"]
+        track_running_stats = self.arch_dict["track_running_stats"]
+        upsample_interpolation = self.arch_dict["upsample_interpolation"]
+        skip_connect = self.arch_dict["skip_connect"]
 
         if (norm is not None):
             assert (norm in ["batch", "instance"]), \
@@ -326,25 +326,25 @@ class UNet(nn.Module):
     # set network defaults
     # `num_channels` - network input channels
     def _setdefault_arch_dict(self):
-        self._model_arch_dict["__unetver__"] = __unetver__
-        self._model_arch_dict["num_channels"] = 1
-        self._model_arch_dict["ndims"] = 3
-        self._model_arch_dict["nb_features"] = 24
-        self._model_arch_dict["nb_levels"] = 3
-        self._model_arch_dict["feat_mult"] = 1
-        self._model_arch_dict["conv_size"] = 3
-        self._model_arch_dict["pool_size"] = 2
-        self._model_arch_dict["nb_conv_per_level"] = 1
-        self._model_arch_dict["use_residuals"] = False
-        self._model_arch_dict["norm"] = None
-        self._model_arch_dict["activation"] = "elu"
-        self._model_arch_dict["add_priors"] = False
-        self._model_arch_dict["refine_conv"] = False
-        self._model_arch_dict["final_pred_activation"] = "softmax"
-        self._model_arch_dict["weight_init"] = "xavier_uniform"
-        self._model_arch_dict["track_running_stats"] = False
-        self._model_arch_dict["upsample_interpolation"] = "linear"
-        self._model_arch_dict["skip_connect"] = "norm"
+        self.arch_dict["__unetver__"] = __unetver__
+        self.arch_dict["num_channels"] = 1
+        self.arch_dict["ndims"] = 3
+        self.arch_dict["nb_features"] = 24
+        self.arch_dict["nb_levels"] = 3
+        self.arch_dict["feat_mult"] = 1
+        self.arch_dict["conv_size"] = 3
+        self.arch_dict["pool_size"] = 2
+        self.arch_dict["nb_conv_per_level"] = 1
+        self.arch_dict["use_residuals"] = False
+        self.arch_dict["norm"] = None
+        self.arch_dict["activation"] = "elu"
+        self.arch_dict["add_priors"] = False
+        self.arch_dict["refine_conv"] = False
+        self.arch_dict["final_pred_activation"] = "softmax"
+        self.arch_dict["weight_init"] = "xavier_uniform"
+        self.arch_dict["track_running_stats"] = False
+        self.arch_dict["upsample_interpolation"] = "linear"
+        self.arch_dict["skip_connect"] = "norm"
 
 
     # update network parameters with user input
@@ -352,7 +352,7 @@ class UNet(nn.Module):
     #   they are set to dataset configurables `expected_num_channels` and `len(segmentation_labels)` respectively
     #   in Training.setup() if they are missing in model configurables
     # - `num_channels` - network input channels
-    #   use default self._model_arch_dict["num_channels"] for network input channels
+    #   use default self.arch_dict["num_channels"] for network input channels
     #   if user specified `num_channels` is not available
     # - `nb_labels` - network output channels
     #   need to verify `nb_labels` availability
@@ -395,23 +395,19 @@ class UNet(nn.Module):
             model_arch_dict["track_running_stats"] = model_arch_dict["bn_track_running_stats"]
             del(model_arch_dict["bn_track_running_stats"])            
 
-        # update self._model_arch_dict
+        # update self.arch_dict
         for k in (model_arch_dict.keys()):
-            self._model_arch_dict[k] = model_arch_dict[k]
+            self.arch_dict[k] = model_arch_dict[k]
 
-        if (self._model_arch_dict["norm"] is None):
-            self._model_arch_dict["skip_connect"] = "encoder"
+        if (self.arch_dict["norm"] is None):
+            self.arch_dict["skip_connect"] = "encoder"
 
         # get nb_lables from 'out_channels' configurable
-        if ("nb_labels" not in self._model_arch_dict or \
-            self._model_arch_dict["nb_labels"] is None):
-            self._model_arch_dict["nb_labels"] = model_arch_dict.get("out_channels", None)
+        if ("nb_labels" not in self.arch_dict or \
+            self.arch_dict["nb_labels"] is None):
+            self.arch_dict["nb_labels"] = model_arch_dict.get("out_channels", None)
 
         # verify network output channels
-        assert ("nb_labels" in self._model_arch_dict and self._model_arch_dict["nb_labels"] is not None), \
+        assert ("nb_labels" in self.arch_dict and self.arch_dict["nb_labels"] is not None), \
             "Use model configurable `nb_labels` to specify network output channels"
 
-
-    @property
-    def arch_dict(self):
-        return self._model_arch_dict

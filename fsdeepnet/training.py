@@ -788,7 +788,8 @@ class Training:
 
             # create model object
             model_class = utils.get_class(the_model_name)
-            model = model_class(model_arch_dict).to(config["device"])
+            # for backward compatibility, pass both 'model_arch_dict' and unpacking it to kwargs
+            model = model_class(model_arch_dict=model_arch_dict, **model_arch_dict).to(config["device"])
 
             # update model_arch_dict with network defaults
             model_arch_dict = model.arch_dict
