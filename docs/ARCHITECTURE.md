@@ -323,12 +323,12 @@ Output Segmentation
 ### Adding New Models
 
 Steps to integrate model class into FSdeepnet
-  1. import decarator update_arch_dict()
-  2. apply decorator update_arch_dict to class constructor __init__()
-  3. make sure class constructor __init__() has **kwargs in the signature to catch any unwanted keyworded arguments
+  1. import decarator `update_arch_dict()`
+  2. apply decorator update_arch_dict to class constructor `__init__()`
+  3. make sure class constructor `__init__()` has **kwargs in the signature to catch any unwanted keyworded arguments
 
-     Example:
-     ```
+      Example:
+      ```
       import torch
       import torch.nn as nn
 
@@ -344,14 +344,13 @@ Steps to integrate model class into FSdeepnet
 
           def forward(self, x, **kwargs):
             ...
-     ```
+      ```
      **Notes**:
-      - The listed keyworded arguments for class constructor __init__() need to match the `model` configurables in config yaml.
-        Avoid the positional arguments depending on input images in class constructor __init__() arguments.
+      - The listed keyworded arguments for class constructor `__init__()` need to match the `model` configurables in config yaml.
+      - Avoid the positional arguments depending on the input images in class constructor `__init__()` arguments.
       - The `forward` method needs to return a list to train with fsdeepnet.training.Training class.
       - The `update_arch_dict` decorator saves every argument provided to the constructor plus the default values as a dictionary in 'self.arch_dict'.
-        'self.arch_dict' is retrieved and saved in model weight files for automatically reconstructing the network at testing time without having to
-        manually specify the architecture configuration.
+        'self.arch_dict' is retrieved and saved in model weight files for automatically reconstructing the network at testing time without having to manually specify the architecture configuration.
 
 ### Adding New Augmentations
 
