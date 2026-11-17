@@ -348,9 +348,9 @@ Steps to integrate model class into FSdeepnet
      **Notes**:
       - The listed keyworded arguments for class constructor `__init__()` need to match the `model` configurables in config yaml.
       - Avoid the positional arguments depending on the input images in class constructor `__init__()` arguments.
-      - The `forward` method needs to return a list to train with fsdeepnet.training.Training class.
-      - The `update_arch_dict` decorator saves every argument provided to the constructor plus the default values as a dictionary in 'self.arch_dict'.
-        'self.arch_dict' is retrieved and saved in model weight files for automatically reconstructing the network at testing time without having to manually specify the architecture configuration.
+      - The `forward` method needs to return a list to train with `fsdeepnet.training.Training` class.
+      - The `update_arch_dict` decorator saves every argument provided to the constructor plus the default values as a dictionary in `self.arch_dict`.
+      - `self.arch_dict` is retrieved and saved in model weight files for automatically reconstructing the network at testing time without having to manually specify the architecture configuration.
 
 ### Adding New Augmentations
 
