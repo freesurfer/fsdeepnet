@@ -187,7 +187,9 @@ def main():
     checkpoint = Checkpoint(model_arch_dict=model.arch_dict, train_dataset_dict=train_dataset_dict, label_lookup=label_lookup) 
 
     # skip moving_mean/moving_variance if track_running_stat=False
-    skip_moving_mean_variance = not model.arch_dict["track_running_stats"]
+    skip_moving_mean_variance = False
+    if ("track_running_stats" in model.arch_dict):
+        skip_moving_mean_variance = not model.arch_dict["track_running_stats"]
     
     model_state_dict = {}
     with h5py.File(tf_model_file, 'r') as f:
