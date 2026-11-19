@@ -10,7 +10,8 @@ def model_summary_torchinfo(model, input_size):
     summary(model, input_size=input_size)
 
 
-def model_summary(model, input_size, logger=logging, device=None, debug=False):
+# inshape is a tuple of multiple input tensor shapes with dimensions [C, H, W, D]
+def model_summary(model, inshape=None, logger=logging, device=None, debug=False):
     import torch
     import torch.nn as nn
     
@@ -83,10 +84,21 @@ def model_summary(model, input_size, logger=logging, device=None, debug=False):
     if (debug):
         logger.info("-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------")    
 
+    if (inshape is None):
+        # remove the hooks registered
+        for h in forward_hooks:
+            h.remove()
+        for h in forward_pre_hooks:
+            h.remove()
+        return
+
     if (device is None):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")    
     with torch.no_grad():
-        model(torch.zeros(1, *input_size).to(device))
+        # make a tuple of multiple input tensors with dimensions [B, C, H, W, D]
+        inputs = tuple((torch.zeros(1, *shape).to(device) for shape in inshape))
+        # argument unpacking, each element of the tuple is passed as a separate positional argument
+        model(*inputs)
 
     # remove the hooks registered
     for h in forward_hooks:

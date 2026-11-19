@@ -21,16 +21,19 @@ Usage: fsdeepnet_checkpoint.py
                                                               [--prefix-model_layer <prefix>]
                                                               [--replace-model_layer <from:to>] ] ]
        [--ndims <n>]
-       [--input_shape <H W (D)>]
+       [--inshape <H W (D)> --inshape <H W (D)> ...]
        [--cpu]
 
        1. Use '--config <>' to create the network, or 
               '--checkpoint <> to load a pre-trained network.
-       2. Use '--weights <model_state_key>:<weight_outdir>' to save trainable parameters in <checkpoint>.
+       2. Multiple '--inshape <>' are accepted to specify input image shapes.
+          They are required for the network forward() method. Dummy input image tensors matching 'inshape' 
+          are passed to the forward() method to execute the registered forward hooks.
+       3. Use '--weights <model_state_key>:<weight_outdir>' to save trainable parameters in <checkpoint>.
           <model_state_key> is the dictionary key for model state. It depends on the <checkpoint>. The option is ignored if not run with '--checkpoint <>'.
-       3. Use '--load_weights' to load weights into constructed model.
+       4. Use '--load_weights' to load weights into constructed model.
           The option can be used to test if the weights are consistent with model architecture. It is ignored if not run with '--checkpoint <>'.
-       4. Options to update pre-trained model: 
+       5. Options to update pre-trained model: 
           a) '--strip <dictkey1 dictkey2 ...>': strip <dictkey> from checkpoint
              <dictkey> needs to match dict keywords in checkpoint
           b) '--update label_lookup:<> segmentation_names:<> topology_classes:<> target_res:<> model_class:<> dataset_class:<> config:config'
@@ -189,7 +192,7 @@ def main():
     if (update):
         update_checkpoint(checkpoint, args.saveas, config, args.update, args.strip, args.rename, args.prefix_model_layer, args.replace_model_layer)
 
-    if (info or update or download or (args.weights is not None and args.input_shape is None)):
+    if (info or update or download or (args.weights is not None and args.inshape is None)):
         sys.exit(0)
 
     # create the network from config or re-construct it from pre-trained model
@@ -218,13 +221,16 @@ def main():
     models.model_print(model)
 
     # set n_channels and input shape for model_summary() call
-    if (args.input_shape):
-        input_shape = args.input_shape
-        n_channels = model_arch_dict["in_channels"] if ("in_channels" in model_arch_dict) else model_arch_dict.get("num_channels", 1)
-        n_channels = n_channels[0] if (isinstance(n_channels, (list, tuple))) else n_channels
-        models.model_summary(model, (n_channels, *input_shape[-args.ndims:]), device=device, debug=True)
-        #models.model_parameters(model)
-        #models.model_summary_torchinfo(model, (1, 1, *args.input_shape[-args.ndims:]))
+    inshape = args.inshape
+    n_channels = model_arch_dict["in_channels"] if ("in_channels" in model_arch_dict) else model_arch_dict.get("num_channels", 1)
+    n_channels = n_channels[0] if (isinstance(n_channels, (list, tuple))) else n_channels
+    if (inshape is not None):
+        # make a tuple of multiple input tensor shapes with dimensions [C, H, W, D]
+        inshape = tuple((n_channels, *shape[-args.ndims:]) for shape in inshape)
+        models.model_summary(model, inshape=inshape, device=device)
+    else:
+        models.model_summary(model, device=device, debug=True)
+    #models.model_parameters(model)
         
 
 def argument_parse(description=None):
@@ -249,7 +255,7 @@ def argument_parse(description=None):
     parser.add_argument("--update", nargs="+", type=str, help="Update pre-trained checkpoint dict, choices are 'label_lookup:<>', 'segmentation_names:<>', 'topology_classes:<>', 'model_class:<>', and 'config:config'")
     parser.add_argument("--saveas", type=str, help="Path to save new checkpoint as")
     parser.add_argument("--ndims", type=int, default=3, help="Number of image dimensions, 2D or 3D")
-    parser.add_argument("--input_shape", nargs="+", type=int, help="Network image input shape, ex. 160 160 160")
+    parser.add_argument("--inshape", nargs="+", type=int, action='append', help="Network input image shapes, ex. 160 160 160. Required for foward hooks execution, multiple '--inshape <>' are accepted.")
     parser.add_argument("--nb_labels", type=int, help="Number of segmentation labels")
     parser.add_argument("--cpu", action='store_true', help="Run on CPU")
 
